@@ -1,4 +1,4 @@
-from AlphaGo.Game import GameState
+from AlphaGo.go import GameState
 import numpy as np
 import unittest
 
