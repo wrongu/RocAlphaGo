@@ -42,45 +42,58 @@ class GameState(object):
 	def update_current_liberties(self):
 		lib_considered=[]
 		curr_liberties=np.ones((self.size, self.size))*(-1)
+
 		for i in range(0, self.size):
 			for j in range(0, self.size):
+				# make a copy of the current coordinate, so we don't loose track after performing the search in 4 different directions
+				icopy=i
+				jcopy=j
+
 				if self.board[i][j] == 0:
 					continue
-				if [i, j] == [x for x in lib_considered]:
-					continue
-
 				# The first position picked
-				lib_considered.append([i, j])
-				lib_set = [i, j]
+				lib_set = []
 				lib_c = self.liberty_count(i, j)
-				lib_set.append(self.liberty_pos(i, j))
+				for p in self.liberty_pos(i, j):
+						lib_set.append(p)
 
 				# Scanning through 4 directions to find the same color cluster
 				while j+1<19 and self.board[i][j]==self.board[i][j+1]:
-					print(i)
-					lib_set.append(self.liberty_pos(i, j+1))
-					lib_c = lib_c + self.liberty_count(i, j+1)
+					for p in self.liberty_pos(i, j+1):
+						lib_set.append(p)
 					j = j + 1
 
 				while i+1<19 and self.board[i][j] == self.board[i+1][j]:
-					lib_set.append(self.liberty_pos(i+1, j))
-					lib_c = lib_c + self.liberty_count(i+1, j)
+					for p in self.liberty_pos(i+1, j):
+						lib_set.append(p)
 					i = i + 1
 
 				while i - 1 >= 0 and self.board[i][j] == self.board[i-1][j]:
-					lib_set.append(self.liberty_pos(i-1, j))
-					lib_c = lib_c + self.liberty_count(i-1, j)
+					for p in self.liberty_pos(i-1, j):
+						lib_set.append(p)
 					i = i - 1
 
 				while j - 1 >= 0 and self.board[i][j] == self.board[i][j-1]:
-					lib_set.append(self.liberty_pos(i, j-1))
-					lib_c = lib_c + self.liberty_count(i, j-1)
+					for p in self.liberty_pos(i, j-1):
+						lib_set.append(p)
 					j = j - 1
 
+				i = icopy
+				j = jcopy
 				# Combine the liberty position of the cluster found
 				lib_set = set(tuple(lib_set))
-				curr_liberties[i][j] = lib_c
+				curr_liberties[i][j] = len(lib_set)
+
 		return curr_liberties
+
+	def update_future_liberties(self, action):
+		(i,j) = action
+		future = self.copy()
+		future.do_move(action)
+		future_liberties = future.update_current_liberties()
+
+		return future_liberties
+
 
 	def copy(self):
 		"""get a copy of this Game state
