@@ -14,7 +14,74 @@ class GameState(object):
 		self.size = size
 		self.turns_played = 0
 		self.current_player = BLACK
-		
+	
+	def liberty_count(self, i, j):
+		q=0 #liberty count
+		if i+1 < 19 and self.board[i+1][j] == 0:
+			q = q + 1
+		if j+1 < 19 and self.board[i][j+1] == 0:
+			q = q + 1
+		if i-1 > 0 and self.board[i-1][j] == 0:
+			q = q + 1
+		if j -1 > 0 and self.board[i][j -1] == 0:
+			q = q + 1
+		return q
+
+	def liberty_pos(self, i, j):
+		pos=[]
+		if i+1<19 and self.board[i+1][j] == 0:
+			pos.append(tuple([i+1, j]))
+		if j+1<19 and self.board[i][j+1] == 0:
+			pos.append(tuple([i, j+1]))
+		if i - 1 >= 0 and self.board[i-1][j] == 0:
+			pos.append(tuple([i-1, j]))
+		if j - 1 >= 0 and self.board[i][j-1] == 0:
+			pos.append(tuple([i, j-1]))
+		return tuple(pos)
+
+	def update_current_liberties(self):
+		lib_considered=[]
+		curr_liberties=np.ones((self.size, self.size))*(-1)
+		for i in range(0, self.size):
+			for j in range(0, self.size):
+				if self.board[i][j] == 0:
+					continue
+				if [i, j] == [x for x in lib_considered]:
+					continue
+
+				# The first position picked
+				lib_considered.append([i, j])
+				lib_set = [i, j]
+				lib_c = self.liberty_count(i, j)
+				lib_set.append(self.liberty_pos(i, j))
+
+				# Scanning through 4 directions to find the same color cluster
+				while j+1<19 and self.board[i][j]==self.board[i][j+1]:
+					print(i)
+					lib_set.append(self.liberty_pos(i, j+1))
+					lib_c = lib_c + self.liberty_count(i, j+1)
+					j = j + 1
+
+				while i+1<19 and self.board[i][j] == self.board[i+1][j]:
+					lib_set.append(self.liberty_pos(i+1, j))
+					lib_c = lib_c + self.liberty_count(i+1, j)
+					i = i + 1
+
+				while i - 1 >= 0 and self.board[i][j] == self.board[i-1][j]:
+					lib_set.append(self.liberty_pos(i-1, j))
+					lib_c = lib_c + self.liberty_count(i-1, j)
+					i = i - 1
+
+				while j - 1 >= 0 and self.board[i][j] == self.board[i][j-1]:
+					lib_set.append(self.liberty_pos(i, j-1))
+					lib_c = lib_c + self.liberty_count(i, j-1)
+					j = j - 1
+
+				# Combine the liberty position of the cluster found
+				lib_set = set(tuple(lib_set))
+				curr_liberties[i][j] = lib_c
+		return curr_liberties
+
 	def copy(self):
 		"""get a copy of this Game state
 		"""
