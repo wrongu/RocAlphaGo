@@ -30,9 +30,8 @@ class TestLiberties(unittest.TestCase):
 		print("curr_liberties checked")
 
 	def test_future_liberties(self):
-
-		self.assertEqual(self.s.update_future_liberties((6,5))[6][5], 4)
-		self.assertEqual(self.s.update_future_liberties((5,4))[5][4], 4)
-		self.assertEqual(self.s.update_future_liberties((6,6))[5][6], 5)
+		self.assertEqual(self.s.update_future_liberties(6,5)[6][5], 4)
+		self.assertEqual(self.s.update_future_liberties(5,4)[5][4], 4)
+		self.assertEqual(self.s.update_future_liberties(6,6)[5][6], 5)
 
 		print("future_liberties checked")
