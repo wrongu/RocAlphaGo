@@ -15,17 +15,18 @@ class GameState(object):
 		self.turns_played = 0
 		self.current_player = BLACK
 	
-	def liberty_count(self, x, y):
+	def liberty_count(self, position):
 		"""Count liberty of a single position (maxium = 4).
 
 	    Keyword arguments:
-	    x -- The column index of the position we want to calculate the liberty
-	    y -- The row index of the position we want to calculate the liberty
+	    position -- a tuple of (x, y)
+	    x being the column index of the position we want to calculate the liberty
+	    y being the row index of the position we want to calculate the liberty
 
 	    Return:
 	    q -- A interger in [0, 4]. The count of liberty of the input single position
 	    """
-
+		(x, y) = position
 		q=0 #liberty count
 		if x+1 < self.size and self.board[x+1][y] == EMPTY:
 			q = q + 1
@@ -37,16 +38,18 @@ class GameState(object):
 			q = q + 1
 		return q
 
-	def liberty_pos(self, x, y):
+	def liberty_pos(self, position):
 		"""Record the liberty position of a single position. 
 
 		Keyword arguments:
-	    x -- The column index of the position we want to calculate the liberty
-	    y -- The row index of the position we want to calculate the liberty
+		position -- a tuple of (x, y)
+	    x being the column index of the position we want to calculate the liberty
+	    y being the row index of the position we want to calculate the liberty
 
 	    Return:
-	    tuple(pos) -- Return a tuple of tuples consist of (x, y)s which are the liberty positions on the input single position. len(tuple(pos)) <= 4
-	    """
+	    pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(tuple(pos)) <= 4
+		"""
+		(x, y) = position
 		pos=[]
 		if x+1<self.size and self.board[x+1][y] == EMPTY:
 			pos.append(tuple([x+1, y]))
@@ -56,7 +59,7 @@ class GameState(object):
 			pos.append(tuple([x-1, y]))
 		if y - 1 >= 0 and self.board[x][y-1] == EMPTY:
 			pos.append(tuple([x, y-1]))
-		return tuple(pos)
+		return pos
 
 	def update_current_liberties(self):
 		"""Calculate the liberty values of the whole board
@@ -65,7 +68,7 @@ class GameState(object):
 	    None. We just need the board itself.
 
 	    Return:
-	    A matrix self.size * self.size, with entries of the liberty number of each position on the board. 
+	    A matrix self.size * self.size, with entries of the liberty number of each position on the board. Instead of the single stone liberty, we consider the liberty of the group/cluster of the same color the position is in, instead of the single stone in this function. 
 	    """
 
 		lib_considered=[]
@@ -81,50 +84,50 @@ class GameState(object):
 					continue
 				# The first position picked
 				lib_set = []
-				lib_c = self.liberty_count(x, y)
-				for p in self.liberty_pos(x, y):
+				lib_c = self.liberty_count((x, y))
+				for p in self.liberty_pos((x, y)):
 						lib_set.append(p)
 
 				# Scanning through 4 directions to find the same color cluster
 				while y+1<self.size and self.board[x][y]==self.board[x][y+1]:
-					for p in self.liberty_pos(x, y+1):
+					for p in self.liberty_pos((x, y+1)):
 						lib_set.append(p)
 					y = y + 1
 
 				while x+1<self.size and self.board[x][y] == self.board[x+1][y]:
-					for p in self.liberty_pos(x+1, y):
+					for p in self.liberty_pos((x+1, y)):
 						lib_set.append(p)
 					x = x + 1
 
 				while x - 1 >= 0 and self.board[x][y] == self.board[x-1][y]:
-					for p in self.liberty_pos(x-1, y):
+					for p in self.liberty_pos((x-1, y)):
 						lib_set.append(p)
 					x = x - 1
 
 				while y - 1 >= 0 and self.board[x][y] == self.board[x][y-1]:
-					for p in self.liberty_pos(x, y-1):
+					for p in self.liberty_pos((x, y-1)):
 						lib_set.append(p)
 					y = y - 1
 
 				x = xcopy
 				y = ycopy
 				# Combine the liberty position of the cluster found
-				lib_set = set(tuple(lib_set))
+				lib_set = set(lib_set)
 				curr_liberties[x][y] = len(lib_set)
 
 		return curr_liberties
 
-	def update_future_liberties(self, x, y):
+	def update_future_liberties(self, action):
 		"""Calculate the liberty values of the whole board after we make a new move
 
 		Keyword arguments:
-	    x -- The column index of the position of the future move
-	    y -- The row index of the position of the future move
+		action -- a tuple of (x, y)
+	    x being the column index of the position of the future move
+	    y being the row index of the position of the future move
 
 	    Return:
 	    A matrix self.size * self.size, with entries of the liberty number of each position on the board, after the future move. 
 	    """ 
-		action = (x, y)
 		future = self.copy()
 		future.do_move(action)
 		future_liberties = future.update_current_liberties()
