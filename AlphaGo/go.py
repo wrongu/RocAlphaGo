@@ -188,6 +188,22 @@ class GameState(object):
 		(x,y) = action
 		if self.is_legal((x,y)):
 			self.board[x][y] = self.current_player
+			
+			# check liberties for captures
+			liberties = self.update_current_liberties()
+			captured_stones = liberties == 0
+			capture_occurred = np.any(captured_stones) # note EMPTY spaces are -1
+			if capture_occurred:
+				# clear pieces
+				self.board[captured_stones] = EMPTY
+				# count prisoners
+				if self.current_player == BLACK:
+					self.num_white_prisoners += np.sum(captured_stones)
+				else:
+					self.num_black_prisoners += np.sum(captured_stones)
+				# TODO - if only 1 stone captured, set KO position
+
+			# next turn
 			self.current_player = -self.current_player
 			self.turns_played += 1
 		else:
