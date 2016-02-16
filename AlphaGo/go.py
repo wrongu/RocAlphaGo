@@ -14,6 +14,9 @@ class GameState(object):
 		self.size = size
 		self.turns_played = 0
 		self.current_player = BLACK
+		self.history = []
+		self.num_black_prisoners = 0
+		self.num_white_prisoners = 0
 	
 	def liberty_count(self, position):
 		"""Count liberty of a single position (maxium = 4).
