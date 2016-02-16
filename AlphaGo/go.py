@@ -167,52 +167,6 @@ class GameState(object):
 
 		return future_liberties
 
-	def capture_size(self, action):
-		curr_liberties = self.update_current_liberties()
-		future_liberties = self.update_future_liberties(action)
-		(x, y) = action
-
-		capture_size=0
-		for i in range(0, self.size):
-			for j in range(0, self.size):
-				if curr_liberties[i][j] != -1 and future_liberties[i][j] == -1:
-					capture_size = capture_size + 1
-		return capture_size
-
-	def selfatari_size(self, action):
-		curr_liberties = self.update_current_liberties()
-		future_liberties = self.update_future_liberties(action)
-		(x, y) = action
-
-		capture_size=0
-		if future_liberties[i][j] == 1:
-			clu_set = []
-
-			icopy=i
-			jcopy=j
-			# Scanning through 4 directions to find the same color cluster
-			while j+1<self.size and self.board[i][j]==self.board[i][j+1]:
-				clu_set.append((i, j))
-				j = j + 1
-
-			while i+1<self.size and self.board[i][j] == self.board[i+1][j]:
-				clu_set.append((i, j))
-				i = i + 1
-
-			while i - 1 >= 0 and self.board[i][j] == self.board[i-1][j]:
-				clu_set.append((i, j))
-				i = i - 1
-
-			while j - 1 >= 0 and self.board[i][j] == self.board[i][j-1]:
-				clu_set.append((i, j))
-				j = j - 1
-
-			i = icopy
-			j = jcopy
-		selfatari_size
-
-		return selfatari_size
-
 	def copy(self):
 		"""get a copy of this Game state
 		"""
