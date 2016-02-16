@@ -26,17 +26,7 @@ class GameState(object):
 		Return:
 		q -- A interger in [0, 4]. The count of liberty of the input single position
 		"""
-		(x, y) = position
-		q=0 #liberty count
-		if x+1 < self.size and self.board[x+1][y] == EMPTY:
-			q = q + 1
-		if y+1 < self.size and self.board[x][y+1] == EMPTY:
-			q = q + 1
-		if x-1 > 0 and self.board[x-1][y] == EMPTY:
-			q = q + 1
-		if y -1 > 0 and self.board[x][y -1] == EMPTY:
-			q = q + 1
-		return q
+		return len(self.liberty_pos(position))
 
 	def liberty_pos(self, position):
 		"""Record the liberty position of a single position. 
@@ -47,21 +37,21 @@ class GameState(object):
 		y being the row index of the position we want to calculate the liberty
 
 		Return:
-		pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(tuple(pos)) <= 4
+		pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(pos) <= 4
 		"""
 		(x, y) = position
 		pos=[]
-		if x+1<self.size and self.board[x+1][y] == EMPTY:
-			pos.append(tuple([x+1, y]))
-		if y+1<self.size and self.board[x][y+1] == EMPTY:
-			pos.append(tuple([x, y+1]))
+		if x+1 < self.size and self.board[x+1][y] == EMPTY:
+			pos.append((x+1, y))
+		if y+1 < self.size and self.board[x][y+1] == EMPTY:
+			pos.append((x, y+1))
 		if x - 1 >= 0 and self.board[x-1][y] == EMPTY:
-			pos.append(tuple([x-1, y]))
+			pos.append((x-1, y))
 		if y - 1 >= 0 and self.board[x][y-1] == EMPTY:
-			pos.append(tuple([x, y-1]))
+			pos.append((x, y-1))
 		return pos
 
-	def get_neighbor(self, (x, y)):
+	def get_neighbor(self, position):
 		"""An auxiliary function for curr_liberties. This function looks around locally in 4 directions. That is, we just pick one position and look to see if there are same-color neighbors around it. 
 
 		Keyword arguments:
@@ -72,6 +62,7 @@ class GameState(object):
 		Return:
 		neighbor -- Return a list of tuples consist of (x, y)s which are the same-color neighbors of the input single position. len(neighbor_set) <= 4
 		"""
+		(x, y) = position
 		neighbor_set=[]
 		if y+1 < self.size and self.board[x][y] == self.board[x][y+1]:
 			neighbor_set.append((x,y+1))
@@ -83,8 +74,8 @@ class GameState(object):
 			neighbor_set.append((x,y-1))	
 		return neighbor_set	
 
-	def visit_neighbor(self, (x,y)):
-		"""An auxiliary function for curr_liberties. This function perform the visiting process when we try to identify the cluster of the same color
+	def visit_neighbor(self, position):
+		"""An auxiliary function for curr_liberties. This function perform the visiting process to identify a connected group of the same color
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
@@ -94,6 +85,7 @@ class GameState(object):
 		Return:
 		neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
 		"""
+		(x, y) = position
 		# handle case where there is no piece at (x,y)
 		if self.board[x][y] == EMPTY:
 			return set()
@@ -126,10 +118,12 @@ class GameState(object):
 		None. We just need the board itself.
 
 		Return:
-		A matrix self.size * self.size, with entries of the liberty number of each position on the board. Empty spaces have liberty -1. Instead of the single stone liberty, we consider the liberty of the group/cluster of the same color the position is in. 
+		A matrix self.size * self.size, with entries of the liberty number of each position on the board.
+		Empty spaces have liberty 0. Instead of the single stone liberty, we consider the liberty of the
+		group/cluster of the same color the position is in. 
 		"""
 
-		curr_liberties=np.ones((self.size, self.size))*(-1)
+		curr_liberties = np.zeros((self.size, self.size))
 
 		for x in range(0, self.size):
 			for y in range(0, self.size):
@@ -137,20 +131,12 @@ class GameState(object):
 				if self.board[x][y] == EMPTY:
 					continue
 
-				# The first position picked
-				lib_set = []
-				for p in self.liberty_pos((x, y)):
-						lib_set.append(p)
-
-				# Using 2 auxiliary functions to get the members in the cluster and then calculate their liberty position
-				neighbors=self.visit_neighbor((x,y))
+				# get the members in the cluster and then calculate their liberty positions
+				lib_set = set()
+				neighbors = self.visit_neighbor((x,y))
 				for n in neighbors:
-					poslist=self.liberty_pos(n)
-					for p in poslist:
-						lib_set.append(p)
+					lib_set |= set(self.liberty_pos(n))
 				
-				# Combine the liberty position of the cluster found
-				lib_set = set(lib_set)
 				curr_liberties[x][y] = len(lib_set)
 		return curr_liberties
 
