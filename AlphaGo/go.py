@@ -18,14 +18,14 @@ class GameState(object):
 	def liberty_count(self, position):
 		"""Count liberty of a single position (maxium = 4).
 
-	    Keyword arguments:
-	    position -- a tuple of (x, y)
-	    x being the row index of the position we want to calculate the liberty
-	    y being the column index of the position we want to calculate the liberty
+		Keyword arguments:
+		position -- a tuple of (x, y)
+		x being the row index of the position we want to calculate the liberty
+		y being the column index of the position we want to calculate the liberty
 
-	    Return:
-	    q -- A interger in [0, 4]. The count of liberty of the input single position
-	    """
+		Return:
+		q -- A interger in [0, 4]. The count of liberty of the input single position
+		"""
 		(x, y) = position
 		q=0 #liberty count
 		if x+1 < self.size and self.board[x+1][y] == EMPTY:
@@ -43,11 +43,11 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-	    x being the row index of the position we want to calculate the liberty
-	    y being the column index of the position we want to calculate the liberty
+		x being the row index of the position we want to calculate the liberty
+		y being the column index of the position we want to calculate the liberty
 
-	    Return:
-	    pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(tuple(pos)) <= 4
+		Return:
+		pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(tuple(pos)) <= 4
 		"""
 		(x, y) = position
 		pos=[]
@@ -66,11 +66,11 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-	    x being the row index of the position in consideration
-	    y being the column index of the posisiton in consideration
+		x being the row index of the position in consideration
+		y being the column index of the posisiton in consideration
 
-	    Return:
-	    neighbor -- Return a list of tuples consist of (x, y)s which are the same-color neighbors of the input single position. len(neighbor_set) <= 4
+		Return:
+		neighbor -- Return a list of tuples consist of (x, y)s which are the same-color neighbors of the input single position. len(neighbor_set) <= 4
 		"""
 		neighbor_set=[]
 		if y+1 < self.size and self.board[x][y] == self.board[x][y+1]:
@@ -88,11 +88,11 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-	    x being the row index of the starting position of the search
-	    y being the column index of the starting position of the search
+		x being the row index of the starting position of the search
+		y being the column index of the starting position of the search
 
-	    Return:
-	    neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
+		Return:
+		neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
 		"""
 		# A list for record the places we visited in the process
 		visited=[] 
@@ -119,11 +119,11 @@ class GameState(object):
 		"""Calculate the liberty values of the whole board
 
 		Keyword arguments:
-	    None. We just need the board itself.
+		None. We just need the board itself.
 
-	    Return:
-	    A matrix self.size * self.size, with entries of the liberty number of each position on the board. Empty spaces have liberty -1. Instead of the single stone liberty, we consider the liberty of the group/cluster of the same color the position is in. 
-	    """
+		Return:
+		A matrix self.size * self.size, with entries of the liberty number of each position on the board. Empty spaces have liberty -1. Instead of the single stone liberty, we consider the liberty of the group/cluster of the same color the position is in. 
+		"""
 
 		curr_liberties=np.ones((self.size, self.size))*(-1)
 
@@ -155,12 +155,12 @@ class GameState(object):
 
 		Keyword arguments:
 		action -- a tuple of (x, y)
-	    x being the column index of the position of the future move
-	    y being the row index of the position of the future move
+		x being the column index of the position of the future move
+		y being the row index of the position of the future move
 
-	    Return:
-	    A matrix self.size * self.size, with entries of the liberty number of each position on the board, after the future move. 
-	    """ 
+		Return:
+		A matrix self.size * self.size, with entries of the liberty number of each position on the board, after the future move. 
+		""" 
 		future = self.copy()
 		future.do_move(action)
 		future_liberties = future.update_current_liberties()
