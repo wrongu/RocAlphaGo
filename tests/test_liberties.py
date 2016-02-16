@@ -11,6 +11,9 @@ class TestLiberties(unittest.TestCase):
 		self.s.do_move((5,6))
 		self.s.do_move((10,10))
 		self.s.do_move((4,6))
+		self.s.do_move((10,11))
+		self.s.do_move((6,6))
+		self.s.do_move((9, 10))
 
 		self.syms = self.s.symmetries()
 
@@ -24,14 +27,15 @@ class TestLiberties(unittest.TestCase):
 
 	def test_curr_liberties(self):
 		self.assertEqual(self.s.update_current_liberties()[5][5], 2)
-		self.assertEqual(self.s.update_current_liberties()[4][5], 6)
-		self.assertEqual(self.s.update_current_liberties()[5][6], 6)
+		self.assertEqual(self.s.update_current_liberties()[4][5], 8)
+		self.assertEqual(self.s.update_current_liberties()[5][6], 8)
 
 		print("curr_liberties checked")
 
 	def test_future_liberties(self):
-		self.assertEqual(self.s.update_future_liberties((6,5))[6][5], 4)
-		self.assertEqual(self.s.update_future_liberties((5,4))[5][4], 4)
-		self.assertEqual(self.s.update_future_liberties((6,6))[5][6], 5)
+		print(self.s.update_future_liberties((4,4)))
+		self.assertEqual(self.s.update_future_liberties((6,5))[6][5], 9)
+		self.assertEqual(self.s.update_future_liberties((5,4))[5][4], 3)
+		self.assertEqual(self.s.update_future_liberties((4,4))[4][4], 10)
 
 		print("future_liberties checked")
