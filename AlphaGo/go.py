@@ -123,7 +123,7 @@ class GameState(object):
 		group/cluster of the same color the position is in. 
 		"""
 
-		curr_liberties = np.zeros((self.size, self.size))
+		curr_liberties = np.ones((self.size, self.size)) * (-1)
 
 		for x in range(0, self.size):
 			for y in range(0, self.size):
