@@ -14,7 +14,149 @@ class GameState(object):
 		self.size = size
 		self.turns_played = 0
 		self.current_player = BLACK
-		
+	
+	def liberty_count(self, position):
+		"""Count liberty of a single position (maxium = 4).
+
+		Keyword arguments:
+		position -- a tuple of (x, y)
+		x being the column index of the position we want to calculate the liberty
+		y being the row index of the position we want to calculate the liberty
+
+		Return:
+		q -- A interger in [0, 4]. The count of liberty of the input single position
+		"""
+		return len(self.liberty_pos(position))
+
+	def liberty_pos(self, position):
+		"""Record the liberty position of a single position. 
+
+		Keyword arguments:
+		position -- a tuple of (x, y)
+		x being the column index of the position we want to calculate the liberty
+		y being the row index of the position we want to calculate the liberty
+
+		Return:
+		pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(pos) <= 4
+		"""
+		(x, y) = position
+		pos=[]
+		if x+1 < self.size and self.board[x+1][y] == EMPTY:
+			pos.append((x+1, y))
+		if y+1 < self.size and self.board[x][y+1] == EMPTY:
+			pos.append((x, y+1))
+		if x - 1 >= 0 and self.board[x-1][y] == EMPTY:
+			pos.append((x-1, y))
+		if y - 1 >= 0 and self.board[x][y-1] == EMPTY:
+			pos.append((x, y-1))
+		return pos
+
+	def get_neighbor(self, position):
+		"""An auxiliary function for curr_liberties. This function looks around locally in 4 directions. That is, we just pick one position and look to see if there are same-color neighbors around it. 
+
+		Keyword arguments:
+		position -- a tuple of (x, y)
+		x being the column index of the position in consideration
+		y being the row index of the posisiton in consideration
+
+		Return:
+		neighbor -- Return a list of tuples consist of (x, y)s which are the same-color neighbors of the input single position. len(neighbor_set) <= 4
+		"""
+		(x, y) = position
+		neighbor_set=[]
+		if y+1 < self.size and self.board[x][y] == self.board[x][y+1]:
+			neighbor_set.append((x,y+1))
+		if x+1 < self.size and self.board[x][y] == self.board[x+1][y]:
+			neighbor_set.append((x+1,y))
+		if x-1 >= 0 and self.board[x][y] == self.board[x-1][y]:
+			neighbor_set.append((x-1,y))	
+		if y-1 >= 0 and self.board[x][y] == self.board[x][y-1]:
+			neighbor_set.append((x,y-1))	
+		return neighbor_set	
+
+	def visit_neighbor(self, position):
+		"""An auxiliary function for curr_liberties. This function perform the visiting process to identify a connected group of the same color
+
+		Keyword arguments:
+		position -- a tuple of (x, y)
+		x being the column index of the starting position of the search
+		y being the row index of the starting position of the search
+
+		Return:
+		neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
+		"""
+		(x, y) = position
+		# handle case where there is no piece at (x,y)
+		if self.board[x][y] == EMPTY:
+			return set()
+		# A list for record the places we visited in the process
+		# default to the starting position to handle the case where there are no neighbors (group size is 1)
+		visited=[(x,y)] 
+		# A list for the the places we still want to visit
+		to_visit=self.get_neighbor((x,y))
+		while len(to_visit)!=0:
+			for n in to_visit:
+				# append serve as the actual visit
+				visited.append(n)
+				# take off the places already visited from the wish list
+				to_visit.remove(n)
+			# With the cluster we have now, we look around even further
+			for v in visited:
+				# we try to look for same-color neighbors for each one which we already visited
+				for n in self.get_neighbor(v):
+					# we don't need to consider the places we already visited when we're looking
+					if n not in visited:
+						to_visit.append(n)
+
+		neighbor_set=set(visited)
+		return neighbor_set
+
+	def update_current_liberties(self):
+		"""Calculate the liberty values of the whole board
+
+		Keyword arguments:
+		None. We just need the board itself.
+
+		Return:
+		A matrix self.size * self.size, with entries of the liberty number of each position on the board.
+		Empty spaces have liberty 0. Instead of the single stone liberty, we consider the liberty of the
+		group/cluster of the same color the position is in. 
+		"""
+
+		curr_liberties = np.ones((self.size, self.size)) * (-1)
+
+		for x in range(0, self.size):
+			for y in range(0, self.size):
+
+				if self.board[x][y] == EMPTY:
+					continue
+
+				# get the members in the cluster and then calculate their liberty positions
+				lib_set = set()
+				neighbors = self.visit_neighbor((x,y))
+				for n in neighbors:
+					lib_set |= set(self.liberty_pos(n))
+				
+				curr_liberties[x][y] = len(lib_set)
+		return curr_liberties
+
+	def update_future_liberties(self, action):
+		"""Calculate the liberty values of the whole board after we make a new move
+
+		Keyword arguments:
+		action -- a tuple of (x, y)
+		x being the column index of the position of the future move
+		y being the row index of the position of the future move
+
+		Return:
+		A matrix self.size * self.size, with entries of the liberty number of each position on the board, after the future move. 
+		""" 
+		future = self.copy()
+		future.do_move(action)
+		future_liberties = future.update_current_liberties()
+
+		return future_liberties
+
 	def copy(self):
 		"""get a copy of this Game state
 		"""
@@ -32,7 +174,7 @@ class GameState(object):
 		on_board = x >= 0 and y >= 0 and x < self.size and y < self.size
 		suicide = False # todo
 		ko = False # todo
-		return empty and on_board and (not suicide) and (not ko)
+		return on_board and (not suicide) and (not ko) #and empty 
 
 	def do_move(self, action):
 		"""Play current_player's color at (x,y)
