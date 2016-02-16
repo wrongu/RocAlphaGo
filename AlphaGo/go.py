@@ -20,8 +20,8 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-		x being the row index of the position we want to calculate the liberty
-		y being the column index of the position we want to calculate the liberty
+		x being the column index of the position we want to calculate the liberty
+		y being the row index of the position we want to calculate the liberty
 
 		Return:
 		q -- A interger in [0, 4]. The count of liberty of the input single position
@@ -43,8 +43,8 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-		x being the row index of the position we want to calculate the liberty
-		y being the column index of the position we want to calculate the liberty
+		x being the column index of the position we want to calculate the liberty
+		y being the row index of the position we want to calculate the liberty
 
 		Return:
 		pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(tuple(pos)) <= 4
@@ -66,8 +66,8 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-		x being the row index of the position in consideration
-		y being the column index of the posisiton in consideration
+		x being the column index of the position in consideration
+		y being the row index of the posisiton in consideration
 
 		Return:
 		neighbor -- Return a list of tuples consist of (x, y)s which are the same-color neighbors of the input single position. len(neighbor_set) <= 4
@@ -88,8 +88,8 @@ class GameState(object):
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
-		x being the row index of the starting position of the search
-		y being the column index of the starting position of the search
+		x being the column index of the starting position of the search
+		y being the row index of the starting position of the search
 
 		Return:
 		neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
