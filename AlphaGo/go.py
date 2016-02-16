@@ -94,8 +94,12 @@ class GameState(object):
 		Return:
 		neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
 		"""
+		# handle case where there is no piece at (x,y)
+		if self.board[x][y] == EMPTY:
+			return set()
 		# A list for record the places we visited in the process
-		visited=[] 
+		# default to the starting position to handle the case where there are no neighbors (group size is 1)
+		visited=[(x,y)] 
 		# A list for the the places we still want to visit
 		to_visit=self.get_neighbor((x,y))
 		while len(to_visit)!=0:

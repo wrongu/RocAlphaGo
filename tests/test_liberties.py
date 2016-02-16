@@ -39,3 +39,22 @@ class TestLiberties(unittest.TestCase):
 		self.assertEqual(self.s.update_future_liberties((4,4))[4][4], 10)
 
 		print("future_liberties checked")
+
+	def test_neighbors_edge_cases(self):
+
+		st = GameState()
+		st.do_move((0,0)) #  B B . . . . . 
+		st.do_move((5,5)) #  B W . . . . . 
+		st.do_move((0,1)) #  . . . . . . . 
+		st.do_move((6,6)) #  . . . . . . . 
+		st.do_move((1,0)) #  . . . . . W . 
+		st.do_move((1,1)) #  . . . . . . W
+
+		# visit_neighbor in the corner
+		self.assertEqual(len(st.visit_neighbor((0,0))), 3, "group size in corner")
+
+		# visit_neighbor of an empty space
+		self.assertEqual(len(st.visit_neighbor((4,4))), 0, "group size of empty space")
+
+		# visit_neighbor of a single piece
+		self.assertEqual(len(st.visit_neighbor((5,5))), 1, "group size of single piece")
