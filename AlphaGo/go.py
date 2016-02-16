@@ -169,13 +169,20 @@ class GameState(object):
 		other.current_player = self.current_player
 		return other
 
+	def is_suicide(self, action):
+		"""return true if having current_player play at <action> would be suicide
+		"""
+		tmp = self.copy()
+		tmp.do_move(action)
+		return tmp.update_current_liberties()[action] == 0
+
 	def is_legal(self, action):
 		"""determine if the given action (x,y tuple) is a legal move
 		"""
 		(x,y) = action
 		empty = self.board[x][y] == EMPTY
 		on_board = x >= 0 and y >= 0 and x < self.size and y < self.size
-		suicide = False # todo
+		suicide = self.is_suicide(action)
 		ko = False # todo
 		return on_board and (not suicide) and (not ko) #and empty 
 
