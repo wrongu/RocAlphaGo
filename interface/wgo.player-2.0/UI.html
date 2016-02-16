@@ -1,0 +1,26 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>My page</title>
+    <script type="text/javascript" src="wgo/wgo.min.js"></script>
+    <script type="text/javascript" src="wgo/wgo.player.min.js"></script>
+    <link type="text/css" href="wgo/wgo.player.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="player" style="width: 700px">
+      Sorry, your browser doesn't support WGo.js. Download SGF <a href="game.sgf">directly</a>.
+    </div>
+  </body>
+</html>
+
+
+<!-- Activating a player using javascript -->
+<script type="text/javascript">
+var elem = document.getElementById("player");
+
+var player = new WGo.BasicPlayer(elem, {
+    sgfFile: "game.sgf"
+    /* move: 50
+    */
+});
+</script>
