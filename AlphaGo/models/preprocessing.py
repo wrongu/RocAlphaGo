@@ -81,83 +81,111 @@ class Preprocess(object):
 ##
 
 def get_board(state):
+	"""A feature encoding WHITE BLACK and EMPTY on separate planes, but plane 0
+	always refers to the current player and plane 1 to the opponent
+	"""
 	planes = np.zeros((state.size, state.size, 3))
 	planes[:,:,0] = state.board == state.current_player # own stone
 	planes[:,:,1] = state.board == -state.current_player # opponent stone
 	planes[:,:,2] = state.board == go.EMPTY # empty space
 	return planes
 
-def get_turns_since(state):
-	# TODO - this information is not currently stored in GameState?!
-	return np.zeros((state.size, state.size, 8))
+def get_turns_since(state, maximum=8):
+	"""A feature encoding the age of the stone at each location up to 'maximum'
 
-def get_liberties(state):
-	return state.get_liberties()
+	Note: 
+	- the [maximum-1] plane is used for any stone with age greater than or equal to maximum
+	- EMPTY locations are all-zero features
+	"""
+	planes = np.zeros((state.size, state.size, maximum))
+	depth = 0
+	# loop backwards over history and place a 1 in plane 0
+	# for the most recent move, a 1 in plane 1 for two moves ago, etc..
+	for move in state.history[::-1]:
+		if move is not go.PASS_MOVE:
+			(x,y) = move
+			planes[x,y,depth] = 1
+		# increment depth if there are more planes available
+		# (the last plane serves as the "maximum-1 or more" feature)
+		if depth < maximum-1:
+			depth += 1
+	return planes
 
-def get_capture_size(state):
-	feature = np.zeros((state.size, state.size, 8))
-	# note - left as all zeros if not a legal move
-	for a in state.get_legal_moves():
-		capture_size_at_a = state.get_capture_size(a)
-		# back plane is "7 or more"
-		if capture_size_at_a >= 7:
-			feature[a[0],a[1],7] = 1
-		# otherwise (size 0 through 6) set one-hot vector component
+def get_liberties(state, maximum=8):
+	"""A feature encoding the number of liberties of the group connected to the stone at
+	each location
+
+	Note: 
+	- there is no zero-liberties plane; the 0th plane indicates groups in atari
+	- the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
+	- EMPTY locations are all-zero features
+	"""
+	planes = np.zeros((state.size, state.size, maximum))
+	liberties = state.update_current_liberties()
+	for i in range(maximum):
+		# single liberties in plane zero (groups won't have zero), double liberties in plane one, etc
+		planes[liberties == i+1, i] = 1
+	# the "maximum-or-more" case on the backmost plane
+	planes[liberties >= maximum, maximum-1] = 1
+	return planes
+
+def get_capture_size(state, maximum=8):
+	"""A feature encoding the number of opponent stones that would be captured by planing at each location,
+	up to 'maximum'
+
+	Note: 
+	- the [maximum-1] plane is used for any capturable group of size greater than or equal to maximum-1
+	- the 0th plane is used for legal moves that would not result in capture
+	- illegal move locations are all-zero features
+	"""
+	planes = np.zeros((state.size, state.size, maximum))
+	# check difference in size after doing each move
+	for (x,y) in state.get_legal_moves():
+		copy = state.copy()
+		copy.do_move(a)
+		if state.current_player == go.BLACK:
+			n_captured = copy.num_white_prisoners - state.num_white_prisoners
 		else:
-			feature[a[0],a[1],capture_size_at_a] = 1
-	return feature
+			n_captured = copy.num_black_prisoners - state.num_black_prisoners
+		planes[x,y,min(n_captured,maximum-1)] = 1
+	return planes
 
-def get_self_atari_size(state):
-	feature = np.zeros((state.size, state.size, 8))
-	# note - left as all zeros if not a legal move
-	for a in state.get_legal_moves():
-		self_atari_size_at_a = state.get_self_atari_size(a)
-		# back plane is "7 or more"
-		if self_atari_size_at_a >= 7:
-			feature[a[0],a[1],7] = 1
-		# otherwise (0 through 6) set one-hot vector component
-		else:
-			feature[a[0],a[1],self_atari_size_at_a] = 1
-	return feature
+def get_self_atari_size(state, maximum=8):
+	# TODO - not sure if this refers to size of atari'd group after doing this move
+	# (and whether it's undefined if playing there would get the group out of atari)
+	# or size of capture if opponent were to play here
+	raise NotImplementedError()
 
-def get_liberties_after(state):
-	feature = np.zeros((state.size, state.size, 8))
+def get_liberties_after(state, maximum=8):
+	"""A feature encoding what the number of liberties *would be* of the group connected to
+	the stone *if* played at a location
+
+	Note: 
+	- there is no zero-liberties plane; the 0th plane indicates groups in atari
+	- the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
+	- illegal move locations are all-zero features
+	"""
+	feature = np.zeros((state.size, state.size, maximum))
 	# note - left as all zeros if not a legal move
-	for a in state.get_legal_moves():
+	for (x,y) in state.get_legal_moves():
 		tmp = state.copy()
-		tmp.do_move(a)
-		liberties_after_at_a = tmp.get_liberties()[a]
-		# back plane is "7 or more"
-		if liberties_after_at_a >= 7:
-			feature[a[0],a[1],7] = 1
-		# otherwise (0 through 6) set one-hot vector component
-		else:
-			feature[a[0],a[1],liberties_after_at_a] = 1
+		tmp.do_move((x,y))
+		liberties_after_at_a = tmp.update_current_liberties()[x,y]
+		feature[x,y,min(maximum-1,liberties_after_at_a)] = 1
 	return feature
 
 def get_ladder_capture(state):
-	feature = np.zeros((state.size, state.size))
-	for a in state.get_legal_moves():
-		if state.is_ladder_capture(a):
-			feature[a] = 1
-	return feature
+	raise NotImplementedError()
 
 def get_ladder_escape(state):
-	feature = np.zeros((state.size, state.size))
-	for a in state.get_legal_moves():
-		if state.is_ladder_escape(a):
-			feature[a] = 1
-	return feature
+	raise NotImplementedError()
 
 def get_sensibleness(state):
+	"""A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
+	"""
 	feature = np.zeros((state.size, state.size))
 	moves = state.get_legal_moves()
-	# check legality
 	for a in moves:
-		if state.is_legal(a):
+		if state.is_legal(a) and not state.is_eye(a, state.current_player):
 			feature[a] = 1
-	# check filling own eye
-	for a in moves:
-		# multiplication as logical 'and'; a move is sensible if it is legal AND does not fill own eye
-		feature[a] *= not(state.fills_eye(a))
 	return feature

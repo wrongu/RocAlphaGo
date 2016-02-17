@@ -145,23 +145,6 @@ class GameState(object):
 				curr_liberties[x][y] = len(lib_set)
 		return curr_liberties
 
-	def update_future_liberties(self, action):
-		"""Calculate the liberty values of the whole board after we make a new move
-
-		Keyword arguments:
-		action -- a tuple of (x, y)
-		x being the column index of the position of the future move
-		y being the row index of the position of the future move
-
-		Return:
-		A matrix self.size * self.size, with entries of the liberty number of each position on the board, after the future move. 
-		""" 
-		future = self.copy()
-		future.do_move(action)
-		future_liberties = future.update_current_liberties()
-
-		return future_liberties
-
 	def copy(self):
 		"""get a copy of this Game state
 		"""
@@ -200,6 +183,24 @@ class GameState(object):
 		suicide = self.is_suicide(action)
 		ko = action == self.ko
 		return on_board and (not suicide) and (not ko) and empty 
+
+	def is_eye(self, position, owner):
+		"""returns whether the position is surrounded by all stones of 'owner'
+		"""
+		(x,y) = position
+		neighbors = self.get_neighbor(position)
+		for n in neighbors:
+			if board[n] is not owner:
+				return False
+		return True
+
+	def get_legal_moves(self):
+		moves = []
+		for x in range(self.size):
+			for y in range(self.size):
+				if self.is_legal((x,y)):
+					moves.append((x,y))
+		return moves
 
 	def do_move(self, action):
 		"""Play current_player's color at (x,y)
