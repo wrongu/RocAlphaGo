@@ -151,10 +151,19 @@ def get_capture_size(state, maximum=8):
 	return planes
 
 def get_self_atari_size(state, maximum=8):
-	# TODO - not sure if this refers to size of atari'd group after doing this move
-	# (and whether it's undefined if playing there would get the group out of atari)
-	# or size of capture if opponent were to play here
-	raise NotImplementedError()
+	"""A feature encoding the size of the own-stone group that is put into atari by playing at a location
+	"""
+	planes = np.zeros((state.size, state.size, maximum))
+
+	for (x,y) in state.get_legal_moves():
+		copy = state.copy()
+		copy.do_move((x,y))
+		# check for atari of the group connected to a
+		if copy.update_current_liberties()[(x,y)] == 1:
+			group_size = len(copy.visit_neighbor((x,y)))
+			# 0th plane used for size-1, so group_size-1 is the index
+			planes[x,y,min(group_size-1,maximum-1)] = 1
+	return planes
 
 def get_liberties_after(state, maximum=8):
 	"""A feature encoding what the number of liberties *would be* of the group connected to
