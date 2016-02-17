@@ -77,7 +77,7 @@ class GameState(object):
 			neighbor_set.append((x-1,y))	
 		if y-1 >= 0 and self.board[x][y] == self.board[x][y-1]:
 			neighbor_set.append((x,y-1))	
-		return neighbor_set	
+		return neighbor_set
 
 	def visit_neighbor(self, position):
 		"""An auxiliary function for curr_liberties. This function perform the visiting process to identify a connected group of the same color
@@ -185,13 +185,17 @@ class GameState(object):
 		return on_board and (not suicide) and (not ko) and empty 
 
 	def is_eye(self, position, owner):
-		"""returns whether the position is surrounded by all stones of 'owner'
+		"""returns whether the position is empty and is surrounded by all stones of 'owner'
 		"""
 		(x,y) = position
-		neighbors = self.get_neighbor(position)
-		for n in neighbors:
-			if board[n] is not owner:
-				return False
+		if self.board[x,y] != EMPTY:
+			return False
+
+		neighbors = [(x-1,y), (x+1,y), (x,y-1), (x,y+1)]
+		for (nx,ny) in neighbors:
+			if nx >= 0 and ny >= 0 and nx < self.size and ny < self.size:
+				if self.board[nx,ny] != owner:
+					return False
 		return True
 
 	def get_legal_moves(self):

@@ -1,81 +1,6 @@
 import numpy as np
 import AlphaGo.go as go
 
-# named features and their sizes are defined here
-FEATURES = {
-	"board" : {
-		"size": 3,
-		"function": get_board
-	},
-	"ones" : {
-		"size": 1,
-		"function": lambda ones: np.zeros((state.size, state.size))
-	},
-	"turns_since" : {
-		"size": 8,
-		"function": get_turns_since
-	},
-	"liberties" : {
-		"size": 8,
-		"function": get_liberties
-	},
-	"capture_size", : {
-		"size": 8,
-		"function": get_capture_size
-	},
-	"self_atari_size" : {
-		"size": 8,
-		"function": get_self_atari_size
-	},
-	"liberties_after" : {
-		"size": 8,
-		"function": get_liberties_after
-	},
-	"ladder_capture" : {
-		"size": 1,
-		"function": get_ladder_capture
-	},
-	"ladder_escape", : {
-		"size": 1,
-		"function": get_ladder_escape
-	},
-	"sensibleness" : {
-		"size": 1,
-		"function": get_sensibleness
-	},
-	"zeros" : {
-		"size": 1,
-		"function": lambda state: np.zeros((state.size, state.size))
-	}
-}
-
-DEFAULT_FEATURES = ["board", "ones", "turns_since", "liberties", "capture_size",
-	"self_atari", "liberties_after", "ladder_capture", "ladder_escape",
-	"sensibleness", "zeros"]
-
-class Preprocess(object):
-	"""a class to convert from AlphaGo GameState objects to tensors of one-hot
-	features for NN inputs
-	"""
-
-	def __init__(self, feature_list=DEFAULT_FEATURES):
-		"""create a preprocessor object that will concatenate together the 
-		given list of features
-		"""
-
-		self.output_dim = 0
-		self.processors = [None] * len(feature_list)
-		for i in range(len(feature_list)):
-			feat = feature_list[i].lower()
-			if feat in FEATURES:
-				self.processors[i] = FEATURES[i]["function"]
-				self.output_dim += FEATURES[i]["size"]
-
-	def state_to_tensor(self, state):
-		feat_tensors = (proc(state) for proc in self.processors)
-		# concatenate along the depth dimension
-		return np.concatenate(feat_tensors, axis=2)
-
 ##
 ## individual feature functions (state --> tensor) begin here
 ##
@@ -134,6 +59,7 @@ def get_capture_size(state, maximum=8):
 	up to 'maximum'
 
 	Note: 
+	- we currently *do* treat the 0th plane as "capturing zero stones"
 	- the [maximum-1] plane is used for any capturable group of size greater than or equal to maximum-1
 	- the 0th plane is used for legal moves that would not result in capture
 	- illegal move locations are all-zero features
@@ -142,7 +68,7 @@ def get_capture_size(state, maximum=8):
 	# check difference in size after doing each move
 	for (x,y) in state.get_legal_moves():
 		copy = state.copy()
-		copy.do_move(a)
+		copy.do_move((x,y))
 		if state.current_player == go.BLACK:
 			n_captured = copy.num_white_prisoners - state.num_white_prisoners
 		else:
@@ -193,8 +119,84 @@ def get_sensibleness(state):
 	"""A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
 	"""
 	feature = np.zeros((state.size, state.size))
-	moves = state.get_legal_moves()
-	for a in moves:
-		if state.is_legal(a) and not state.is_eye(a, state.current_player):
-			feature[a] = 1
+	for (x,y) in state.get_legal_moves():
+		if not state.is_eye((x,y), state.current_player):
+			feature[x,y] = 1
 	return feature
+
+# named features and their sizes are defined here
+FEATURES = {
+	"board" : {
+		"size": 3,
+		"function": get_board
+	},
+	"ones" : {
+		"size": 1,
+		"function": lambda ones: np.zeros((state.size, state.size))
+	},
+	"turns_since" : {
+		"size": 8,
+		"function": get_turns_since
+	},
+	"liberties" : {
+		"size": 8,
+		"function": get_liberties
+	},
+	"capture_size" : {
+		"size": 8,
+		"function": get_capture_size
+	},
+	"self_atari_size" : {
+		"size": 8,
+		"function": get_self_atari_size
+	},
+	"liberties_after" : {
+		"size": 8,
+		"function": get_liberties_after
+	},
+	"ladder_capture" : {
+		"size": 1,
+		"function": get_ladder_capture
+	},
+	"ladder_escape" : {
+		"size": 1,
+		"function": get_ladder_escape
+	},
+	"sensibleness" : {
+		"size": 1,
+		"function": get_sensibleness
+	},
+	"zeros" : {
+		"size": 1,
+		"function": lambda state: np.zeros((state.size, state.size))
+	}
+}
+
+DEFAULT_FEATURES = ["board", "ones", "turns_since", "liberties", "capture_size",
+	"self_atari", "liberties_after", "ladder_capture", "ladder_escape",
+	"sensibleness", "zeros"]
+
+class Preprocess(object):
+	"""a class to convert from AlphaGo GameState objects to tensors of one-hot
+	features for NN inputs
+	"""
+
+	def __init__(self, feature_list=DEFAULT_FEATURES):
+		"""create a preprocessor object that will concatenate together the 
+		given list of features
+		"""
+
+		self.output_dim = 0
+		self.processors = [None] * len(feature_list)
+		for i in range(len(feature_list)):
+			feat = feature_list[i].lower()
+			if feat in FEATURES:
+				self.processors[i] = FEATURES[feat]["function"]
+				self.output_dim += FEATURES[feat]["size"]
+
+	def state_to_tensor(self, state):
+		if len(self.processors) == 1:
+			return self.processors[0](state)
+		feat_tensors = (proc(state) for proc in self.processors)
+		# concatenate along the depth dimension
+		return np.dstack(feat_tensors)
