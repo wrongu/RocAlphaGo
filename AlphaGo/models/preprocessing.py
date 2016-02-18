@@ -195,8 +195,21 @@ class Preprocess(object):
 				self.output_dim += FEATURES[feat]["size"]
 
 	def state_to_tensor(self, state):
-		if len(self.processors) == 1:
-			return self.processors[0](state)
-		feat_tensors = (proc(state) for proc in self.processors)
-		# concatenate along the depth dimension
-		return np.dstack(feat_tensors)
+		"""Convert a GameState to a Theano-compatible tensor
+		"""
+		feat_tensors = [proc(state) for proc in self.processors]
+
+		# TODO - make features smarter so they don't have to be transposed and reshaped,
+		# just stacked, and this loop could be avoided
+		for i, feat in enumerate(feat_tensors):
+			# reshape (width,height,depth) to (depth,width,height)
+			if feat.ndim == 2:
+				(w,h) = feat.shape
+				d = 1
+			else:
+				(w,h,d) = feat.shape
+			feat_tensors[i] = feat.reshape((w,h,d)).transpose((2,0,1))
+
+		# concatenate along feature dimension then add in a singleton 'batch' dimensino
+		f,s = self.output_dim, state.size
+		return np.concatenate(feat_tensors).reshape((1,f,s,s))
