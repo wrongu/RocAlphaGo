@@ -28,8 +28,14 @@ class CNNPolicy(object):
 		c.f. https://github.com/fchollet/keras/issues/1426
 		"""
 		model_input = self.model.get_input(train=False)
-		model_output = self.model.get_input(train=False)
-		return K.function([model_input], [model_output])
+		model_output = self.model.get_output(train=False)
+		forward_function = K.function([model_input], [model_output])
+
+		# the forward_function returns a list of tensors
+		# the first [0] gets the front tensor.
+		# this tensor, however, has dimensions (1, width, height)
+		# and we just want (width,height) hence the second [0]
+		return lambda inpt: forward_function(inpt)[0][0]
 
 	def batch_eval_state(self, state_gen, batch=16):
 		"""Given a stream of states in state_gen, evaluates them in batches
@@ -47,7 +53,7 @@ class CNNPolicy(object):
 		tensor = self.preprocessor.state_to_tensor(state)
 
 		# run the tensor through the network
-		network_output = self.forward([tensor])[0]
+		network_output = self.forward([tensor])
 
 		# get network activations at legal move locations
 		# note: may not be a proper distribution by ignoring illegal moves
@@ -82,11 +88,8 @@ class CNNPolicy(object):
 		network = Sequential()
 
 		# create first layer
-		half_width = int(params["filter_width_1"] / 2)
-		network.add(convolutional.ZeroPadding2D(
-			input_shape=(params["input_dim"], params["board"], params["board"]),
-			padding=(half_width, half_width)))
 		network.add(convolutional.Convolution2D(
+			input_shape=(params["input_dim"], params["board"], params["board"]),
 			nb_filter=params["filters_per_layer"],
 			nb_row=params["filter_width_1"],
 			nb_col=params["filter_width_1"],
@@ -99,8 +102,6 @@ class CNNPolicy(object):
 			# use filter_width_K if it is there, otherwise use 3
 			filter_key = "filter_width_%d" % i
 			filter_width = params.get(filter_key, 3)
-			half_width = int(filter_width / 2)
-			network.add(convolutional.ZeroPadding2D(padding=(half_width, half_width)))
 			network.add(convolutional.Convolution2D(
 				nb_filter=params["filters_per_layer"],
 				nb_row=filter_width,
@@ -142,3 +143,6 @@ class CNNPolicy(object):
 		"""save model parameters (weights) to the specified file
 		"""
 		raise NotImplementedError()
+
+if __name__ == '__main__':
+	pol = CNNPolicy(["board", "sensibleness"])
