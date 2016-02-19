@@ -18,7 +18,7 @@ def get_board(state):
 def get_turns_since(state, maximum=8):
 	"""A feature encoding the age of the stone at each location up to 'maximum'
 
-	Note: 
+	Note:
 	- the [maximum-1] plane is used for any stone with age greater than or equal to maximum
 	- EMPTY locations are all-zero features
 	"""
@@ -40,7 +40,7 @@ def get_liberties(state, maximum=8):
 	"""A feature encoding the number of liberties of the group connected to the stone at
 	each location
 
-	Note: 
+	Note:
 	- there is no zero-liberties plane; the 0th plane indicates groups in atari
 	- the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
 	- EMPTY locations are all-zero features
@@ -58,7 +58,7 @@ def get_capture_size(state, maximum=8):
 	"""A feature encoding the number of opponent stones that would be captured by planing at each location,
 	up to 'maximum'
 
-	Note: 
+	Note:
 	- we currently *do* treat the 0th plane as "capturing zero stones"
 	- the [maximum-1] plane is used for any capturable group of size greater than or equal to maximum-1
 	- the 0th plane is used for legal moves that would not result in capture
@@ -95,7 +95,7 @@ def get_liberties_after(state, maximum=8):
 	"""A feature encoding what the number of liberties *would be* of the group connected to
 	the stone *if* played at a location
 
-	Note: 
+	Note:
 	- there is no zero-liberties plane; the 0th plane indicates groups in atari
 	- the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
 	- illegal move locations are all-zero features
@@ -182,7 +182,7 @@ class Preprocess(object):
 	"""
 
 	def __init__(self, feature_list=DEFAULT_FEATURES):
-		"""create a preprocessor object that will concatenate together the 
+		"""create a preprocessor object that will concatenate together the
 		given list of features
 		"""
 
