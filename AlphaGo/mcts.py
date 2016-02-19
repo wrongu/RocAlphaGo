@@ -14,13 +14,23 @@ class TreeNode(object):
         def __init__(self):
                 self.nVisits = 0
                 self.toValue = 0
-                self.children = []
-                # get the number of legal moves from a given state
-                self.nActions =  
-                 
-        
-        def selectAction(self):
-                visited=[] 
+                self.children = []  
+
+
+        def DFS(self, Depth):
+                # need to move this part to MCTS class
+                visited = [] 
+                visited.insert(0,self)
+                for n in range(0,Depth):
+                    self.expansion(nActions)
+                    self = self.selection()
+                    visited.insert(0,self)
+                for treenode in visited:
+                    treenode.updateVisits()
+                    if(treenode.isLeaf()==False):
+                        treenode.backup()
+                    else:
+                        
 
         def selection(self):
                 # select among children nodes with maximum value
@@ -32,7 +42,7 @@ class TreeNode(object):
                         maxValue = treenode.toValue
                 return selected
 
-        def expansion(self):
+        def expansion(self, nActions):
                 # expand children nodes
                 for i in range(0, nActions): 
                     self.children.append(TreeNode())
@@ -41,17 +51,22 @@ class TreeNode(object):
                 # check if reaches leaf state
                 return self.children == []
 
-        def updateStats(self, value):
-                # update the number of visits and values
+        def updateVisits(self):
+                # update the number of visits
                 self.nVisits += 1
+
+        def updateValues(self, value):
+                # update values 
                 self.toValue += value
-        
-        def evaluation(self, value, rollout):
-                #each treenode is evaluated using a weighted average between value network and fast rollout policy
-                return (1-LAMBDA)*value+LAMBDA*rollout         
 
         def backup(self):
-                        
+                # Backpropagate values by averaging values of subtree 
+                sumValue = 0
+                for treenode in self.children:
+                    sumValue += treenode.toValue
+                self.toValue = sumValue/len(self.children)
+                
+                
 
 class MCTS(object):
     pass
