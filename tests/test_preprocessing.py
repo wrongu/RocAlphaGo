@@ -52,7 +52,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 	def test_get_board(self):
 		gs = simple_board()
 		pp = Preprocess(["board"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
 		white_pos = np.asarray([
 			[0,0,0,0,0,0,0],
@@ -81,7 +81,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 	def test_get_turns_since(self):
 		gs = simple_board()
 		pp = Preprocess(["turns_since"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
 		one_hot_turns = np.zeros((gs.size, gs.size, 8))
 		rev_history = gs.history[::-1]
@@ -98,7 +98,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 	def test_get_liberties(self):
 		gs = simple_board()
 		pp = Preprocess(["liberties"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
 		# todo - test liberties when > 8
 
@@ -131,7 +131,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		# TODO - at the moment there is no imminent capture
 		gs = simple_board()
 		pp = Preprocess(["capture_size"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 		
 		one_hot_capture = np.zeros((gs.size, gs.size, 8))
 		# there is no capture available; all legal moves are zero-capture
@@ -146,14 +146,14 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		# TODO - at the moment there is no imminent self-atari for white
 		gs = simple_board()
 		pp = Preprocess(["self_atari_size"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
 		self.assertTrue(np.all(feature == np.zeros((gs.size, gs.size, 8))))
 
 	def test_get_liberties_after(self):
 		gs = simple_board()
 		pp = Preprocess(["liberties_after"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
 		one_hot_liberties = np.zeros((gs.size, gs.size, 8))
 		
@@ -182,7 +182,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
 		gs = simple_board()
 		pp = Preprocess(["sensibleness"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0,0] # 1D tensor; no need to transpose
 
 		expectation = np.zeros((gs.size, gs.size))
 		for (x,y) in gs.get_legal_moves():
@@ -193,7 +193,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 	def test_feature_concatenation(self):
 		gs = simple_board()
 		pp = Preprocess(["board", "sensibleness", "capture_size"])
-		feature = pp.state_to_tensor(gs)
+		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
 		expectation = np.zeros((gs.size, gs.size, 3+1+8))
 
