@@ -132,7 +132,7 @@ FEATURES = {
 	},
 	"ones" : {
 		"size": 1,
-		"function": lambda ones: np.zeros((state.size, state.size))
+		"function": lambda state: np.zeros((state.size, state.size))
 	},
 	"turns_since" : {
 		"size": 8,
@@ -173,7 +173,7 @@ FEATURES = {
 }
 
 DEFAULT_FEATURES = ["board", "ones", "turns_since", "liberties", "capture_size",
-	"self_atari", "liberties_after", "ladder_capture", "ladder_escape",
+	"self_atari_size", "liberties_after", "ladder_capture", "ladder_escape",
 	"sensibleness", "zeros"]
 
 class Preprocess(object):

@@ -15,15 +15,15 @@ class game_converter:
     # convert move into board indices
     def parse_raw_move(self,raw_move):
         pos = list(str(raw_move)[3:5])
-        col = self.index_at[pos[0]]
-        row = self.index_at[pos[1]]
-        return (row,col)
+        y = self.index_at[pos[0]]
+        x = self.index_at[pos[1]]
+        return (x,y)
 
     # convert indices into 19x19 training label
     def encode_label(self,move):
         # convert move to one-hot encoding
         one_hot = np.zeros((19,19),dtype=bool)
-        one_hot[move[1]][move[0]] = 1
+        one_hot[move[0],move[1]] = 1
         return one_hot
 
     # convert full game into training samples
@@ -51,7 +51,7 @@ class game_converter:
     def batch_convert(self,folder_path):
         file_names = os.listdir(folder_path)
         for file_name in file_names:
-            if file_name == '.DS_Store': continue # OSX compatibility
+            if file_name[-4:] != '.sgf': continue
             print file_name
             training_samples = self.convert_game(os.path.join(folder_path,file_name))
             for sample in training_samples:
