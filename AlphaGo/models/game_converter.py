@@ -3,6 +3,7 @@ import numpy as np
 from AlphaGo.models.preprocessing import Preprocess
 import AlphaGo.go as go
 from sgflib.sgflib import SGFParser, GameTreeEndError
+import cPickle as pickle
 
 class game_converter:
     def __init__(self):
@@ -43,7 +44,7 @@ class game_converter:
                 tensors.append(proc.state_to_tensor(gs))
             except GameTreeEndError:
                 # remove last board state since it has no label
-                states = states[0:-1]
+                tensors = tensors[0:-1]
                 break
         return zip(tensors, actions)
 
@@ -59,10 +60,13 @@ class game_converter:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Prepare a folder of Go game files for training our neural network model.')
-    parser.add_argument("infolder", help="Relative path to folder containing games")
-    parser.add_argument("outfolder", help="Relative path to target folder. Will be created if it does not exist.")
+    parser.add_argument("infolder", help="Path to folder containing games")
+    parser.add_argument("outfolder", help="Path to target folder.")
     args = parser.parse_args()
 
     converter = game_converter()
-    for state,action in converter.batch_convert(args.infolder):
-        pass # write to file
+    file_num = 0
+    for s_a_tuple in converter.batch_convert(args.infolder):
+        file_name = str(hash(s_a_tuple)) + "_" + str(file_num)
+        pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
+        file_num += 1

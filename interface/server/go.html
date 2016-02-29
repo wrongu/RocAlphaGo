@@ -6,8 +6,9 @@
     <link type="text/css" href="wgo/wgo.player.css" rel="stylesheet"/>
   </head>
   <body>
-    <form method="POST">
-      <input type="submit" value="upload" id="upload"/>
+    <form ENCTYPE="multipart/form-data" method="post">
+      <input name="file" type="file"/>
+      <input type="submit" value="upload"/>
     </form>
     <div id="player" style="width: 700px">
       Sorry, your browser doesn't support WGo.js. Download SGF <a href="game.sgf">directly</a>.
@@ -18,11 +19,28 @@
 
 <!-- Activating a player using javascript -->
 <script type="text/javascript">
+function getParameterByName(name, url) 
+{
+    if (!url) 
+      url = window.location.href;
+
+    name = name.replace(/[\[\]]/g, "\\$&");
+
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"), results = regex.exec(url);
+
+    if (!results) 
+      return null;
+
+    if (!results[2]) 
+      return '';
+    
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
 var elem = document.getElementById("player");
 
 var player = new WGo.BasicPlayer(elem, {
-    sgfFile: "game.sgf"
-    /* move: 50
-    */
+    sgfFile: getParameterByName('file') + ".sgf",
+    move: 50
 });
 </script>

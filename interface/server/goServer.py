@@ -8,6 +8,7 @@ import cgi
 import shutil
 import mimetypes
 import re
+
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -30,45 +31,26 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     server_version = "SimpleHTTPWithUpload/"
 
     def do_GET(self):
-        """Serve a GET request."""
         f = self.send_head()
         if f:
             self.copyfile(f, self.wfile)
             f.close()
 
     def do_HEAD(self):
-        """Serve a HEAD request."""
         f = self.send_head()
         if f:
             f.close()
 
     def do_POST(self):
-        """Serve a POST request."""
         r, info = self.deal_post_data()
         print r, info, "by: ", self.client_address
-        f = StringIO()
-        f.write('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write("<html>\n<title>Upload Result Page</title>\n")
-        f.write("<body>\n<h2>Upload Result Page</h2>\n")
-        f.write("<hr>\n")
-        if r:
-            f.write("<strong>Success:</strong>")
-        else:
-            f.write("<strong>Failed:</strong>")
-        f.write(info)
-        f.write("<br><a href=\"%s\">back</a>" % self.headers['referer'])
-        f.write("<hr><small>Powerd By: bones7456, check new version at ")
-        f.write("<a href=\"http://li2z.cn/?s=SimpleHTTPServerWithUpload\">")
-        f.write("here</a>.</small></body>\n</html>\n")
-        length = f.tell()
-        f.seek(0)
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(length))
+
+        fileName = os.path.basename(info)
+        fileName = fileName.split('.')[0]
+
+        self.send_response(301)
+        self.send_header('Location', 'http://localhost:8000/go.html?file=' + fileName)
         self.end_headers()
-        if f:
-            self.copyfile(f, self.wfile)
-            f.close()
 
     def deal_post_data(self):
         boundary = self.headers.plisttext.split("=")[1]
@@ -167,9 +149,11 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         except os.error:
             self.send_error(404, "No permission to list directory")
             return None
+
         list.sort(key=lambda a: a.lower())
         f = StringIO()
         displaypath = cgi.escape(urllib.unquote(self.path))
+
         f.write('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
         f.write("<html>\n<title>Directory listing for %s</title>\n" % displaypath)
         f.write("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath)
@@ -178,6 +162,7 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         f.write("<input name=\"file\" type=\"file\"/>")
         f.write("<input type=\"submit\" value=\"upload\"/></form>\n")
         f.write("<hr>\n<ul>\n")
+
         for name in list:
             fullname = os.path.join(path, name)
             displayname = linkname = name
