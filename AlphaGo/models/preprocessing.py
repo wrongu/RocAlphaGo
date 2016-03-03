@@ -86,7 +86,7 @@ def get_self_atari_size(state, maximum=8):
 		copy.do_move((x,y))
 		# check for atari of the group connected to a
 		if copy.update_current_liberties()[(x,y)] == 1:
-			group_size = len(copy.visit_neighbor((x,y)))
+			group_size = len(copy.get_group((x,y)))
 			# 0th plane used for size-1, so group_size-1 is the index
 			planes[x,y,min(group_size-1,maximum-1)] = 1
 	return planes

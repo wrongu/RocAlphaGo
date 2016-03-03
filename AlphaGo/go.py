@@ -79,7 +79,7 @@ class GameState(object):
 			neighbor_set.append((x,y-1))	
 		return neighbor_set
 
-	def visit_neighbor(self, position):
+	def get_group(self, position):
 		"""An auxiliary function for curr_liberties. This function perform the visiting process to identify a connected group of the same color
 
 		Keyword arguments:
@@ -138,7 +138,7 @@ class GameState(object):
 
 				# get the members in the cluster and then calculate their liberty positions
 				lib_set = set()
-				neighbors = self.visit_neighbor((x,y))
+				neighbors = self.get_group((x,y))
 				for n in neighbors:
 					lib_set |= set(self.liberty_pos(n))
 				
