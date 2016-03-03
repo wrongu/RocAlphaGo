@@ -116,7 +116,7 @@ class GameState(object):
 		neighbor_set=set(visited)
 		return neighbor_set
 
-	def update_current_liberties(self):
+	def get_liberties_count(self):
 		"""Calculate the liberty values of the whole board
 
 		Keyword arguments:
@@ -163,11 +163,11 @@ class GameState(object):
 		"""
 		tmp = self.copy()
 		tmp.board[action] = tmp.current_player
-		zero_liberties = tmp.update_current_liberties() == 0
+		zero_liberties = tmp.get_liberties_count() == 0
 		other_player = tmp.board == -tmp.current_player
 		to_remove = np.logical_and(zero_liberties, other_player)
 		tmp.board[to_remove] = EMPTY
-		return tmp.update_current_liberties()[action] == 0
+		return tmp.get_liberties_count()[action] == 0
 
 	def is_legal(self, action):
 		"""determine if the given action (x,y tuple) is a legal move
@@ -220,7 +220,7 @@ class GameState(object):
 				self.board[x][y] = self.current_player
 				
 				# check liberties for captures
-				liberties = self.update_current_liberties()
+				liberties = self.get_liberties_count()
 				zero_liberties = liberties == 0
 				other_player = self.board == -self.current_player
 				captured_stones = np.logical_and(zero_liberties, other_player)

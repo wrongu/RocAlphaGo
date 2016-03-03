@@ -26,9 +26,9 @@ class TestLiberties(unittest.TestCase):
 		print("liberty_pos checked")
 
 	def test_curr_liberties(self):
-		self.assertEqual(self.s.update_current_liberties()[5][5], 2)
-		self.assertEqual(self.s.update_current_liberties()[4][5], 8)
-		self.assertEqual(self.s.update_current_liberties()[5][6], 8)
+		self.assertEqual(self.s.get_liberties_count()[5][5], 2)
+		self.assertEqual(self.s.get_liberties_count()[4][5], 8)
+		self.assertEqual(self.s.get_liberties_count()[5][6], 8)
 
 		print("curr_liberties checked")
 
