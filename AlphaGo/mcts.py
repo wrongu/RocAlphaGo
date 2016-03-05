@@ -18,60 +18,54 @@ class TreeNode(object):
                 self.nVisits = 0
                 self.Q_value = 0
                 self.u_value = 0
-                self.children = []  
+                self.children = {} 
 
 
         def selection(self):
-                # select among children nodes with maximum value
-                maxValue = 0
-                action = (0,0)
-                selectednode = TreeNode()
-                for child in self.children:
+                # select among children nodes with maximum value, return selected treenode and action
+                selectednode = self.children.values()[0]
+                action = self.children.keys()[0]
+                maxValue = selectednode.toValue()
+                
+                for child in self.children.items():
                     if(child[1].toValue() > maxValue):
                         selectednode = child[1]
                         maxValue = child[1].toValue()
                         action = child[0]
                 return selectednode, action
 
-        def expansion(self, probs):
-                # expand children nodes
-                for prob in probs: 
-                    self.children.append((prob[0],TreeNode()))
+        def expansion(self, actions):
+                # expand children nodes to a dict with action(x, y) as keys, and TreeNode object as values
+                for action in actions: 
+                    self.children[actions[0]] = TreeNode()
                     
         def isLeaf(self):
                 # check if reaches leaf state
-                return self.children == []
+                return self.children == {}
 
         def updateVisits(self):
                 # update the number of visits
                 self.nVisits += 1
 
-        def updateLeafStats(self, value):
+        def updateQ_value(self, value):
+                # update Q value for leaf state
+                self.Q_value = value
             
-                # update Q value and counts of visits for leaf state
-                self.Q_value = self.Q_value * self.nVisits + value
-                self.nVisits += 1
-                self.Q_value = self.Q_value / self.nVisits
-        
-        def updateBonus(self, probs):
-                
+        def updateU_value(self, actions): 
                 # update u value from a list of prior probability from policy function
                 for index in range(0, len(self.children)):  
-                    self.children[index].u_value = probs[index][1] / (1 + self.children[index].nVisits)
+                    self.children.values()[index].u_value = actions[index][1] / (1 + self.children.values()[index].nVisits)
 
         def backUp(self):
                 # Backpropagate values by averaging values of subtree 
                 sumValue = 0
-                for treenode in self.children:
-                    sumValue += treenode.Q_value
-                self.toValue = sumValue/len(self.children)
+                for child in self.children.items():
+                    sumValue += child[1].Q_value
+                self.Q_value = sumValue / len(self.children)
                 
         def toValue(self):
-
-                # evaluate value of treenode from both Q value and u value
+                # evaluate the value of treenode with both Q value and u value
                 return self.Q_value + self.u_value
-
-
 
 class MCTS(object):
     
@@ -80,76 +74,70 @@ class MCTS(object):
                 self.state = state
                 self.treenode = TreeNode()
                 
-
-        def DFS(self, nDepth, traversed):
-                # Depth First Search Tree Traverse from start state over certain depths, keep track and update statistics for all of the traversed edges: (state, action, treenode)pair
+        def DFS(self, nDepth, treenode, state):
+                # Depth First Search Tree Traverse from start state over certain depths, keep track and update statistics for childrenlist of (state, treenode) pair
                 visited = []
-                treenode = self.treenode
-                state = self.state
-
-                for index in range(0, nDepth):
-                        
-                    probs=priorProb(state)
-                    treenode.expansion(probs)
-                    treenode.updateBonus(probs)
+                visited.insert(0, (state, treenode))
+                
+                for index in range(0, nDepth-1):      
+                    #actions = self.priorProb(state)
+                    actions = self.priorProb()
+                    treenode.expansion(actions)
+                    treenode.updateU_value(actions)
                     treenode, action = treenode.selection() 
-                    # need do_move(action) function to return updated state
-                    state = state.do_move(action) 
-                    visited.insert(0, (state, action, treenode)) 
+                    state = state.do_move(action).copy()
+                    visited.insert(0, (state, treenode)) 
                 
-                for index in range(0, nDepth):
-                    
-                    if(visited[index][2].isLeaf() == False):
-                        for item in traversed[index]:
-                            #need function from GameState class to check if two state equals
-                            if(item[0].equalstate(visited[index][0]):
-                                item[2].updateVisits()
-                                item[2].backUp()
-                        
-                        visited[index][2].updatedVisits()
-                        visited[index][2].backUp()
-                        traversed[index].append(visited[index])
-                    else:
-                        value = self.leaf_evaluation(visited[index][0])
-                        for item in traversed[index]:
-                            #need function from GameState class to check if two state equals
-                            if(item[0].equalstate(visited[index][0]):
-                                item[2].updateLeafStats(value)
+                   # value = self.leafEvaluation(visited[0][0])
+                    value = self.leafEvaluation()
+                for index in range(1, len(visited)): 
+                    value /= len(visited[index][1].children)
+                   # if(visited[index][1].isLeaf() == True):
+                        #value = self.leafEvaluation(visited[index][0])
+                    #    value = self.leafEvaluation()
+                    #    visited[index][1].updateQ_value(value)
+                   # else:    
+                    #    visited[index][1].backUp()
+                visited[-1][1].updateQ_value(value)
+                visited[-1][1].updateVisits()    
+                return visited[-1][1]
 
-                        visited[index][2].updateLeafStats(value)
-                        traversed[index].append(visited[index])
-                    
-                        
-        def leafEvaluation(self, state):
-                # return weighted average between ramdom rollout by fast policy and value function 
-                z = somerolloutfunction(state)
-                v = somevaluefunction(state)
-                return (1-LAMBDA)*v+LAMBDA*z  
+        def leafEvaluation(self): #state):
+                # return weighted average between rollout and value function 
+                # z = somerolloutfunction(state)
+                # for testing purposes, use random rollout instead
+                z = np.random.randint(2)
+                # v = somevaluefunction(state)
+                # for testing purposes, use random values instead
+                v = random.uniform(0, 1) 
+                return (1-LAMBDA) * v + LAMBDA * z  
         
-        def priorProb(self, state):
-                
-                # return a list of action, prior probality of from policy function of a given state
-                probs = somepolicyfunction(state)
-                return probs
+        def priorProb(self): #state):
+                # return a list of (action, prior probality) pair from policy function of a given state
+                #actions = somepolicyfunction(state)
+                # for testing purposes, use random values instead
+                actions = []
+                for i in range(0, random.randrange(50, 300)):
+                    actions.append(((np.random.randint(18), np.random.randint(18)), random.uniform(0, 1))) 
+                return actions
 
         def getMove(self, nSimulations, nDepth = 20):
-               
                 # run MSTC simulations for a number of times and return the best move 
-                traversed = []
+                #actions = self.priorProb(self.state)
+                actions = self.priorProb()
+                self.treenode.expansion(actions)
 
-                for index in range(0, nDepth):
-                    sublist = []
-                    traversed.append(sublist)
-
-                for n in range(0, nSimulations):
-                    self.DFS(nDepth, traversed)
-
-                treenode, action = self.treenode.selection() 
+                for n in range(0, nSimulations):                    
+                
+                    self.treenode.updateU_value(actions)
+                    treenode, action = self.treenode.selection()     
+                    state = state.do_move(action).copy()
+                    treenode = self.DFS(nDepth, treenode, state)
+                    self.treenode.children[action] = treenode
+                
+                self.treenode.updateU_value(actions)   
+                treenode, action = self.treenode.selection()
                 return action
-
-
-
-
 
 class ParallelMCTS(MCTS):
         pass
