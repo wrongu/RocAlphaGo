@@ -236,7 +236,11 @@ class GameState(object):
 						self.num_black_prisoners += num_captured
 					if num_captured == 1:
 						xcoord,ycoord = np.where(captured_stones)
-						self.ko = (xcoord[0], ycoord[0])
+						# it is a ko iff were the opponent to play at xcoord,ycoord
+						# it would recapture (x,y) only
+						# (a bigger group containing xy may be captured - this is 'snapback')
+						if len(self.visit_neighbor(action)) == 1 and self.update_current_liberties()[action] == 1:
+							self.ko = (xcoord[0], ycoord[0])
 			# next turn
 			self.current_player = -self.current_player
 			self.turns_played += 1

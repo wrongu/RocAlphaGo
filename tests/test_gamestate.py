@@ -97,6 +97,35 @@ class TestKo(unittest.TestCase):
 
 		self.assertTrue(gs.is_legal((2,1)))
 
+	def test_snapback_is_not_ko(self):
+		gs = GameState(size=5)
+		# B o W B .
+		# W W B . .
+		# . . . . .
+		# . . . . .
+		# . . . . .
+		# here, imagine black plays at 'o' capturing
+		# the white stone at (2,0). White may play
+		# again at (2,0) to capture the black stones
+		# at (0,0), (1,0). this is 'snapback' not 'ko'
+		# since it doesn't return the game to a
+		# previous position
+		B = [(0,0),(2,1),(3,0)]
+		W = [(0,1),(1,1),(2,0)]
+		for (b,w) in zip(B,W):
+			gs.do_move(b)
+			gs.do_move(w)
+		# do the capture of the single white stone
+		gs.do_move((1,0))
+		# there should be no ko
+		self.assertIsNone(gs.ko)
+		self.assertTrue(gs.is_legal((2,0)))
+		# now play the snapback
+		gs.do_move((2,0))
+		# check that the numbers worked out
+		self.assertEqual(gs.num_black_prisoners, 2)
+		self.assertEqual(gs.num_white_prisoners, 1)
+
 class TestEye(unittest.TestCase):
 
 	def test_simple_eye(self):
