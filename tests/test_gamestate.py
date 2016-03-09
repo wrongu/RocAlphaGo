@@ -155,3 +155,6 @@ class TestEye(unittest.TestCase):
 		self.assertFalse(gs.is_eye((1,0), go.WHITE))
 		self.assertFalse(gs.is_eye((2,2), go.BLACK))
 		self.assertFalse(gs.is_eye((2,2), go.WHITE))
+
+if __name__ == '__main__':
+	unittest.main()

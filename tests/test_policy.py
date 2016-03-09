@@ -17,3 +17,6 @@ class TestCNNPolicy(unittest.TestCase):
 		policy13 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=13)
 		output = policy13.forward([policy13.preprocessor.state_to_tensor(GameState(13))])
 		self.assertEqual(output.shape, (13,13))
+
+if __name__ == '__main__':
+	unittest.main()

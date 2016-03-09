@@ -212,3 +212,6 @@ class TestPreprocessingFeatures(unittest.TestCase):
 			expectation[x,y,4] = 1
 
 		self.assertTrue(np.all(expectation == feature))
+
+if __name__ == '__main__':
+	unittest.main()

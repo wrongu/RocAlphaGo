@@ -50,3 +50,6 @@ class TestLiberties(unittest.TestCase):
 
 		# visit_neighbor of a single piece
 		self.assertEqual(len(st.visit_neighbor((5,5))), 1, "group size of single piece")
+
+if __name__ == '__main__':
+	unittest.main()
