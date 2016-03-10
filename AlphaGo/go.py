@@ -19,68 +19,26 @@ class GameState(object):
 		self.history = []
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
-	
-	def liberty_count(self, position):
-		"""Count liberty of a single position (maxium = 4).
+		# `self.liberty_sets` is a 2D array with the same indexes as `board`
+		# each entry points to a set of tuples - the liberties of a stone's
+		# connected block. By caching liberties in this way, we can directly
+		# optimize update functions (e.g. do_move) and in doing so indirectly
+		# speed up any function that queries liberties
+		self.liberty_sets = [[set() for _ in range(size)] for _ in range(size)]
+		for x in range(size):
+			for y in range(size):
+				self.liberty_sets[x][y] = set(self._neighbors((x,y)))
+		# separately cache the 2D numpy array of the _size_ of liberty sets
+		# at each board position
+		self.liberty_counts = np.zeros((size,size))
+		self.liberty_counts.fill(-1)
+		# initialize liberty_sets of empty board: the set of neighbors of each position
+		# similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
+		# containing all (x',y') pairs in the group connected to (x,y)
+		self.group_sets = [[set() for _ in range(size)] for _ in range(size)]
 
-		Keyword arguments:
-		position -- a tuple of (x, y)
-		x being the column index of the position we want to calculate the liberty
-		y being the row index of the position we want to calculate the liberty
-
-		Return:
-		q -- A interger in [0, 4]. The count of liberty of the input single position
-		"""
-		return len(self.liberty_pos(position))
-
-	def liberty_pos(self, position):
-		"""Record the liberty position of a single position. 
-
-		Keyword arguments:
-		position -- a tuple of (x, y)
-		x being the column index of the position we want to calculate the liberty
-		y being the row index of the position we want to calculate the liberty
-
-		Return:
-		pos -- Return a list of tuples consist of (x, y)s which are the liberty positions on the input single position. len(pos) <= 4
-		"""
-		(x, y) = position
-		pos=[]
-		if x+1 < self.size and self.board[x+1][y] == EMPTY:
-			pos.append((x+1, y))
-		if y+1 < self.size and self.board[x][y+1] == EMPTY:
-			pos.append((x, y+1))
-		if x - 1 >= 0 and self.board[x-1][y] == EMPTY:
-			pos.append((x-1, y))
-		if y - 1 >= 0 and self.board[x][y-1] == EMPTY:
-			pos.append((x, y-1))
-		return pos
-
-	def get_neighbor(self, position):
-		"""An auxiliary function for curr_liberties. This function looks around locally in 4 directions. That is, we just pick one position and look to see if there are same-color neighbors around it. 
-
-		Keyword arguments:
-		position -- a tuple of (x, y)
-		x being the column index of the position in consideration
-		y being the row index of the posisiton in consideration
-
-		Return:
-		neighbor -- Return a list of tuples consist of (x, y)s which are the same-color neighbors of the input single position. len(neighbor_set) <= 4
-		"""
-		(x, y) = position
-		neighbor_set=[]
-		if y+1 < self.size and self.board[x][y] == self.board[x][y+1]:
-			neighbor_set.append((x,y+1))
-		if x+1 < self.size and self.board[x][y] == self.board[x+1][y]:
-			neighbor_set.append((x+1,y))
-		if x-1 >= 0 and self.board[x][y] == self.board[x-1][y]:
-			neighbor_set.append((x-1,y))	
-		if y-1 >= 0 and self.board[x][y] == self.board[x][y-1]:
-			neighbor_set.append((x,y-1))	
-		return neighbor_set
-
-	def visit_neighbor(self, position):
-		"""An auxiliary function for curr_liberties. This function perform the visiting process to identify a connected group of the same color
+	def get_group(self, position):
+		"""Get the group of connected same-color stones to the given position
 
 		Keyword arguments:
 		position -- a tuple of (x, y)
@@ -88,62 +46,80 @@ class GameState(object):
 		y being the row index of the starting position of the search
 
 		Return:
-		neighbor_set -- Return a set of tuples consist of (x, y)s which are the same-color cluster which contains the input single position. len(neighbor_set) is size of the cluster, can be large. 
+		a set of tuples consist of (x, y)s which are the same-color cluster 
+		which contains the input single position. len(group) is size of the cluster, can be large. 
 		"""
 		(x, y) = position
-		# handle case where there is no piece at (x,y)
-		if self.board[x][y] == EMPTY:
-			return set()
-		# A list for record the places we visited in the process
-		# default to the starting position to handle the case where there are no neighbors (group size is 1)
-		visited=[(x,y)] 
-		# A list for the the places we still want to visit
-		to_visit=self.get_neighbor((x,y))
-		while len(to_visit)!=0:
-			for n in to_visit:
-				# append serve as the actual visit
-				visited.append(n)
-				# take off the places already visited from the wish list
-				to_visit.remove(n)
-			# With the cluster we have now, we look around even further
-			for v in visited:
-				# we try to look for same-color neighbors for each one which we already visited
-				for n in self.get_neighbor(v):
-					# we don't need to consider the places we already visited when we're looking
-					if n not in visited:
-						to_visit.append(n)
+		# given that this is already cached, it is a fast lookup
+		return self.group_sets[x][y]
 
-		neighbor_set=set(visited)
-		return neighbor_set
-
-	def update_current_liberties(self):
-		"""Calculate the liberty values of the whole board
-
-		Keyword arguments:
-		None. We just need the board itself.
-
-		Return:
-		A matrix self.size * self.size, with entries of the liberty number of each position on the board.
-		Empty spaces have liberty 0. Instead of the single stone liberty, we consider the liberty of the
-		group/cluster of the same color the position is in. 
+	def _on_board(self, position):
+		"""simply return True iff position is within the bounds of [0, self.size)
 		"""
+		(x,y) = position
+		return x >= 0 and y >= 0 and x < self.size and y < self.size
 
-		curr_liberties = np.ones((self.size, self.size)) * (-1)
+	def _neighbors(self, position):
+		"""A private helper function that simply returns a list of positions neighboring
+		the given (x,y) position. Basically it handles edges and corners.
+		"""
+		(x,y) = position
+		return filter(self._on_board, [(x-1, y), (x+1, y), (x, y-1), (x, y+1)])
+	
+	def _update_neighbors(self, position):
+		"""A private helper function to update self.group_sets and self.liberty_sets 
+		given that a stone was just played at `position`
+		"""
+		(x,y) = position
 
-		for x in range(0, self.size):
-			for y in range(0, self.size):
+		merged_group = set()
+		merged_group.add(position)
+		merged_libs  = self.liberty_sets[x][y]
+		for (nx, ny) in self._neighbors(position):
+			# remove (x,y) from liberties of neighboring positions
+			self.liberty_sets[nx][ny] -= set([position])
+			# if neighbor was opponent, update group's liberties count
+			# (current_player's groups will be updated below regardless)
+			if self.board[nx][ny] == -self.current_player:
+				new_liberty_count = len(self.liberty_sets[nx][ny])
+				for (gx,gy) in self.group_sets[nx][ny]:
+					self.liberty_counts[gx][gy] = new_liberty_count
+			# MERGE group/liberty sets if neighbor is the same color
+			# note: this automatically takes care of merging two separate
+			# groups that just became connected through (x,y)
+			elif self.board[x][y] == self.board[nx][ny]:
+				merged_group |= self.group_sets[nx][ny]
+				merged_libs  |= self.liberty_sets[nx][ny]
 
-				if self.board[x][y] == EMPTY:
-					continue
+		# now that we have one big 'merged' set for groups and liberties, loop 
+		# over every member of the same-color group to update them
+		# Note: neighboring opponent groups are already updated in the previous loop
+		count_merged_libs = len(merged_libs)
+		for (gx,gy) in merged_group:
+			self.group_sets[gx][gy] = merged_group
+			self.liberty_sets[gx][gy] = merged_libs
+			self.liberty_counts[gx][gy] = count_merged_libs
 
-				# get the members in the cluster and then calculate their liberty positions
-				lib_set = set()
-				neighbors = self.visit_neighbor((x,y))
-				for n in neighbors:
-					lib_set |= set(self.liberty_pos(n))
-				
-				curr_liberties[x][y] = len(lib_set)
-		return curr_liberties
+	def _remove_group(self, group):
+		"""A private helper function to take a group off the board (due to capture),
+		updating group sets and liberties along the way
+		"""
+		for (x,y) in group:
+			self.board[x,y] = EMPTY
+		for (x,y) in group:
+			# clear group_sets for all positions in 'group'
+			self.group_sets[x][y] = set()
+			self.liberty_sets[x][y] = set()
+			self.liberty_counts[x][y] = 0
+			for (nx,ny) in self._neighbors((x,y)):
+				if self.board[nx,ny] == EMPTY:
+					# add empty neighbors of (x,y) to its liberties
+					self.liberty_sets[x][y].add((nx,ny))
+					self.liberty_counts[x][y] += 1
+				else:
+					# add (x,y) to the liberties of its nonempty neighbors
+					self.liberty_sets[nx][ny].add((x,y))
+					self.liberty_counts[nx][ny] += 1
 
 	def copy(self):
 		"""get a copy of this Game state
@@ -156,18 +132,39 @@ class GameState(object):
 		other.history = self.history
 		other.num_black_prisoners = self.num_black_prisoners
 		other.num_white_prisoners = self.num_white_prisoners
+
+		# update liberty and group sets. Note: calling set(a) on another set
+		# copies the entries (any iterable as an argument would work so
+		# set(list(a)) is unnecessary)
+		for x in range(self.size):
+			for y in range(self.size):
+				other.group_sets[x][y] = set(self.group_sets[x][y])
+				other.liberty_sets[x][y] = set(self.liberty_sets[x][y])
+		other.liberty_counts = self.liberty_counts.copy()
 		return other
 
 	def is_suicide(self, action):
 		"""return true if having current_player play at <action> would be suicide
 		"""
-		tmp = self.copy()
-		tmp.board[action] = tmp.current_player
-		zero_liberties = tmp.update_current_liberties() == 0
-		other_player = tmp.board == -tmp.current_player
-		to_remove = np.logical_and(zero_liberties, other_player)
-		tmp.board[to_remove] = EMPTY
-		return tmp.update_current_liberties()[action] == 0
+		(x,y) = action
+		num_liberties_here = len(self.liberty_sets[x][y])
+		if num_liberties_here == 0:
+			# no liberties here 'immediately'
+			# but this may still connect to another group of the same color
+			for (nx,ny) in self._neighbors(action):
+				# check if we're saved by attaching to a friendly group that has
+				# liberties elsewhere
+				is_friendly_group = self.board[nx,ny] == self.current_player
+				group_has_other_liberties = len(self.liberty_sets[nx][ny] - set([action])) > 0
+				if is_friendly_group and group_has_other_liberties:
+					return False
+				# check if we're killing an unfriendly group
+				is_enemy_group = self.board[nx,ny] == -self.current_player
+				if is_enemy_group and (not group_has_other_liberties):
+					return False
+			# checked all the neighbors, and it doesn't look good.
+			return True
+		return False
 
 	def is_legal(self, action):
 		"""determine if the given action (x,y tuple) is a legal move
@@ -179,10 +176,9 @@ class GameState(object):
 			return True
 		(x,y) = action
 		empty = self.board[x][y] == EMPTY
-		on_board = x >= 0 and y >= 0 and x < self.size and y < self.size
 		suicide = self.is_suicide(action)
 		ko = action == self.ko
-		return on_board and (not suicide) and (not ko) and empty 
+		return self._on_board(action) and (not suicide) and (not ko) and empty 
 
 	def is_eye(self, position, owner):
 		"""returns whether the position is empty and is surrounded by all stones of 'owner'
@@ -191,10 +187,8 @@ class GameState(object):
 		if self.board[x,y] != EMPTY:
 			return False
 
-		neighbors = [(x-1,y), (x+1,y), (x,y-1), (x,y+1)]
-		for (nx,ny) in neighbors:
-			if nx >= 0 and ny >= 0 and nx < self.size and ny < self.size:
-				if self.board[nx,ny] != owner:
+		for (nx,ny) in self._neighbors(position):
+			if self.board[nx,ny] != owner:
 					return False
 		return True
 
@@ -218,29 +212,29 @@ class GameState(object):
 			if action is not PASS_MOVE:
 				(x,y) = action
 				self.board[x][y] = self.current_player
+				self._update_neighbors(action)
 				
-				# check liberties for captures
-				liberties = self.update_current_liberties()
-				zero_liberties = liberties == 0
-				other_player = self.board == -self.current_player
-				captured_stones = np.logical_and(zero_liberties, other_player)
-				capture_occurred = np.any(captured_stones) # note EMPTY spaces are -1
-				if capture_occurred:
-					# clear pieces
-					self.board[captured_stones] = EMPTY
-					# count prisoners
-					num_captured = np.sum(captured_stones)
-					if self.current_player == BLACK:
-						self.num_white_prisoners += num_captured
-					else:
-						self.num_black_prisoners += num_captured
-					if num_captured == 1:
-						xcoord,ycoord = np.where(captured_stones)
-						# it is a ko iff were the opponent to play at xcoord,ycoord
-						# it would recapture (x,y) only
-						# (a bigger group containing xy may be captured - this is 'snapback')
-						if len(self.visit_neighbor(action)) == 1 and self.update_current_liberties()[action] == 1:
-							self.ko = (xcoord[0], ycoord[0])
+				# check neighboring groups' liberties for captures
+				for (nx, ny) in self._neighbors(action):
+					if self.board[nx,ny] == -self.current_player and len(self.liberty_sets[nx][ny]) == 0:
+						# capture occurred!
+						captured_group = self.group_sets[nx][ny]
+						num_captured = len(captured_group)
+						self._remove_group(captured_group)
+						if self.current_player == BLACK:
+							self.num_white_prisoners += num_captured
+						else:
+							self.num_black_prisoners += num_captured
+						# check for ko
+						if num_captured == 1:
+							# it is a ko iff, were the opponent to play at the captured position,
+							# it would recapture (x,y) only
+							# (a bigger group containing xy may be captured - this is 'snapback')
+							would_recapture = len(self.liberty_sets[x][y]) == 1
+							recapture_size_is_1 = len(self.group_sets[x][y]) == 1
+							if would_recapture and recapture_size_is_1:
+								# note: (nx,ny) is the stone that was captured
+								self.ko = (nx,ny)
 			# next turn
 			self.current_player = -self.current_player
 			self.turns_played += 1

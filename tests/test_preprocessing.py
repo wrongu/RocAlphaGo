@@ -161,7 +161,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		for (x,y) in gs.get_legal_moves():
 			copy = gs.copy()
 			copy.do_move((x,y))
-			libs = copy.update_current_liberties()[x,y]
+			libs = copy.liberty_counts[x,y]
 			if libs < 7:
 				one_hot_liberties[x,y,libs] = 1
 			else:

@@ -17,18 +17,10 @@ class TestLiberties(unittest.TestCase):
 
 		self.syms = self.s.symmetries()
 
-	def test_lib_count(self):
-		self.assertEqual(self.s.liberty_count((5,5)), 2)
-		print("liberty_count checked")
-
-	def test_lib_pos(self):
-		self.assertEqual(self.s.liberty_pos((5,5)), [(6,5), (5,4)])
-		print("liberty_pos checked")
-
 	def test_curr_liberties(self):
-		self.assertEqual(self.s.update_current_liberties()[5][5], 2)
-		self.assertEqual(self.s.update_current_liberties()[4][5], 8)
-		self.assertEqual(self.s.update_current_liberties()[5][6], 8)
+		self.assertEqual(self.s.liberty_counts[5][5], 2)
+		self.assertEqual(self.s.liberty_counts[4][5], 8)
+		self.assertEqual(self.s.liberty_counts[5][6], 8)
 
 		print("curr_liberties checked")
 
@@ -42,14 +34,14 @@ class TestLiberties(unittest.TestCase):
 		st.do_move((1,0)) #  . . . . . W . 
 		st.do_move((1,1)) #  . . . . . . W
 
-		# visit_neighbor in the corner
-		self.assertEqual(len(st.visit_neighbor((0,0))), 3, "group size in corner")
+		# get_group in the corner
+		self.assertEqual(len(st.get_group((0,0))), 3, "group size in corner")
 
-		# visit_neighbor of an empty space
-		self.assertEqual(len(st.visit_neighbor((4,4))), 0, "group size of empty space")
+		# get_group of an empty space
+		self.assertEqual(len(st.get_group((4,4))), 0, "group size of empty space")
 
-		# visit_neighbor of a single piece
-		self.assertEqual(len(st.visit_neighbor((5,5))), 1, "group size of single piece")
+		# get_group of a single piece
+		self.assertEqual(len(st.get_group((5,5))), 1, "group size of single piece")
 
 if __name__ == '__main__':
 	unittest.main()

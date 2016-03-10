@@ -46,12 +46,11 @@ def get_liberties(state, maximum=8):
 	- EMPTY locations are all-zero features
 	"""
 	planes = np.zeros((state.size, state.size, maximum))
-	liberties = state.update_current_liberties()
 	for i in range(maximum):
 		# single liberties in plane zero (groups won't have zero), double liberties in plane one, etc
-		planes[liberties == i+1, i] = 1
+		planes[state.liberty_counts == i+1, i] = 1
 	# the "maximum-or-more" case on the backmost plane
-	planes[liberties >= maximum, maximum-1] = 1
+	planes[state.liberty_counts >= maximum, maximum-1] = 1
 	return planes
 
 def get_capture_size(state, maximum=8):
@@ -85,8 +84,8 @@ def get_self_atari_size(state, maximum=8):
 		copy = state.copy()
 		copy.do_move((x,y))
 		# check for atari of the group connected to a
-		if copy.update_current_liberties()[(x,y)] == 1:
-			group_size = len(copy.visit_neighbor((x,y)))
+		if copy.liberty_counts[(x,y)] == 1:
+			group_size = len(copy.get_group((x,y)))
 			# 0th plane used for size-1, so group_size-1 is the index
 			planes[x,y,min(group_size-1,maximum-1)] = 1
 	return planes
@@ -105,7 +104,7 @@ def get_liberties_after(state, maximum=8):
 	for (x,y) in state.get_legal_moves():
 		tmp = state.copy()
 		tmp.do_move((x,y))
-		liberties_after_at_a = tmp.update_current_liberties()[x,y]
+		liberties_after_at_a = tmp.liberty_counts[x,y]
 		feature[x,y,min(maximum-1,liberties_after_at_a)] = 1
 	return feature
 
