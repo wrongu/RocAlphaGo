@@ -17,14 +17,6 @@ class TestLiberties(unittest.TestCase):
 
 		self.syms = self.s.symmetries()
 
-	def test_lib_count(self):
-		self.assertEqual(self.s.liberty_count((5,5)), 2)
-		print("liberty_count checked")
-
-	def test_lib_pos(self):
-		self.assertEqual(self.s.liberty_pos((5,5)), [(6,5), (5,4)])
-		print("liberty_pos checked")
-
 	def test_curr_liberties(self):
 		self.assertEqual(self.s.liberty_counts[5][5], 2)
 		self.assertEqual(self.s.liberty_counts[4][5], 8)
