@@ -28,14 +28,17 @@ class game_converter:
         return one_hot
 
     # convert full game into training samples
-    def convert_game(self,file_name):
+    def convert_game(self, file_name, features=None):
         with open(file_name,'r') as file_object:
             sgf_object = SGFParser(file_object.read())
         c = sgf_object.parse().cursor()
         tensors = []
         actions = []
         gs = go.GameState()
-        proc = Preprocess()
+        if features is None:
+            proc = Preprocess()
+        else:
+            proc = Preprocess(features)
         while True:
             try:
                 move = self.parse_raw_move(c.next())
@@ -49,12 +52,12 @@ class game_converter:
         return zip(tensors, actions)
 
     # lazily convert folder of games into training samples
-    def batch_convert(self,folder_path):
+    def batch_convert(self, folder_path, features=None):
         file_names = os.listdir(folder_path)
         for file_name in file_names:
             if file_name[-4:] != '.sgf': continue
             print file_name
-            training_samples = self.convert_game(os.path.join(folder_path,file_name))
+            training_samples = self.convert_game(os.path.join(folder_path,file_name), features)
             for sample in training_samples:
                 yield sample
 
