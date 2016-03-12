@@ -66,12 +66,15 @@ def get_capture_size(state, maximum=8):
 	planes = np.zeros((state.size, state.size, maximum))
 	# check difference in size after doing each move
 	for (x,y) in state.get_legal_moves():
-		copy = state.copy()
-		copy.do_move((x,y))
-		if state.current_player == go.BLACK:
-			n_captured = copy.num_white_prisoners - state.num_white_prisoners
-		else:
-			n_captured = copy.num_black_prisoners - state.num_black_prisoners
+		n_captured = 0
+		for neighbor_group in state.get_groups_around((x,y)):
+			# if the neighboring group is opponent stones and they have
+			# one liberty, it must be (x,y) and we are capturing them
+			# (note suicide and ko are not an issue because they are not
+			# legal moves)
+			(gx,gy) = next(iter(neighbor_group))
+			if state.liberty_counts[gx][gy] == 1:
+				n_captured += len(state.group_sets[gx][gy])
 		planes[x,y,min(n_captured,maximum-1)] = 1
 	return planes
 
