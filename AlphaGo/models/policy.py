@@ -1,8 +1,10 @@
 from keras.models import Sequential
+from keras.models import model_from_json
 from keras.layers import convolutional
 from keras.layers.core import Activation, Reshape
 import keras.backend as K
 from preprocessing import Preprocess
+import json
 
 class CNNPolicy(object):
 	"""uses a convolutional neural network to evaluate the state of the game
@@ -124,25 +126,31 @@ class CNNPolicy(object):
 
 		return network
 
-	def load_model(self, json_file):
-		"""load the architecture specified in json_file into 'self'
+	@staticmethod
+	def load_model(json_file):
+		"""create a new CNNPolicy object from the architecture specified in json_file
 		"""
-		raise NotImplementedError()
+		with open(json_file, 'r') as f:
+			object_specs = json.load(f)
+		new_policy = CNNPolicy(object_specs['feature_list'])
+		new_policy.model = model_from_json(object_specs['keras_model'])
+		new_policy.forward = new_policy._model_forward()
+		return new_policy
 
 	def save_model(self, json_file):
 		"""write the network model and preprocessing features to the specified file
 		"""
-		raise NotImplementedError()
-
-	def load_params(self, h5_file):
-		"""load model parameters (weights) in the specified file
-		"""
-		raise NotImplementedError()
-
-	def save_params(self, h5_file):
-		"""save model parameters (weights) to the specified file
-		"""
-		raise NotImplementedError()
-
-if __name__ == '__main__':
-	pol = CNNPolicy(["board", "sensibleness"])
+		# this looks odd because we are serializing a model with json as a string
+		# then making that the value of an object which is then serialized as 
+		# json again.
+		# It's not as crazy as it looks. A CNNPolicy has 2 moving parts - the
+		# feature preprocessing and the neural net, each of which gets a top-level
+		# entry in the saved file. Keras just happens to serialize models with JSON
+		# as well. Note how this format makes load_model fairly clean as well.
+		object_specs = {
+			'keras_model' : self.model.to_json(),
+			'feature_list' : self.preprocessor.feature_list
+		}
+		# use the json module to write object_specs to file
+		with open(json_file, 'w') as f:
+			json.dump(object_specs, f)

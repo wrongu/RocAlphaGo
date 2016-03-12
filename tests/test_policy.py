@@ -1,6 +1,7 @@
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.go import GameState
 import unittest
+import os
 
 class TestCNNPolicy(unittest.TestCase):
 
@@ -17,6 +18,21 @@ class TestCNNPolicy(unittest.TestCase):
 		policy13 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=13)
 		output = policy13.forward([policy13.preprocessor.state_to_tensor(GameState(13))])
 		self.assertEqual(output.shape, (13,13))
+
+	def test_save_load(self):
+		policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
+		
+		model_file = 'TESTPOLICY.json'
+		weights_file = 'TESTWEIGHTS.h5'
+
+		policy.save_model(model_file)
+		policy.model.save_weights(weights_file)
+
+		copypolicy = CNNPolicy.load_model(model_file)
+		copypolicy.model.load_weights(weights_file)
+
+		os.remove(model_file)
+		os.remove(weights_file)
 
 if __name__ == '__main__':
 	unittest.main()

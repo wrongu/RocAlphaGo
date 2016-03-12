@@ -210,6 +210,7 @@ class Preprocess(object):
 		"""
 
 		self.output_dim = 0
+		self.feature_list = feature_list
 		self.processors = [None] * len(feature_list)
 		for i in range(len(feature_list)):
 			feat = feature_list[i].lower()
