@@ -15,8 +15,6 @@ class TestLiberties(unittest.TestCase):
 		self.s.do_move((6,6))
 		self.s.do_move((9, 10))
 
-		self.syms = self.s.symmetries()
-
 	def test_curr_liberties(self):
 		self.assertEqual(self.s.liberty_counts[5][5], 2)
 		self.assertEqual(self.s.liberty_counts[4][5], 8)
