@@ -53,6 +53,28 @@ class GameState(object):
 		# given that this is already cached, it is a fast lookup
 		return self.group_sets[x][y]
 
+	def get_groups_around(self, position):
+		"""returns a list of the unique groups adjacent to position
+
+		'unique' means that, for example in this position:
+
+			. . . . .
+			. B W . .
+			. W W . .
+			. . . . .
+			. . . . .
+
+		only the one white group would be returned on get_groups_around((1,1))
+		"""
+		groups = []
+		for (nx,ny) in self._neighbors(position):
+			if self.board[nx][ny] != EMPTY:
+				group = self.group_sets[nx][ny]
+				group_member = next(iter(group)) # pick any stone
+				if not any(group_member in g for g in groups):
+					groups.append(group)
+		return groups
+
 	def _on_board(self, position):
 		"""simply return True iff position is within the bounds of [0, self.size)
 		"""

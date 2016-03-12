@@ -102,10 +102,20 @@ def get_liberties_after(state, maximum=8):
 	feature = np.zeros((state.size, state.size, maximum))
 	# note - left as all zeros if not a legal move
 	for (x,y) in state.get_legal_moves():
-		tmp = state.copy()
-		tmp.do_move((x,y))
-		liberties_after_at_a = tmp.liberty_counts[x,y]
-		feature[x,y,min(maximum-1,liberties_after_at_a)] = 1
+		# make a copy of the set of liberties at (x,y) so we can add to it
+		lib_set_after = set(state.liberty_sets[x][y])
+		for neighbor_group in state.get_groups_around((x,y)):
+			# if the neighboring group is of the same color as the current player
+			# then playing here will connect this stone to that group and
+			# therefore add in all that group's liberties
+			(gx,gy) = next(iter(neighbor_group))
+			if state.board[gx,gy] == state.current_player:
+				lib_set_after |= state.liberty_sets[gx][gy]
+		# (x,y) itself may have made its way back in, but shouldn't count
+		# since it's clearly not a liberty after playing there
+		if (x,y) in lib_set_after:
+			lib_set_after.remove((x,y))
+		feature[x,y,min(maximum-1,len(lib_set_after))] = 1
 	return feature
 
 def get_ladder_capture(state):
