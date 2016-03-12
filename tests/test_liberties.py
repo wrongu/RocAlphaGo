@@ -20,8 +20,6 @@ class TestLiberties(unittest.TestCase):
 		self.assertEqual(self.s.liberty_counts[4][5], 8)
 		self.assertEqual(self.s.liberty_counts[5][6], 8)
 
-		print("curr_liberties checked")
-
 	def test_neighbors_edge_cases(self):
 
 		st = GameState()
