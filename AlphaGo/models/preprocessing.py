@@ -81,12 +81,23 @@ def get_self_atari_size(state, maximum=8):
 	planes = np.zeros((state.size, state.size, maximum))
 
 	for (x,y) in state.get_legal_moves():
-		copy = state.copy()
-		copy.do_move((x,y))
-		# check for atari of the group connected to a
-		if copy.liberty_counts[(x,y)] == 1:
-			group_size = len(copy.get_group((x,y)))
-			# 0th plane used for size-1, so group_size-1 is the index
+		# make a copy of the liberty/group sets at (x,y) so we can manipulate them
+		lib_set_after = set(state.liberty_sets[x][y])
+		group_set_after = set()
+		group_set_after.add((x,y))
+		for neighbor_group in state.get_groups_around((x,y)):
+			# if the neighboring group is of the same color as the current player
+			# then playing here will connect this stone to that group
+			(gx,gy) = next(iter(neighbor_group))
+			if state.board[gx,gy] == state.current_player:
+				lib_set_after |= state.liberty_sets[gx][gy]
+				group_set_after |= state.liberty_sets[gx][gy]
+		if (x,y) in lib_set_after:
+			lib_set_after.remove((x,y))
+		# check if this move resulted in atari
+		if len(lib_set_after) == 1:
+			group_size = len(group_set_after)
+			# 0th plane used for size=1, so group_size-1 is the index
 			planes[x,y,min(group_size-1,maximum-1)] = 1
 	return planes
 
