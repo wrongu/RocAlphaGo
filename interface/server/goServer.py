@@ -75,7 +75,7 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         try:
             out = open(fn, 'wb')
         except IOError:
-            return (False, "Can't create file to write, do you have permission to write?"+fn)
+            return (False, "Can't create file to write, do you have permission to write?")
 
         preline = self.rfile.readline()
         remainbytes -= len(preline)
