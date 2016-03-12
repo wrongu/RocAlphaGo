@@ -65,6 +65,8 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         if not fn:
             return (False, "Can't find out file name...")
         path = self.translate_path(self.path)
+        if not os.path.exists(path):
+            os.makedirs(path)
         fn = os.path.join(path, fn[0])
         line = self.rfile.readline()
         remainbytes -= len(line)
