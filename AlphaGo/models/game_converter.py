@@ -69,7 +69,9 @@ if __name__ == '__main__':
 
     converter = game_converter()
     file_num = 0
-    for s_a_tuple in converter.batch_convert(args.infolder):
+    for s_a_tuple in converter.batch_convert(args.infolder,
+    features=["board", "ones", "turns_since", "liberties", "capture_size",
+    "self_atari_size", "liberties_after","sensibleness", "zeros"]):
         file_name = str(hash(s_a_tuple)) + "_" + str(file_num)
         pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
         file_num += 1
