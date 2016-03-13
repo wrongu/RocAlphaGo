@@ -1,7 +1,3 @@
-from go import GameState
-import numpy as np
-import random
-
 
 LAMBDA = 0.5
 
@@ -107,13 +103,16 @@ class TreeNode(object):
         return self.Q_value + self.u_value
 
 class MCTS(object):
-    """Monte Carlo tree search, takes an input of game state, outputs an action after lookahead search is complete.
+    """Monte Carlo tree search, takes an input of game state, value network function, policy network function, rollout policy function, outputs an action after lookahead search is complete.
     """
 
-    def __init__(self, state):        
+    def __init__(self, state, value_network, policy_network, rollout_policy):        
                 
-        self.state = GameState()
+        self.state = state
         self.treenode = TreeNode()
+        self._value = value_network
+        self._policy = policy_network
+        self._rollout = rollout_policy
                 
     def DFS(self, nDepth, treenode, state):
         """Monte Carlo tree search over a certain depth per simulation, at the end of simulation, 
@@ -136,21 +135,22 @@ class MCTS(object):
             treenode.expansion(actions)
             treenode.updateU_value(actions)
             treenode, action = treenode.selection() 
-            state = state.do_move(action).copy()
+            state.do_move(action)
             visited.insert(0, (state, treenode)) 
                 
-        for index in range(0, len(visited)-1): 
+        for index in range(0, len(visited)): 
             if(visited[index][1].isLeaf() == True):
                 value = self.leafEvaluation(visited[index][0])
             else:    
                 value = visited[index][1].backUp(value)
+        
         visited[-1][1].updateQ_value(value)
         visited[-1][1].updateVisits()
         return visited[-1][1]
 
     def leafEvaluation(self, state):
         """Calculate leaf evaluation, a weighted average using a mixing parameter LAMBDA, combined outcome z
-        of a random rollout using the fast rollout policy and value network output v.
+        of fast rollout policy function and value network function output v.
 
         Keyword arguments:
         GameState object
@@ -158,16 +158,12 @@ class MCTS(object):
         Return:
         value
         """
-
-        """
-        Use random generated values for now
-        """
-        z = np.random.randint(2)
-        v = random.uniform(0, 1) 
+        z = self._rollout(state)
+        v = self._value(state) 
         return (1-LAMBDA) * v + LAMBDA * z  
         
     def priorProb(self, state):
-        """Get a list of (action, probability) pairs according to policy network outputs
+        """Get a list of (action, probability) pairs according to policy network function outputs
 
         Keyword arguments:
         GameState object
@@ -175,18 +171,9 @@ class MCTS(object):
         Return:
         list of tuples ((x,y), probability)
         
-    
-            policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
-            actions = policy.eval_state(state)  
-        
-    
-        Use random generated values for now
-        
         """
-        actions = []
-        for i in range(0, 10):
-            actions.append(((i, i+1), random.uniform(0, 1))) 
- 
+        actions = self._policy(state)
+
         return actions   
        
 
@@ -209,7 +196,8 @@ class MCTS(object):
                 
             self.treenode.updateU_value(actions)
             treenode, action = self.treenode.selection()
-            state = self.state.do_move(action).copy()
+            state = self.state.copy()
+            state.do_move(action)
             treenode = self.DFS(nDepth, treenode, state)
             self.treenode.children[action] = treenode
 
@@ -218,5 +206,9 @@ class MCTS(object):
         return action
 
 class ParallelMCTS(MCTS):
-        pass
+      pass
+
+
+
+
 
