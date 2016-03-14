@@ -14,6 +14,8 @@ We are still early in development. There are quite a few pieces to AlphaGo that 
 >
 > -Silver et al. (page 8)
 
+For now you can only run some tests, as described in the ['Contributing'](CONTRIBUTING.md) document.
+
 # How to contribute
 
 See the ['Contributing'](CONTRIBUTING.md) document.
