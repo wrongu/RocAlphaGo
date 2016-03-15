@@ -1,6 +1,6 @@
 import os, argparse
 import numpy as np
-from AlphaGo.models.preprocessing import Preprocess
+from AlphaGo.preprocessing.preprocessing import Preprocess
 import AlphaGo.go as go
 from sgflib.sgflib import SGFParser, GameTreeEndError
 import cPickle as pickle

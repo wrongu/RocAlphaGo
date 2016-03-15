@@ -1,4 +1,4 @@
-from AlphaGo.models.game_converter import game_converter
+from AlphaGo.preprocessing.game_converter import game_converter
 import unittest
 
 class TestGameState(unittest.TestCase):
