@@ -1,7 +1,5 @@
 ## How to contribute
 
-__Please bear with us as we organize and publish our design specs and to-do list (by March 14th).__
-
 In addition to writing code, joining in on discussions in the issues is a great way to get involved. Another great way to get started is to write additional testing and benchmarking scripts.
 
 We are using Python and Keras because we believe they are beginner-friendly and easy to read. This is, to some extent, at the expense of speed. One of the biggest ways to help is to run some benchmarking scripts to see where the bottlenecks are and fix them!
