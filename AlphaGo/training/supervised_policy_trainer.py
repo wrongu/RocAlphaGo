@@ -1,6 +1,7 @@
 import os, argparse
 import cPickle as pickle
 import random
+import numpy as np
 from keras.optimizers import SGD
 from AlphaGo.models.policy import CNNPolicy
 
@@ -31,7 +32,11 @@ class supervised_policy_trainer:
             if file_name[-7:] != '.pkl': continue
         else: train.add(file_name)
 
-        batch_generator = self.batch_generator(train,train_folder)
+        # Tell batch_generator the numpy shape of its batch of samples
+        X_shape = model.get_config()['layers'][0]['input_shape']
+        y_shape = X_shape[-2:] # class labels will always be boardxboard
+
+        batch_generator = self.batch_generator(train,train_folder,X_shape,y_shape)
 
         #2b. load test set from file
         test = () # TODO: construct (num_test_filesXstate,num_test_filesXaction) tuple from test_folder
@@ -40,13 +45,19 @@ class supervised_policy_trainer:
         model.fit_generator(generator=batch_generator,samples_per_epoch=len(train),
                             validation_data=test,nb_epoch=self.nb_epoch)
 
-    def batch_generator(self,trainset,train_folder):
+    def batch_generator(self,trainset,train_folder,X_shape,y_shape):
         while True:
             sample_filenames = random.sample(trainset,self.batch_size)
-            minibatch = () # TODO: construct (self.batch_sizeXstate,self.batch_sizeXaction) tuple from train_folder
-            for filename in sample_filenames:
+            X = np.empty((self.batch_size,X_shape),dtype='float64')
+            y = np.empty((self.batch_size,y_shape),dtype='float64')
+            for index,filename in enumerate(sample_filenames):
                 with open(os.path.join(train_folder,filename),'r') as sample_filename:
-                    yield pickle.load(sample_filename) # TODO: change to add to minibatch
+                    sample = pickle.load(sample_filename)
+                    # TODO: randomly transform it to some symmetric version of itself
+                    X[index] = sample[0]
+                    y[index] = sample[1]
+            minibatch = (X,y)
+            yield minibatch
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
