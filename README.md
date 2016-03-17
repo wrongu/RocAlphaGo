@@ -1,6 +1,6 @@
-# AlphaGoReplication
+# AlphaGo Replication
 
-A replication of DeepMind's 2016 Nature publication, "Mastering the game of Go with deep neural networks and tree search," details of which can be found [on their website](http://deepmind.com/alpha-go.html).
+This project is a replication/reference implementation of DeepMind's 2016 Nature publication, "Mastering the game of Go with deep neural networks and tree search," details of which can be found [on their website](http://deepmind.com/alpha-go.html). This implementation uses Python and Keras - a decision to prioritize code clarity, at least in the early stages.
 
 [![Build Status](https://travis-ci.org/Rochester-NRT/AlphaGo.svg?branch=develop)](https://travis-ci.org/Rochester-NRT/AlphaGo)
 
@@ -8,14 +8,14 @@ A replication of DeepMind's 2016 Nature publication, "Mastering the game of Go w
 
 _This is not yet a full implementation of AlphaGo_. Development is being carried out on the `develop` branch.
 
-We are still in early development stages. We hope to have a functional training pipeline complete by mid March, and following that we will focus on optimizations.
+We are still early in development. There are quite a few pieces to AlphaGo that can be written in parallel. We are currently focusing our efforts on the supervised and "self-play" parts of the training pipeline because the training itself may take a very long time..
 
-# Installation instructions
+> Updates were applied asynchronously on 50 GPUs... Training took around 3 weeks for 340 million training steps
+>
+> -Silver et al. (page 8)
 
-Using a [virtual environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/) is recommended. If you have python 2.7 and `pip` installed, you can install all of the project dependencies with
+For now you can only run some tests, as described in the ['Contributing'](CONTRIBUTING.md) document.
 
-	pip install -r requirements.txt
+# How to contribute
 
-To verify that this worked, try running the tests
-
-	python -m unittest discover
+See the ['Contributing'](CONTRIBUTING.md) document.
