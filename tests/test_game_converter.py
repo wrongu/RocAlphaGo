@@ -6,7 +6,7 @@ class TestGameState(unittest.TestCase):
         self.gc = game_converter()
 
     def test_batch_convert(self):
-        sample_generator = self.gc.batch_convert("tests/test_sgfs",
+        sample_generator = self.gc.batch_convert("tests/test_data/sgf",
         features=["board", "ones", "turns_since", "liberties", "capture_size",
         "self_atari_size", "liberties_after","sensibleness", "zeros"])
         for sample in sample_generator:
