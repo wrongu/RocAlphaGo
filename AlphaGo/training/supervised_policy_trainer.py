@@ -6,58 +6,63 @@ from keras.optimizers import SGD
 from AlphaGo.models.policy import CNNPolicy
 
 class supervised_policy_trainer:
-    def __init__(self,learning_rate=.003,decay=.0001,batch_size=16,nb_epoch=10):
+    def __init__(self,learning_rate=.003,decay=.0001,
+                 train_batch_size=16,test_batch_size=None,nb_epoch=10):
     	"""Construct a supervised-learning policy trainer.
 
     	Instance variables:
     	- learning_rate:     Initial learning rate for SGD (default .003)
     	- decay:             Rate of learning rate decay (default .0001)
-    	- batch_size:        Number of training samples per SGD minibatch (default 16)
+    	- train_batch_size:  Number of training samples per SGD minibatch (default 16)
+        - test_batch_size:   Number of test samples to use when estimating model accuracy.
+                             If None, whole folder is used. (default None)
     	- nb_epoch:          Number of iterations through training set (default 10)
         """
         self.learning_rate = learning_rate
         self.decay =  decay
-        self.batch_size = batch_size
+        self.train_batch_size = train_batch_size
+        self.test_batch_size = test_batch_size
         self.nb_epoch = nb_epoch
 
     def train(self,model,train_folder,test_folder,model_folder=None):
-        # 1. compile model
+        # 1. Compile model
         sgd = SGD(lr=self.learning_rate,decay=self.decay)
         model.compile(loss='binary_crossentropy', optimizer=sgd)
 
-        # 2a. construct minibatch getter from train_folder
-        train = set()
-        file_names = os.listdir(train_folder)
-        for file_name in file_names:
-            if file_name[-7:] != '.pkl': continue
-        else: train.add(file_name)
-
-        # Tell batch_generator the numpy shape of its batch of samples
+        # 2. Construct generators to fetch train and test data.
         X_shape = model.get_config()['layers'][0]['input_shape']
-        y_shape = X_shape[-2:] # class labels will always be boardxboard
+        y_shape = X_shape[-2:] # class labels will always be board x board
 
-        batch_generator = self.batch_generator(train,train_folder,X_shape,y_shape)
+        train_size, train_generator = self.setup_generator(train_folder,X_shape,y_shape,
+                                            self.train_batch_size,symmetry_transform=True)
+        test_size, test_generator = self.setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
 
-        #2b. load test set from file
-        test = () # TODO: construct (num_test_filesXstate,num_test_filesXaction) tuple from test_folder
+        train_batch_size = train_size if self.train_batch_size == None else self.train_batch_size
+        test_batch_size = test_size if self.test_batch_size == None else self.test_batch_size
 
-        # 3. train
-        model.fit_generator(generator=batch_generator,samples_per_epoch=len(train),
-                            validation_data=test,nb_epoch=self.nb_epoch)
+        # 3. Train
+        model.fit_generator(generator=train_generator,samples_per_epoch=train_batch_size,nb_epoch=self.nb_epoch,
+                            validation_data=test_generator,nb_val_samples=test_batch_size)
 
-    def batch_generator(self,trainset,train_folder,X_shape,y_shape):
-        while True:
-            sample_filenames = random.sample(trainset,self.batch_size)
-            X = np.empty((self.batch_size,X_shape),dtype='float64')
-            y = np.empty((self.batch_size,y_shape),dtype='float64')
-            for index,filename in enumerate(sample_filenames):
-                with open(os.path.join(train_folder,filename),'r') as sample_filename:
-                    sample = pickle.load(sample_filename)
-                    # TODO: randomly transform it to some symmetric version of itself
-                    X[index] = sample[0]
-                    y[index] = sample[1]
-            minibatch = (X,y)
-            yield minibatch
+    def setup_generator(self,folder,X_shape,y_shape,num_samples,symmetry_transform=False):
+        # Returns number of samples in folder and a generator to access batches of them
+        filenames = [filename for filename in os.listdir(folder) if filename[-7:] == '.pkl']
+        def generator():
+            while True:
+                sample_filenames = random.sample(filenames,num_samples)
+                batch = self._load_files(folder,sample_filenames,X_shape,y_shape)
+                # TODO: if symmetry_transform, randomly transform it to some symmetric version of itself
+                yield batch
+        return(len(filenames),generator)
+
+    def _load_files(self,folder,file_names,X_shape,y_shape):
+        X = np.empty((self.train_batch_size,X_shape),dtype='float64')
+        y = np.empty((self.train_batch_size,y_shape),dtype='float64')
+        for index,filename in enumerate(file_names):
+            with open(os.path.join(folder,filename),'r') as sample_filename:
+                feature_input, label = pickle.load(sample_filename)
+                X[index] = feature_input
+                y[index] = label
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
