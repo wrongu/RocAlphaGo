@@ -1,8 +1,5 @@
 from AlphaGo.training.supervised_policy_trainer import supervised_policy_trainer
 from AlphaGo.models.policy import CNNPolicy
-import os
-
-import numpy as np
 import unittest
 
 class TestSupervisedPolicyTrainer(unittest.TestCase):
@@ -15,3 +12,4 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
 
 if __name__=='__main__':
     unittest.main()
+    
