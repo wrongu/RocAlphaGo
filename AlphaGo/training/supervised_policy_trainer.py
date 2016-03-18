@@ -46,14 +46,15 @@ class supervised_policy_trainer:
 
     def setup_generator(self,folder,X_shape,y_shape,num_samples,symmetry_transform=False):
         # Returns number of samples in folder and a generator to access batches of them
-        filenames = [filename for filename in os.listdir(folder) if filename[-7:] == '.pkl']
+        filenames = [filename for filename in os.listdir(folder) if filename[-4:] == '.pkl']
         def generator():
             while True:
                 sample_filenames = random.sample(filenames,num_samples)
                 batch = self._load_files(folder,sample_filenames,X_shape,y_shape)
+                print batch
                 # TODO: if symmetry_transform, randomly transform it to some symmetric version of itself
                 yield batch
-        return(len(filenames),generator)
+        return(len(filenames),generator())
 
     def _load_files(self,folder,file_names,X_shape,y_shape):
         X = np.empty((self.train_batch_size,X_shape),dtype='float64')
@@ -63,6 +64,7 @@ class supervised_policy_trainer:
                 feature_input, label = pickle.load(sample_filename)
                 X[index] = feature_input
                 y[index] = label
+        return (X,y)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
@@ -77,5 +79,6 @@ if __name__ == '__main__':
 
     net = CNNPolicy.create_network(input_dim=32)
 
-    trainer = supervised_policy_trainer(args.learning_rate,args.decay,args.batch_size,args.nb_epoch)
+    trainer = supervised_policy_trainer(learning_rate=args.learning_rate,decay=args.decay,
+                                        train_batch_size=args.batch_size,nb_epoch=args.nb_epoch)
     trainer.train(net,args.train_folder,args.test_folder,args.model_folder)

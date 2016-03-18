@@ -8,8 +8,9 @@ import unittest
 class TestSupervisedPolicyTrainer(unittest.TestCase):
     def testTrain(self):
         net = CNNPolicy.create_network(input_dim=32)
-        trainer = supervised_policy_trainer(samples_per_epoch=1,nb_epoch=1)
-        trainer.train(net,model_folder='tests/test_data',train_folder='tests/test_data/pickle')
+        trainer = supervised_policy_trainer()
+        trainer.train(net,train_folder='tests/test_data/pickle/train',
+                          test_folder = 'tests/test_data/pickle/test')
         #TODO: What should I assert to test training?
 
 if __name__=='__main__':
