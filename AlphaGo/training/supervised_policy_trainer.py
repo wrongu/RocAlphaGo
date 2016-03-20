@@ -5,7 +5,7 @@ import numpy as np
 from keras.optimizers import SGD
 from keras.callbacks import ModelCheckpoint
 from AlphaGo.models.policy import CNNPolicy
-import pdb
+
 class supervised_policy_trainer:
     def __init__(self,train_batch_size,test_batch_size=None,
                  learning_rate=.003,decay=.0001,nb_epoch=10):
@@ -39,7 +39,7 @@ class supervised_policy_trainer:
         ]
 
     def train(self,model,train_folder,test_folder,model_folder=None,checkpt_prefix="weights"):
-        '''Fit an arbitrary keras model, based on the training parameters.
+        '''Fit an arbitrary keras model according to the training parameters.
 
         Options:
         - model:          A keras model to fit. Assumed not to be compiled.
@@ -58,14 +58,19 @@ class supervised_policy_trainer:
         X_shape = model.get_config()['layers'][0]['input_shape']
         y_shape = X_shape[-2:] # class labels will always be board x board
 
+        # generator setup returns a tuple of dataset size and generator for retrieving samples
         trainset_size, train_generator = self._setup_generator(train_folder,X_shape,y_shape,
-                                            self.train_batch_size,symmetry_transform=True)
+                                            self.train_batch_size,sym_transform=True)
         testset_size, test_generator = self._setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
-        pdb.set_trace()
-        self.train_batch_size = trainset_size if self.train_batch_size == None else self.train_batch_size
-        self.test_batch_size = testset_size if self.test_batch_size == None else self.test_batch_size
+
+        self.train_batch_size = trainset_size if self.train_batch_size is None else self.train_batch_size
+        self.test_batch_size = testset_size if self.test_batch_size is None else self.test_batch_size
 
         # 3. Train. Save model to new file each epoch.
+        print "Training prepared successfully. Commencing training on", str(trainset_size), \
+            "training samples in batches of", str(self.train_batch_size), "."
+        print "Testing will occur on", str(self.test_batch_size), \
+            "samples drawn without replacement from a pool of", str(testset_size), "."
         if model_folder is None:
             model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
                                 validation_data=test_generator,nb_val_samples=self.test_batch_size,show_accuracy=True)
@@ -75,27 +80,31 @@ class supervised_policy_trainer:
             model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
                                 validation_data=test_generator,nb_val_samples=self.test_batch_size,show_accuracy=True,callbacks=[checkpointer])
 
-    def _setup_generator(self,folder,X_shape,y_shape,num_samples,symmetry_transform=False):
+    def _setup_generator(self,folder,X_shape,y_shape,num_samples,sym_transform=False):
         # Returns number of samples in folder and a generator yielding batches of them
         filenames = [filename for filename in os.listdir(folder) if filename[-4:] == '.pkl']
         if num_samples is None: num_samples = len(filenames)
-        def generator(filenames,X_shape,y_shape,num_samples,symmetry_transform):
+        def generator():
             while True:
                 sample_filenames = random.sample(filenames,num_samples)
                 X = np.empty((num_samples,) + X_shape, dtype='float64')
                 y = np.empty((num_samples,) + y_shape, dtype='float64')
                 for index,filename in enumerate(sample_filenames):
-                    with open(os.path.join(folder,filename),'r') as sample_filename:
-                        feature_input, label = pickle.load(sample_filename)
-                        if symmetry_transform: # randomly transform sample to some symmetric version of itself
-                            transform = random.choice(self.BOARD_TRANSFORMATIONS)
-                            # apply tranform at every depth
-                            feature_input = np.array([transform(feature) for feature in feature_input])
-                            label = transform(label)
-                        X[index] = feature_input
-                        y[index] = label
+                    feature_input, label = self._prep_sample(folder,filename,sym_transform)
+                    X[index] = feature_input
+                    y[index] = label
                 yield (X,y)
-        return(num_samples,generator(filenames,X_shape,y_shape,num_samples,symmetry_transform))
+        return(len(filenames),generator())
+
+    def _prep_sample(self,folder,filename,sym_transform):
+        with open(os.path.join(folder,filename),'r') as sample_filename:
+            feature_input, label = pickle.load(sample_filename)
+        if sym_transform: # randomly transform sample to some symmetric version of itself
+            transform = random.choice(self.BOARD_TRANSFORMATIONS)
+            # apply tranform at every depth
+            feature_input = np.array([transform(feature) for feature in feature_input])
+            label = transform(label)
+        return feature_input,label
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
