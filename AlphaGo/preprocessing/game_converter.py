@@ -1,6 +1,6 @@
 import os, argparse
 import numpy as np
-from AlphaGo.models.preprocessing import Preprocess
+from AlphaGo.preprocessing.preprocessing import Preprocess
 import AlphaGo.go as go
 from sgflib.sgflib import SGFParser, GameTreeEndError
 import cPickle as pickle
@@ -20,11 +20,10 @@ class game_converter:
         x = self.index_at[pos[1]]
         return (x,y)
 
-    # convert indices into 19x19 training label
+    # convert indices into 1x19x19 training label. The 1 encodes batch dimension.
     def encode_label(self,move):
-        # convert move to one-hot encoding
-        one_hot = np.zeros((19,19),dtype=bool)
-        one_hot[move[0],move[1]] = 1
+        one_hot = np.zeros((1,19,19),dtype=bool)
+        one_hot[0,move[0],move[1]] = 1
         return one_hot
 
     # convert full game into training samples
@@ -72,6 +71,6 @@ if __name__ == '__main__':
     for s_a_tuple in converter.batch_convert(args.infolder,
         features=["board", "ones", "turns_since", "liberties", "capture_size",
         "self_atari_size", "liberties_after","sensibleness", "zeros"]):
-        file_name = str(hash(s_a_tuple[1])) + "_" + str(file_num)
+        file_name = str(file_num)+".pkl"
         pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
         file_num += 1
