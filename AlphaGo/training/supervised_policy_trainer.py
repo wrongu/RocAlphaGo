@@ -102,9 +102,9 @@ class supervised_policy_trainer:
         if sym_transform: # randomly transform sample to some symmetric version of itself
             transform = random.choice(self.BOARD_TRANSFORMATIONS)
             # apply tranform at every depth
-            feature_input = np.array([transform(feature) for feature in feature_input])
-            label = transform(label)
-        return feature_input,label
+            feature_input[0] = np.array([transform(feature) for feature in feature_input[0]])
+            label[0] = transform(label[0])
+        return feature_input[0],label[0]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')

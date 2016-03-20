@@ -20,10 +20,10 @@ class game_converter:
         x = self.index_at[pos[1]]
         return (x,y)
 
-    # convert indices into 19x19 training label
+    # convert indices into 1x19x19 training label. The 1 encodes batch dimension.
     def encode_label(self,move):
-        one_hot = np.zeros((19,19),dtype=bool)
-        one_hot[move[0],move[1]] = 1
+        one_hot = np.zeros((1,19,19),dtype=bool)
+        one_hot[0,move[0],move[1]] = 1
         return one_hot
 
     # convert full game into training samples

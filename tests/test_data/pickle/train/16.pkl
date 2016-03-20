@@ -8,7 +8,8 @@ p2
 tS'b'
 tRp3
 (I1
-(I46
+(I1
+I46
 I19
 I19
 tcnumpy
@@ -31,7 +32,8 @@ tbg1
 tS'b'
 tRp6
 (I1
-(I19
+(I1
+I19
 I19
 tg4
 (S'b1'
