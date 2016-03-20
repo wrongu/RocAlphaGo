@@ -22,7 +22,6 @@ class game_converter:
 
     # convert indices into 19x19 training label
     def encode_label(self,move):
-        # convert move to one-hot encoding
         one_hot = np.zeros((19,19),dtype=bool)
         one_hot[move[0],move[1]] = 1
         return one_hot

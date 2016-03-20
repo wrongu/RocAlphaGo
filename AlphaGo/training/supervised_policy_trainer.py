@@ -5,7 +5,7 @@ import numpy as np
 from keras.optimizers import SGD
 from keras.callbacks import ModelCheckpoint
 from AlphaGo.models.policy import CNNPolicy
-
+import pdb
 class supervised_policy_trainer:
     def __init__(self,train_batch_size,test_batch_size=None,
                  learning_rate=.003,decay=.0001,nb_epoch=10):
@@ -24,6 +24,19 @@ class supervised_policy_trainer:
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.nb_epoch = nb_epoch
+
+        # These are 8 symmetric groups used to randomly transform training samples,
+            # which mitigates overfitting.
+        self.BOARD_TRANSFORMATIONS = [
+            lambda feature: feature,
+            lambda feature: np.rot90(feature,1),
+            lambda feature: np.rot90(feature,2),
+            lambda feature: np.rot90(feature,3),
+            lambda feature: np.fliplr(feature),
+            lambda feature: np.flipud(feature),
+            lambda feature: np.transpose(feature),
+            lambda feature: np.fliplr(np.rot90(feature,1))
+        ]
 
     def train(self,model,train_folder,test_folder,model_folder=None,checkpt_prefix="weights"):
         '''Fit an arbitrary keras model, based on the training parameters.
@@ -45,12 +58,12 @@ class supervised_policy_trainer:
         X_shape = model.get_config()['layers'][0]['input_shape']
         y_shape = X_shape[-2:] # class labels will always be board x board
 
-        train_size, train_generator = self._setup_generator(train_folder,X_shape,y_shape,
+        trainset_size, train_generator = self._setup_generator(train_folder,X_shape,y_shape,
                                             self.train_batch_size,symmetry_transform=True)
-        test_size, test_generator = self._setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
-
-        self.train_batch_size = train_size if self.train_batch_size == None else self.train_batch_size
-        self.test_batch_size = test_size if self.test_batch_size == None else self.test_batch_size
+        testset_size, test_generator = self._setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
+        pdb.set_trace()
+        self.train_batch_size = trainset_size if self.train_batch_size == None else self.train_batch_size
+        self.test_batch_size = testset_size if self.test_batch_size == None else self.test_batch_size
 
         # 3. Train. Save model to new file each epoch.
         if model_folder is None:
@@ -74,9 +87,13 @@ class supervised_policy_trainer:
                 for index,filename in enumerate(sample_filenames):
                     with open(os.path.join(folder,filename),'r') as sample_filename:
                         feature_input, label = pickle.load(sample_filename)
+                        if symmetry_transform: # randomly transform sample to some symmetric version of itself
+                            transform = random.choice(self.BOARD_TRANSFORMATIONS)
+                            # apply tranform at every depth
+                            feature_input = np.array([transform(feature) for feature in feature_input])
+                            label = transform(label)
                         X[index] = feature_input
                         y[index] = label
-                    # TODO: if symmetry_transform, randomly transform it to some symmetric version of itself
                 yield (X,y)
         return(num_samples,generator(filenames,X_shape,y_shape,num_samples,symmetry_transform))
 

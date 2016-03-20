@@ -234,6 +234,6 @@ class Preprocess(object):
 				(w,h,d) = feat.shape
 			feat_tensors[i] = feat.reshape((w,h,d)).transpose((2,0,1))
 
-		# concatenate along feature dimension then add in a singleton 'batch' dimensino
+		# concatenate along feature dimension
 		f,s = self.output_dim, state.size
-		return np.concatenate(feat_tensors).reshape((1,f,s,s))
+		return np.concatenate(feat_tensors).reshape((f,s,s))

@@ -8,8 +8,7 @@ p2
 tS'b'
 tRp3
 (I1
-(I1
-I46
+(I46
 I19
 I19
 tcnumpy
