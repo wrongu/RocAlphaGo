@@ -54,7 +54,7 @@ def sgf_iter_states(sgf_string):
 	position after iteration completes. See sgf_to_gamestate
 	"""
 	collection = sgf.parse(sgf_string)
-	game = next(iter(collection))
+	game = collection[0]
 	node_iterator = iter(game)
 	root = next(node_iterator)
 	gs = _sgf_init_gamestate(root)
