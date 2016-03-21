@@ -2,6 +2,7 @@ import numpy as np
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import sgf_iter_states
 import AlphaGo.go as go
+import os
 
 class game_converter:
 
@@ -49,7 +50,6 @@ class game_converter:
 				yield sample
 
 if __name__ == '__main__':
-	import os
 	import argparse
 	import json
 	import cPickle as pickle
