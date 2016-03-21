@@ -1,9 +1,8 @@
-import os, argparse
 import numpy as np
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import sgf_iter_states
 import AlphaGo.go as go
-import cPickle as pickle
+import os
 
 class game_converter:
 
@@ -51,7 +50,14 @@ class game_converter:
 				yield sample
 
 if __name__ == '__main__':
+	import os
+	import argparse
+	import json
+	import cPickle as pickle
+
 	parser = argparse.ArgumentParser(description='Prepare a folder of Go game files for training our neural network model.')
+	parser.add_argument("--features", help="Comma-separated list of features to compute and store", default="board,ones,turns_since")
+	parser.add_argument("--no-meta", help="Flag to disable saving a metadata.json file in the outfolder", default=False, action="store_true")
 	parser.add_argument("infolder", help="Path to folder containing games")
 	parser.add_argument("outfolder", help="Path to target folder.")
 	parser.add_argument("-auto_split", help="Randomly place each sample into a train, test, or dev subfolder with probabilities .93, .05, and .02 respectively.",
@@ -59,8 +65,20 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
+	feature_list = args.features.split(",")
+
+	if not args.no_meta:
+		metafile = os.path.join(args.outfolder, "metadata.json")
+		metadata = {
+			"dataset": args.infolder,
+			"features": feature_list
+		}
+		with open(metafile, "w") as f:
+			json.dump(metadata, f)
+
 	converter = game_converter()
 	file_num = 0
+
 	if args.auto_split:
 		train_path = os.path.join(args.outfolder,'train')
 		test_path = os.path.join(args.outfolder,'test')
@@ -69,9 +87,7 @@ if __name__ == '__main__':
 		if not os.path.exists(train_path): os.makedirs(train_path)
 		if not os.path.exists(test_path): os.makedirs(test_path)
 		if not os.path.exists(dev_path): os.makedirs(dev_path)
-	for s_a_tuple in converter.batch_convert(args.infolder,
-		features=["board", "ones", "turns_since", "liberties", "capture_size",
-		"self_atari_size", "liberties_after","sensibleness", "zeros"]):
+	for s_a_tuple in converter.batch_convert(args.infolder, features=feature_list):
 		file_name = str(file_num)+".pkl"
 		if args.auto_split:
 			# select subfolder randomly w/ appropriate probability
