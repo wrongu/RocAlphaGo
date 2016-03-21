@@ -1,9 +1,7 @@
-import os, argparse
 import numpy as np
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import sgf_iter_states
 import AlphaGo.go as go
-import cPickle as pickle
 
 class game_converter:
 
@@ -51,16 +49,32 @@ class game_converter:
 				yield sample
 
 if __name__ == '__main__':
+	import os
+	import argparse
+	import json
+	import cPickle as pickle
+
 	parser = argparse.ArgumentParser(description='Prepare a folder of Go game files for training our neural network model.')
+	parser.add_argument("--features", help="Comma-separated list of features to compute and store", default="board,ones,turns_since")
+	parser.add_argument("--no-meta", help="Flag to disable saving a metadata.json file in the outfolder", default=False, action="store_true")
 	parser.add_argument("infolder", help="Path to folder containing games")
 	parser.add_argument("outfolder", help="Path to target folder.")
 	args = parser.parse_args()
 
+	feature_list = args.features.split(",")
+
+	if not args.no_meta:
+		metafile = os.path.join(args.outfolder, "metadata.json")
+		metadata = {
+			"dataset": args.infolder,
+			"features": feature_list
+		}
+		with open(metafile, "w") as f:
+			json.dump(metadata, f)
+
 	converter = game_converter()
 	file_num = 0
-	for s_a_tuple in converter.batch_convert(args.infolder,
-		features=["board", "ones", "turns_since", "liberties", "capture_size",
-		"self_atari_size", "liberties_after","sensibleness", "zeros"]):
+	for s_a_tuple in converter.batch_convert(args.infolder, features=feature_list):
 		file_name = str(file_num)+".pkl"
 		pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
 		file_num += 1
