@@ -18,4 +18,4 @@ install:
   - pip install --user --no-deps -e git://github.com/fchollet/keras.git#egg=keras
 
 # run unit tests
-script: python -m unittest discover
+script: THEANO_FLAGS="gcc.cxxflags='-march=core2'" python -m unittest discover
