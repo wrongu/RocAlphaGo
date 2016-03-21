@@ -50,7 +50,6 @@ class game_converter:
 				yield sample
 
 if __name__ == '__main__':
-	import os
 	import argparse
 	import json
 	import cPickle as pickle
