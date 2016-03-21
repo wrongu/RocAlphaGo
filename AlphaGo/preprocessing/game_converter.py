@@ -38,7 +38,7 @@ class game_converter:
 				nn_input = proc.state_to_tensor(state)
 				nn_output = self._encode_label(move, state.size)
 				yield (nn_input, nn_output)
-	
+
 	def batch_convert(self, folder_path, features=None):
 		"""lazily convert folder of games into training samples
 		"""
@@ -54,13 +54,29 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Prepare a folder of Go game files for training our neural network model.')
 	parser.add_argument("infolder", help="Path to folder containing games")
 	parser.add_argument("outfolder", help="Path to target folder.")
+	parser.add_argument("-auto_split", help="Randomly place each sample into a train, test, or dev subfolder with probabilities .93, .05, and .02 respectively.",
+	 					default=True)
+
 	args = parser.parse_args()
 
 	converter = game_converter()
 	file_num = 0
+	if args.auto_split:
+		train_path = os.path.join(args.outfolder,'train')
+		test_path = os.path.join(args.outfolder,'test')
+		dev_path = os.path.join(args.outfolder,'dev')
+		# create these subfolders if they don't exist
+		if not os.path.exists(train_path): os.makedirs(train_path)
+		if not os.path.exists(test_path): os.makedirs(test_path)
+		if not os.path.exists(dev_path): os.makedirs(dev_path)
 	for s_a_tuple in converter.batch_convert(args.infolder,
 		features=["board", "ones", "turns_since", "liberties", "capture_size",
 		"self_atari_size", "liberties_after","sensibleness", "zeros"]):
 		file_name = str(file_num)+".pkl"
-		pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
+		if args.auto_split:
+			# select subfolder randomly w/ appropriate probability
+			subfolder = np.random.choice([train_path,test_path,dev_path], 1, p=[.93,.05,.02])[0]
+			pickle.dump(s_a_tuple, open(os.path.join(subfolder,file_name), "wb"))
+		else:
+			pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
 		file_num += 1
