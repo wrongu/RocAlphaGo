@@ -55,10 +55,8 @@ def sgf_iter_states(sgf_string):
 	"""
 	collection = sgf.parse(sgf_string)
 	game = collection[0]
-	node_iterator = iter(game)
-	root = next(node_iterator)
-	gs = _sgf_init_gamestate(root)
-	for node in node_iterator:
+	gs = _sgf_init_gamestate(game.root)
+	for node in game.rest:
 		props = node.properties
 		if 'W' in props:
 			move = _parse_sgf_move(props['W'][0])
