@@ -8,7 +8,7 @@ from AlphaGo.models.policy import CNNPolicy
 
 class supervised_policy_trainer:
     def __init__(self,train_batch_size,test_batch_size=None,
-                 learning_rate=.003,decay=.0001,nb_epoch=10):
+                 learning_rate=.003,decay=.0001,nb_epoch=10,nb_worker=1):
     	"""Construct a supervised-learning policy trainer.
 
     	Training parameters:
@@ -18,12 +18,15 @@ class supervised_policy_trainer:
     	- learning_rate:     Initial learning rate for SGD (default .003)
     	- decay:             Rate of learning rate decay (default .0001)
     	- nb_epoch:          Number of iterations through training set (default 10)
+        - nb_worker:         Number of threads to use when training in parallel.
+                             Requires appropriately set Theano flags if >= 1. (default 1)
         """
         self.learning_rate = learning_rate
         self.decay =  decay
         self.train_batch_size = train_batch_size
         self.test_batch_size = test_batch_size
         self.nb_epoch = nb_epoch
+        self.nb_worker = nb_worker
 
         # These are 8 symmetric groups used to randomly transform training samples,
             # which mitigates overfitting.
@@ -73,12 +76,12 @@ class supervised_policy_trainer:
             "samples drawn without replacement from a pool of", str(testset_size), "."
         if model_folder is None:
             model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
-                                validation_data=test_generator,nb_val_samples=self.test_batch_size,show_accuracy=True)
+                                validation_data=test_generator,nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True)
         else:
             model_path = os.path.join(model_folder,checkpt_prefix + ".{epoch:02d}-{val_loss:.2f}.hdf5")
             checkpointer = ModelCheckpoint(filepath=model_path)
-            model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
-                                validation_data=test_generator,nb_val_samples=self.test_batch_size,show_accuracy=True,callbacks=[checkpointer])
+            model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,validation_data=test_generator,
+                                nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True,callbacks=[checkpointer])
 
     def _setup_generator(self,folder,X_shape,y_shape,num_samples,sym_transform=False):
         # Returns number of samples in folder and a generator yielding batches of them
@@ -117,10 +120,11 @@ if __name__ == '__main__':
     parser.add_argument("-nb_epoch",help="Total number of iterations on the data. Default: 10",type=int,default=10)
     parser.add_argument("-learning_rate",help="How quickly the model learns at first. A (small) number between 0 and 1. Default: .03",type=float,default=.03)
     parser.add_argument("-decay",help="The rate at which learning decreases. Default: .0001",type=float,default=.0001)
+    parser.add_argument("-nb_worker",help="Number of threads to use when training in parallel. Requires appropriately set Theano flags.",type=int,default=1)
     args = parser.parse_args()
 
     net = CNNPolicy.create_network(input_dim=args.input_dim)
 
     trainer = supervised_policy_trainer(train_batch_size=args.train_batch_size,test_batch_size=args.test_batch_size,
-                                        learning_rate=args.learning_rate,decay=args.decay,nb_epoch=args.nb_epoch)
+                                        learning_rate=args.learning_rate,decay=args.decay,nb_epoch=args.nb_epoch,nb_worker=args.nb_worker)
     trainer.train(net,args.train_folder,args.test_folder,args.model_folder)
