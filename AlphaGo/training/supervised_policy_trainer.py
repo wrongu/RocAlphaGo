@@ -1,4 +1,5 @@
 import os, argparse
+import json
 import cPickle as pickle
 import random
 import numpy as np
@@ -61,23 +62,23 @@ class supervised_policy_trainer:
         X_shape = model.get_config()['layers'][0]['input_shape']
         y_shape = X_shape[-2:] # class labels will always be board x board
 
-        # generator setup returns a tuple of dataset size and generator for retrieving samples
         trainset_size, train_generator = self._setup_generator(train_folder,X_shape,y_shape,
                                             self.train_batch_size,sym_transform=True)
         testset_size, test_generator = self._setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
 
-        self.train_batch_size = trainset_size if self.train_batch_size is None else self.train_batch_size
-        self.test_batch_size = testset_size if self.test_batch_size is None else self.test_batch_size
+        self.train_batch_size = self.train_batch_size or trainset_size
+        self.test_batch_size = self.test_batch_size or testset_size
 
         # 3. Train. Save model to new file each epoch.
         print "Training prepared successfully. Commencing training on", str(trainset_size), \
             "training samples in batches of", str(self.train_batch_size), "."
         print "Testing will occur on", str(self.test_batch_size), \
             "samples drawn without replacement from a pool of", str(testset_size), "."
-        if model_folder is None:
+        if not model_folder:
             model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
                                 validation_data=test_generator,nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True)
         else:
+            # filename encodes checkpt_prefix, epoch number, and test set loss
             model_path = os.path.join(model_folder,checkpt_prefix + ".{epoch:02d}-{val_loss:.2f}.hdf5")
             checkpointer = ModelCheckpoint(filepath=model_path)
             model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,validation_data=test_generator,
@@ -86,7 +87,7 @@ class supervised_policy_trainer:
     def _setup_generator(self,folder,X_shape,y_shape,num_samples,sym_transform=False):
         # Returns number of samples in folder and a generator yielding batches of them
         filenames = [filename for filename in os.listdir(folder) if filename[-4:] == '.pkl']
-        if num_samples is None: num_samples = len(filenames)
+        num_samples = num_samples or len(filenames)
         def generator():
             while True:
                 sample_filenames = random.sample(filenames,num_samples)
@@ -113,7 +114,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
     parser.add_argument("train_folder", help="Path to folder of training samples")
     parser.add_argument("test_folder", help="Path to folder of testing samples")
-    parser.add_argument("input_dim",help="Feature depth of input tensors.",type=int)
     parser.add_argument("train_batch_size",help="Number of samples per SGD batch.",type=int)
     parser.add_argument("-test_batch_size",help="Number of samples per SGD batch. If omitted, all samples in folder will be used.",type=int,default=None)
     parser.add_argument("-model_folder", help="Path to folder where the model params will be saved after each epoch. Default: None",default=None)
@@ -123,7 +123,12 @@ if __name__ == '__main__':
     parser.add_argument("-nb_worker",help="Number of threads to use when training in parallel. Requires appropriately set Theano flags.",type=int,default=1)
     args = parser.parse_args()
 
-    net = CNNPolicy.create_network(input_dim=args.input_dim)
+    metapath = os.path.join(args.train_folder,'../metadata.json')
+    assert (os.path.isfile(metapath)),"error. couldn't find metadata.json"
+    with open(metapath) as metafile:
+        metadata = json.load(metafile)
+    policy_obj = CNNPolicy(feature_list = metadata['features'])
+    net = policy_obj.model
 
     trainer = supervised_policy_trainer(train_batch_size=args.train_batch_size,test_batch_size=args.test_batch_size,
                                         learning_rate=args.learning_rate,decay=args.decay,nb_epoch=args.nb_epoch,nb_worker=args.nb_worker)

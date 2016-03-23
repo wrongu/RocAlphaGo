@@ -59,7 +59,7 @@ if __name__ == '__main__':
 	parser.add_argument("--no-meta", help="Flag to disable saving a metadata.json file in the outfolder", default=False, action="store_true")
 	parser.add_argument("infolder", help="Path to folder containing games")
 	parser.add_argument("outfolder", help="Path to target folder.")
-	parser.add_argument("-auto_split", help="Randomly place each sample into a train, test, or dev subfolder with probabilities .93, .05, and .02 respectively.",
+	parser.add_argument("-auto_split", help="Parcel each sample into train, test, or dev subfolder with probabilities .93, .05, and .02 respectively.",
 	 					default=True)
 
 	args = parser.parse_args()
@@ -83,7 +83,7 @@ if __name__ == '__main__':
 		train_path = os.path.join(args.outfolder,'train')
 		test_path = os.path.join(args.outfolder,'test')
 		dev_path = os.path.join(args.outfolder,'dev')
-		# create these subfolders if they don't exist
+
 		if not os.path.exists(train_path): os.makedirs(train_path)
 		if not os.path.exists(test_path): os.makedirs(test_path)
 		if not os.path.exists(dev_path): os.makedirs(dev_path)
@@ -91,7 +91,6 @@ if __name__ == '__main__':
 	for s_a_tuple in converter.batch_convert(args.infolder, features=feature_list):
 		file_name = str(file_num)+".pkl"
 		if args.auto_split:
-			# select subfolder randomly w/ appropriate probability
 			subfolder = np.random.choice([train_path,test_path,dev_path], 1, p=[.93,.05,.02])[0]
 			pickle.dump(s_a_tuple, open(os.path.join(subfolder,file_name), "wb"))
 		else:
