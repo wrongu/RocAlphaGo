@@ -101,11 +101,11 @@ if __name__ == '__main__':
 		if not os.path.exists(test_path): os.makedirs(test_path)
 		if not os.path.exists(dev_path): os.makedirs(dev_path)
 
+	save_directory = args.outfolder
 	for s_a_tuple in converter.batch_convert(args.infolder, features=feature_list):
 		file_name = str(file_num)+".pkl"
 		if args.auto_split:
-			subfolder = np.random.choice([train_path,test_path,dev_path], 1, p=[.93,.05,.02])[0]
-			pickle.dump(s_a_tuple, open(os.path.join(subfolder,file_name), "wb"))
-		else:
-			pickle.dump(s_a_tuple, open(os.path.join(args.outfolder,file_name), "wb"))
+			save_directory = np.random.choice([train_path,test_path,dev_path], 1, p=[.93,.05,.02])[0]
+		with open(save_directory, "wb") as f:
+			pickle.dump(s_a_tuple, f)
 		file_num += 1
