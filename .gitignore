@@ -1,3 +1,8 @@
 *.pyc
 *.npy
 *.h5
+*.sgf
+*.pkl
+!tests/test_data/sgf/*.sgf
+!tests/test_data/pickle/test/*.pkl
+!tests/test_data/pickle/train/*.pkl
