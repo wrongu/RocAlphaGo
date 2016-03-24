@@ -3,6 +3,7 @@ from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import sgf_iter_states
 import AlphaGo.go as go
 import os
+import warnings
 
 class game_converter:
 
@@ -46,8 +47,11 @@ class game_converter:
 			if file_name[-4:] != '.sgf': continue
 			print file_name
 			training_samples = self.convert_game(os.path.join(folder_path,file_name), features)
-			for sample in training_samples:
-				yield sample
+			try:
+				for sample in training_samples:
+					yield sample
+			except go.IllegalMove:
+				warnings.warn("Illegal Move encountered in %s\n\tdropping the remainder of the game" % file_name)
 
 if __name__ == '__main__':
 	import argparse
