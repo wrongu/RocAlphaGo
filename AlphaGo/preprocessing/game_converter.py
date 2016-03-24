@@ -4,6 +4,7 @@ from AlphaGo.util import sgf_iter_states
 import AlphaGo.go as go
 import os
 import warnings
+import sgf
 
 class game_converter:
 
@@ -39,19 +40,27 @@ class game_converter:
 				nn_output = self._encode_label(move, state.size)
 				yield (nn_input, nn_output)
 
-	def batch_convert(self, folder_path, features=None):
+	def batch_convert(self, folder_path, features=None, ignore_errors=True):
 		"""lazily convert folder of games into training samples
 		"""
 		file_names = os.listdir(folder_path)
 		for file_name in file_names:
 			if file_name[-4:] != '.sgf': continue
 			print file_name
-			training_samples = self.convert_game(os.path.join(folder_path,file_name), features)
 			try:
+				training_samples = self.convert_game(os.path.join(folder_path,file_name), features)
 				for sample in training_samples:
 					yield sample
 			except go.IllegalMove:
 				warnings.warn("Illegal Move encountered in %s\n\tdropping the remainder of the game" % file_name)
+			except sgf.ParseException:
+				warnings.warn("Could not parse %s\n\tdropping game" % file_name)
+			except Exception as e:
+				# catch everything else
+				if ignore_errors:
+					warnings.warn("Unkown exception with file %s\n\t%s" % (file_name, e))
+				else:
+					raise e
 
 if __name__ == '__main__':
 	import argparse
