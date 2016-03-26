@@ -1,5 +1,3 @@
-__all__ = ["SimpleHTTPRequestHandler"]
-
 import os
 import posixpath
 import BaseHTTPServer
@@ -8,6 +6,8 @@ import cgi
 import shutil
 import mimetypes
 import re
+
+__all__ = ["SimpleHTTPRequestHandler"]
 
 try:
     from cStringIO import StringIO
