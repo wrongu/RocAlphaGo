@@ -13,7 +13,7 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
             test_folder='tests/test_data/pickle/test',
             model_folder='tests/test_data',
             checkpt_prefix="test")
-        #TODO: What's a good check that training has been conducted as expected?
+        # TODO: What's a good check that training has been conducted as expected?
 
         # Remove files created during testing
         [os.remove(os.path.join("tests/test_data", f)) for
