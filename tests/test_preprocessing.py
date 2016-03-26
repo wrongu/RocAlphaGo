@@ -50,7 +50,6 @@ class TestPreprocessingFeatures(unittest.TestCase):
 	indexes, so a numpy row is like a go column and vice versa)
 	"""
 
-
 	def test_get_board(self):
 		gs = simple_board()
 		pp = Preprocess(["board"])
