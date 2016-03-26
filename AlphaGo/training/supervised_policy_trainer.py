@@ -24,7 +24,7 @@ class supervised_policy_trainer:
 							Requires appropriately set Theano flags if >= 1. (default 1)
 		"""
 		self.learning_rate = learning_rate
-		self.decay =  decay
+		self.decay = decay
 		self.train_batch_size = train_batch_size
 		self.test_batch_size = test_batch_size
 		self.nb_epoch = nb_epoch
