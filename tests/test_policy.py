@@ -3,6 +3,7 @@ from AlphaGo.go import GameState
 import unittest
 import os
 
+
 class TestCNNPolicy(unittest.TestCase):
 
 	def test_default_policy(self):

@@ -7,6 +7,7 @@ from keras.optimizers import SGD
 from keras.callbacks import ModelCheckpoint
 from AlphaGo.models.policy import CNNPolicy
 
+
 class supervised_policy_trainer:
 	def __init__(
 		self, train_batch_size, test_batch_size=None,

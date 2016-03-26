@@ -2,6 +2,7 @@ from AlphaGo.go import GameState
 import numpy as np
 import unittest
 
+
 class TestLiberties(unittest.TestCase):
 
 	def setUp(self):

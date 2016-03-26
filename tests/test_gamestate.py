@@ -3,6 +3,7 @@ import AlphaGo.go as go
 import numpy as np
 import unittest
 
+
 class TestKo(unittest.TestCase):
 
 	def test_standard_ko(self):
@@ -55,6 +56,7 @@ class TestKo(unittest.TestCase):
 		# check that the numbers worked out
 		self.assertEqual(gs.num_black_prisoners, 2)
 		self.assertEqual(gs.num_white_prisoners, 1)
+
 
 class TestEye(unittest.TestCase):
 

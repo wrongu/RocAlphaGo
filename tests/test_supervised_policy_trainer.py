@@ -3,6 +3,7 @@ from AlphaGo.training.supervised_policy_trainer import supervised_policy_trainer
 from AlphaGo.models.policy import CNNPolicy
 import unittest
 
+
 class TestSupervisedPolicyTrainer(unittest.TestCase):
     def testTrain(self):
         net = CNNPolicy.create_network(input_dim=46)

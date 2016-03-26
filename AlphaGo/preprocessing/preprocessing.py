@@ -5,6 +5,7 @@ import AlphaGo.go as go
 ## individual feature functions (state --> tensor) begin here
 ##
 
+
 def get_board(state):
 	"""A feature encoding WHITE BLACK and EMPTY on separate planes, but plane 0
 	always refers to the current player and plane 1 to the opponent
@@ -14,6 +15,7 @@ def get_board(state):
 	planes[:, :, 1] = state.board == -state.current_player  # opponent stone
 	planes[:, :, 2] = state.board == go.EMPTY  # empty space
 	return planes
+
 
 def get_turns_since(state, maximum=8):
 	"""A feature encoding the age of the stone at each location up to 'maximum'
@@ -36,6 +38,7 @@ def get_turns_since(state, maximum=8):
 			depth += 1
 	return planes
 
+
 def get_liberties(state, maximum=8):
 	"""A feature encoding the number of liberties of the group connected to the stone at
 	each location
@@ -52,6 +55,7 @@ def get_liberties(state, maximum=8):
 	# the "maximum-or-more" case on the backmost plane
 	planes[state.liberty_counts >= maximum, maximum - 1] = 1
 	return planes
+
 
 def get_capture_size(state, maximum=8):
 	"""A feature encoding the number of opponent stones that would be captured by planing at each location,
@@ -78,6 +82,7 @@ def get_capture_size(state, maximum=8):
 		planes[x, y, min(n_captured, maximum - 1)] = 1
 	return planes
 
+
 def get_self_atari_size(state, maximum=8):
 	"""A feature encoding the size of the own-stone group that is put into atari by playing at a location
 	"""
@@ -103,6 +108,7 @@ def get_self_atari_size(state, maximum=8):
 			# 0th plane used for size=1, so group_size-1 is the index
 			planes[x, y, min(group_size - 1, maximum - 1)] = 1
 	return planes
+
 
 def get_liberties_after(state, maximum=8):
 	"""A feature encoding what the number of liberties *would be* of the group connected to
@@ -132,11 +138,14 @@ def get_liberties_after(state, maximum=8):
 		feature[x, y, min(maximum - 1, len(lib_set_after))] = 1
 	return feature
 
+
 def get_ladder_capture(state):
 	raise NotImplementedError()
 
+
 def get_ladder_escape(state):
 	raise NotImplementedError()
+
 
 def get_sensibleness(state):
 	"""A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
@@ -199,6 +208,7 @@ DEFAULT_FEATURES = [
 	"board", "ones", "turns_since", "liberties", "capture_size",
 	"self_atari_size", "liberties_after", "ladder_capture", "ladder_escape",
 	"sensibleness", "zeros"]
+
 
 class Preprocess(object):
 	"""a class to convert from AlphaGo GameState objects to tensors of one-hot

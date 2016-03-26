@@ -6,6 +6,7 @@ import keras.backend as K
 from AlphaGo.preprocessing.preprocessing import Preprocess
 import json
 
+
 class CNNPolicy(object):
 	"""uses a convolutional neural network to evaluate the state of the game
 	and compute a probability distribution over the next action

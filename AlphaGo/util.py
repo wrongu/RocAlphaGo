@@ -2,6 +2,7 @@ import sgf
 import string
 from AlphaGo import go
 
+
 def _parse_sgf_move(node_value):
 	"""Given a well-formed move string, return either PASS_MOVE or the (x, y) position
 	"""
@@ -12,6 +13,7 @@ def _parse_sgf_move(node_value):
 		col = string.letters.index(node_value[0])
 		# GameState expects (x, y) where x is column and y is row
 		return (col, row)
+
 
 def _sgf_init_gamestate(sgf_root):
 	"""Helper function to set up a GameState object from the root node
@@ -34,6 +36,7 @@ def _sgf_init_gamestate(sgf_root):
 	gs.current_player = go.BLACK if s_player == 'B' else go.WHITE
 	return gs
 
+
 def sgf_to_gamestate(sgf_string):
 	"""Creates a GameState object from the first game in the given collection
 	"""
@@ -43,6 +46,7 @@ def sgf_to_gamestate(sgf_string):
 	# gs has been updated in-place to the final state by the time
 	# sgf_iter_states returns
 	return gs
+
 
 def sgf_iter_states(sgf_string):
 	"""Iterates over (GameState, move, player) tuples in the first game of the given SGF file.

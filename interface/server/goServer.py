@@ -14,6 +14,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 
+
 class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     """Simple HTTP request handler with GET/HEAD/POST commands.

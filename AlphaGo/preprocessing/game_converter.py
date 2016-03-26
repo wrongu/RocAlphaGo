@@ -6,6 +6,7 @@ import os
 import warnings
 import sgf
 
+
 class game_converter:
 
 	def _encode_label(self, move, size):

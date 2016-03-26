@@ -7,6 +7,7 @@ test_features = ["board", "turns_since", "liberties", "capture_size", "self_atar
 gc = game_converter()
 args = ('tests/test_data/sgf/Lee-Sedol-vs-AlphaGo-20160309.sgf', test_features)
 
+
 def run_convert_game():
 	for traindata in gc.convert_game(*args):
 		pass

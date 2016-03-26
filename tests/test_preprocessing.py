@@ -3,6 +3,7 @@ import AlphaGo.go as go
 import numpy as np
 import unittest
 
+
 def simple_board():
 	# make a tiny board for the sake of testing and hand-coding expected results
 	#
@@ -38,6 +39,7 @@ def simple_board():
 	gs.do_move((4, 4))  # B - does the capture
 
 	return gs
+
 
 class TestPreprocessingFeatures(unittest.TestCase):
 	"""Test the functions in preprocessing.py

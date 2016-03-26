@@ -5,6 +5,7 @@ BLACK = +1
 EMPTY = 0
 PASS_MOVE = None
 
+
 class GameState(object):
 	"""State of a game of Go and some basic functions to interact with it
 	"""
@@ -264,6 +265,7 @@ class GameState(object):
 			self.history.append(action)
 		else:
 			raise IllegalMove(str(action))
+
 
 class IllegalMove(Exception):
 	pass
