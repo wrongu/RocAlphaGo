@@ -96,7 +96,7 @@ class GameState(object):
 
 		merged_group = set()
 		merged_group.add(position)
-		merged_libs  = self.liberty_sets[x][y]
+		merged_libs = self.liberty_sets[x][y]
 		for (nx, ny) in self._neighbors(position):
 			# remove (x,y) from liberties of neighboring positions
 			self.liberty_sets[nx][ny] -= set([position])
@@ -111,7 +111,7 @@ class GameState(object):
 			# groups that just became connected through (x,y)
 			elif self.board[x][y] == self.board[nx][ny]:
 				merged_group |= self.group_sets[nx][ny]
-				merged_libs  |= self.liberty_sets[nx][ny]
+				merged_libs |= self.liberty_sets[nx][ny]
 
 		# now that we have one big 'merged' set for groups and liberties, loop
 		# over every member of the same-color group to update them
