@@ -86,7 +86,7 @@ class GameState(object):
 		the given (x,y) position. Basically it handles edges and corners.
 		"""
 		(x,y) = position
-		return filter(self._on_board, [(x-1, y), (x+1, y), (x, y-1), (x, y+1)])
+		return filter(self._on_board, [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)])
 
 	def _update_neighbors(self, position):
 		"""A private helper function to update self.group_sets and self.liberty_sets

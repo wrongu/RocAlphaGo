@@ -104,7 +104,7 @@ if __name__ == '__main__':
 
 	save_directory = args.outfolder
 	for s_a_tuple in converter.batch_convert(args.infolder, features=feature_list):
-		file_name = str(file_num)+".pkl"
+		file_name = str(file_num) + ".pkl"
 		if args.auto_split:
 			save_directory = np.random.choice([train_path,test_path,dev_path], 1, p=[.93,.05,.02])[0]
 		with open(save_directory, "wb") as f:

@@ -100,7 +100,7 @@ class CNNPolicy(object):
 			border_mode='same'))
 
 		# create all other layers
-		for i in range(2,params["layers"]+1):
+		for i in range(2,params["layers"] + 1):
 			# use filter_width_K if it is there, otherwise use 3
 			filter_key = "filter_width_%d" % i
 			filter_width = params.get(filter_key, 3)

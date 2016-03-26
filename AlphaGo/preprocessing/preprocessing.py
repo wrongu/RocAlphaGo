@@ -32,7 +32,7 @@ def get_turns_since(state, maximum=8):
 			planes[x,y,depth] = 1
 		# increment depth if there are more planes available
 		# (the last plane serves as the "maximum-1 or more" feature)
-		if depth < maximum-1:
+		if depth < maximum - 1:
 			depth += 1
 	return planes
 
@@ -48,9 +48,9 @@ def get_liberties(state, maximum=8):
 	planes = np.zeros((state.size, state.size, maximum))
 	for i in range(maximum):
 		# single liberties in plane zero (groups won't have zero), double liberties in plane one, etc
-		planes[state.liberty_counts == i+1, i] = 1
+		planes[state.liberty_counts == i + 1, i] = 1
 	# the "maximum-or-more" case on the backmost plane
-	planes[state.liberty_counts >= maximum, maximum-1] = 1
+	planes[state.liberty_counts >= maximum, maximum - 1] = 1
 	return planes
 
 def get_capture_size(state, maximum=8):
@@ -75,7 +75,7 @@ def get_capture_size(state, maximum=8):
 			(gx,gy) = next(iter(neighbor_group))
 			if state.liberty_counts[gx][gy] == 1:
 				n_captured += len(state.group_sets[gx][gy])
-		planes[x,y,min(n_captured,maximum-1)] = 1
+		planes[x,y,min(n_captured,maximum - 1)] = 1
 	return planes
 
 def get_self_atari_size(state, maximum=8):
@@ -101,7 +101,7 @@ def get_self_atari_size(state, maximum=8):
 		if len(lib_set_after) == 1:
 			group_size = len(group_set_after)
 			# 0th plane used for size=1, so group_size-1 is the index
-			planes[x,y,min(group_size-1,maximum-1)] = 1
+			planes[x,y,min(group_size - 1,maximum - 1)] = 1
 	return planes
 
 def get_liberties_after(state, maximum=8):
@@ -129,7 +129,7 @@ def get_liberties_after(state, maximum=8):
 		# since it's clearly not a liberty after playing there
 		if (x,y) in lib_set_after:
 			lib_set_after.remove((x,y))
-		feature[x,y,min(maximum-1,len(lib_set_after))] = 1
+		feature[x,y,min(maximum - 1,len(lib_set_after))] = 1
 	return feature
 
 def get_ladder_capture(state):

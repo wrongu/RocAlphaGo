@@ -126,7 +126,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		for i in range(8):
 			self.assertTrue(
 				np.all(feature[:,:,i] == one_hot_liberties[:,:,i]),
-				"bad expectation: stones with %d liberties" % (i+1))
+				"bad expectation: stones with %d liberties" % (i + 1))
 
 	def test_get_capture_size(self):
 		# TODO - at the moment there is no imminent capture
@@ -172,7 +172,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		for i in range(8):
 			self.assertTrue(
 				np.all(feature[:,:,i] == one_hot_liberties[:,:,i]),
-				"bad expectation: stones with %d liberties after move" % (i+1))
+				"bad expectation: stones with %d liberties after move" % (i + 1))
 
 	def test_get_ladder_capture(self):
 		pass
@@ -198,7 +198,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		pp = Preprocess(["board", "sensibleness", "capture_size"])
 		feature = pp.state_to_tensor(gs)[0].transpose((1,2,0))
 
-		expectation = np.zeros((gs.size, gs.size, 3+1+8))
+		expectation = np.zeros((gs.size, gs.size, 3 + 1 + 8))
 
 		# first three planes: board
 		expectation[:,:,0] = (gs.board == go.WHITE) * 1
