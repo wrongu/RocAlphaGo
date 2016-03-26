@@ -8,8 +8,9 @@ from keras.callbacks import ModelCheckpoint
 from AlphaGo.models.policy import CNNPolicy
 
 class supervised_policy_trainer:
-	def __init__(self,train_batch_size,test_batch_size=None,
-					learning_rate=.003,decay=.0001,nb_epoch=10,nb_worker=1):
+	def __init__(
+		self,train_batch_size,test_batch_size=None,
+		learning_rate=.003,decay=.0001,nb_epoch=10,nb_worker=1):
 		"""Construct a supervised-learning policy trainer.
 
 		Training parameters:
@@ -62,8 +63,9 @@ class supervised_policy_trainer:
 		X_shape = model.get_config()['layers'][0]['input_shape']
 		y_shape = X_shape[-2:] # class labels will always be board x board
 
-		trainset_size, train_generator = self._setup_generator(train_folder,X_shape,y_shape,
-											self.train_batch_size,sym_transform=True)
+		trainset_size, train_generator = self._setup_generator(
+			train_folder,X_shape,y_shape,
+			self.train_batch_size,sym_transform=True)
 		testset_size, test_generator = self._setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
 
 		self.train_batch_size = self.train_batch_size or trainset_size
@@ -75,14 +77,16 @@ class supervised_policy_trainer:
 		print "Testing will occur on", str(self.test_batch_size), \
 			"samples drawn without replacement from a pool of", str(testset_size), "."
 		if not model_folder:
-			model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
-								validation_data=test_generator,nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True)
+			model.fit_generator(
+				generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
+				validation_data=test_generator,nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True)
 		else:
 			# filename encodes checkpt_prefix, epoch number, and test set loss
 			model_path = os.path.join(model_folder,checkpt_prefix + ".{epoch:02d}-{val_loss:.2f}.hdf5")
 			checkpointer = ModelCheckpoint(filepath=model_path)
-			model.fit_generator(generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,validation_data=test_generator,
-								nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True,callbacks=[checkpointer])
+			model.fit_generator(
+				generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,validation_data=test_generator,
+				nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True,callbacks=[checkpointer])
 
 	def _setup_generator(self,folder,X_shape,y_shape,num_samples,sym_transform=False):
 		# Returns number of samples in folder and a generator yielding batches of them
@@ -130,6 +134,7 @@ if __name__ == '__main__':
 	policy_obj = CNNPolicy(feature_list = metadata['features'])
 	net = policy_obj.model
 
-	trainer = supervised_policy_trainer(train_batch_size=args.train_batch_size,test_batch_size=args.test_batch_size,
-										learning_rate=args.learning_rate,decay=args.decay,nb_epoch=args.nb_epoch,nb_worker=args.nb_worker)
+	trainer = supervised_policy_trainer(
+		train_batch_size=args.train_batch_size,test_batch_size=args.test_batch_size,
+		learning_rate=args.learning_rate,decay=args.decay,nb_epoch=args.nb_epoch,nb_worker=args.nb_worker)
 	trainer.train(net,args.train_folder,args.test_folder,args.model_folder)

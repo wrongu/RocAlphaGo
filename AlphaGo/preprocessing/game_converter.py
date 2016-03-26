@@ -72,8 +72,9 @@ if __name__ == '__main__':
 	parser.add_argument("--no-meta", help="Flag to disable saving a metadata.json file in the outfolder", default=False, action="store_true")
 	parser.add_argument("infolder", help="Path to folder containing games")
 	parser.add_argument("outfolder", help="Path to target folder.")
-	parser.add_argument("-auto_split", help="Parcel each sample into train, test, or dev subfolder with probabilities .93, .05, and .02 respectively.",
-						default=True)
+	parser.add_argument(
+		"-auto_split", help="Parcel each sample into train, test, or dev subfolder with probabilities .93, .05, and .02 respectively.",
+		default=True)
 
 	args = parser.parse_args()
 

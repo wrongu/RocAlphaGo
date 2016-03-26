@@ -124,7 +124,8 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		one_hot_liberties[4,2,3] = 1
 
 		for i in range(8):
-			self.assertTrue(np.all(feature[:,:,i] == one_hot_liberties[:,:,i]),
+			self.assertTrue(
+				np.all(feature[:,:,i] == one_hot_liberties[:,:,i]),
 				"bad expectation: stones with %d liberties" % (i+1))
 
 	def test_get_capture_size(self):
@@ -139,7 +140,8 @@ class TestPreprocessingFeatures(unittest.TestCase):
 			one_hot_capture[x,y,0] = 1
 
 		for i in range(8):
-			self.assertTrue(np.all(feature[:,:,i] == one_hot_capture[:,:,i]),
+			self.assertTrue(
+				np.all(feature[:,:,i] == one_hot_capture[:,:,i]),
 				"bad expectation: capturing %d stones" % i)
 
 	def test_get_self_atari_size(self):
@@ -168,7 +170,8 @@ class TestPreprocessingFeatures(unittest.TestCase):
 				one_hot_liberties[x,y,7] = 1
 
 		for i in range(8):
-			self.assertTrue(np.all(feature[:,:,i] == one_hot_liberties[:,:,i]),
+			self.assertTrue(
+				np.all(feature[:,:,i] == one_hot_liberties[:,:,i]),
 				"bad expectation: stones with %d liberties after move" % (i+1))
 
 	def test_get_ladder_capture(self):

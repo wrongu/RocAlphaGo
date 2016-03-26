@@ -7,7 +7,8 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
     def testTrain(self):
         net = CNNPolicy.create_network(input_dim=46)
         trainer = supervised_policy_trainer(train_batch_size=3,nb_epoch=2)
-        trainer.train(net,
+        trainer.train(
+            net,
             train_folder='tests/test_data/pickle/train',
             test_folder = 'tests/test_data/pickle/test',
             model_folder = 'tests/test_data',

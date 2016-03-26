@@ -195,7 +195,8 @@ FEATURES = {
 	}
 }
 
-DEFAULT_FEATURES = ["board", "ones", "turns_since", "liberties", "capture_size",
+DEFAULT_FEATURES = [
+	"board", "ones", "turns_since", "liberties", "capture_size",
 	"self_atari_size", "liberties_after", "ladder_capture", "ladder_escape",
 	"sensibleness", "zeros"]
 
