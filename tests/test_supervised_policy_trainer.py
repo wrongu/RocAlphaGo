@@ -10,8 +10,8 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
         trainer.train(
             net,
             train_folder='tests/test_data/pickle/train',
-            test_folder = 'tests/test_data/pickle/test',
-            model_folder = 'tests/test_data',
+            test_folder='tests/test_data/pickle/test',
+            model_folder='tests/test_data',
             checkpt_prefix="test")
         #TODO: What's a good check that training has been conducted as expected?
 

@@ -131,7 +131,7 @@ if __name__ == '__main__':
 	assert (os.path.isfile(metapath)), "error. couldn't find metadata.json"
 	with open(metapath) as metafile:
 		metadata = json.load(metafile)
-	policy_obj = CNNPolicy(feature_list = metadata['features'])
+	policy_obj = CNNPolicy(feature_list=metadata['features'])
 	net = policy_obj.model
 
 	trainer = supervised_policy_trainer(
