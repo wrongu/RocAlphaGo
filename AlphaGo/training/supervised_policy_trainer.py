@@ -92,6 +92,7 @@ class supervised_policy_trainer:
 		# Returns number of samples in folder and a generator yielding batches of them
 		filenames = [filename for filename in os.listdir(folder) if filename[-4:] == '.pkl']
 		num_samples = num_samples or len(filenames)
+
 		def generator():
 			while True:
 				sample_filenames = random.sample(filenames, num_samples)
