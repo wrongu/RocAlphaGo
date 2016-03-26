@@ -46,8 +46,8 @@ class GameState(object):
 		y being the row index of the starting position of the search
 
 		Return:
-		a set of tuples consist of (x, y)s which are the same-color cluster 
-		which contains the input single position. len(group) is size of the cluster, can be large. 
+		a set of tuples consist of (x, y)s which are the same-color cluster
+		which contains the input single position. len(group) is size of the cluster, can be large.
 		"""
 		(x, y) = position
 		# given that this is already cached, it is a fast lookup
@@ -87,9 +87,9 @@ class GameState(object):
 		"""
 		(x,y) = position
 		return filter(self._on_board, [(x-1, y), (x+1, y), (x, y-1), (x, y+1)])
-	
+
 	def _update_neighbors(self, position):
-		"""A private helper function to update self.group_sets and self.liberty_sets 
+		"""A private helper function to update self.group_sets and self.liberty_sets
 		given that a stone was just played at `position`
 		"""
 		(x,y) = position
@@ -113,7 +113,7 @@ class GameState(object):
 				merged_group |= self.group_sets[nx][ny]
 				merged_libs  |= self.liberty_sets[nx][ny]
 
-		# now that we have one big 'merged' set for groups and liberties, loop 
+		# now that we have one big 'merged' set for groups and liberties, loop
 		# over every member of the same-color group to update them
 		# Note: neighboring opponent groups are already updated in the previous loop
 		count_merged_libs = len(merged_libs)
@@ -200,7 +200,7 @@ class GameState(object):
 		empty = self.board[x][y] == EMPTY
 		suicide = self.is_suicide(action)
 		ko = action == self.ko
-		return self._on_board(action) and (not suicide) and (not ko) and empty 
+		return self._on_board(action) and (not suicide) and (not ko) and empty
 
 	def is_eye(self, position, owner):
 		"""returns whether the position is empty and is surrounded by all stones of 'owner'
@@ -236,7 +236,7 @@ class GameState(object):
 				(x,y) = action
 				self.board[x][y] = color
 				self._update_neighbors(action)
-				
+
 				# check neighboring groups' liberties for captures
 				for (nx, ny) in self._neighbors(action):
 					if self.board[nx,ny] == -color and len(self.liberty_sets[nx][ny]) == 0:

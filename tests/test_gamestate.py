@@ -14,7 +14,7 @@ class TestKo(unittest.TestCase):
 		gs.do_move((1,2)) # B
 		gs.do_move((2,2)) # W
 		gs.do_move((2,1)) # B
-		
+
 		gs.do_move((1,1)) # W trigger capture and ko
 
 		self.assertEqual(gs.num_black_prisoners, 1)

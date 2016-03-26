@@ -21,7 +21,7 @@ class TestCNNPolicy(unittest.TestCase):
 
 	def test_save_load(self):
 		policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
-		
+
 		model_file = 'TESTPOLICY.json'
 		weights_file = 'TESTWEIGHTS.h5'
 
