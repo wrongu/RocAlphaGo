@@ -6,6 +6,7 @@ import keras.backend as K
 from AlphaGo.preprocessing.preprocessing import Preprocess
 import json
 
+
 class CNNPolicy(object):
 	"""uses a convolutional neural network to evaluate the state of the game
 	and compute a probability distribution over the next action
@@ -59,20 +60,20 @@ class CNNPolicy(object):
 
 		# get network activations at legal move locations
 		# note: may not be a proper distribution by ignoring illegal moves
-		return [((x,y), network_output[x,y]) for (x,y) in state.get_legal_moves()]
+		return [((x, y), network_output[x, y]) for (x, y) in state.get_legal_moves()]
 
 	@staticmethod
 	def create_network(**kwargs):
 		"""construct a convolutional neural network.
 
 		Keword Arguments:
-		- input_dim:         depth of features to be processed by first layer (no default)
-		- board:             width of the go board to be processed (default 19)
-		- filters_per_layer: number of filters used on every layer (default 128)
-		- layers:            number of convolutional steps (default 12)
-		- filter_width_K:    (where K is between 1 and <layers>) width of filter on
-							 layer K (default 3 except 1st layer which defaults to 5).
-							 Must be odd.
+		- input_dim:         	depth of features to be processed by first layer (no default)
+		- board:             	width of the go board to be processed (default 19)
+		- filters_per_layer: 	number of filters used on every layer (default 128)
+		- layers:            	number of convolutional steps (default 12)
+		- filter_width_K:    	(where K is between 1 and <layers>) width of filter on
+								layer K (default 3 except 1st layer which defaults to 5).
+								Must be odd.
 		"""
 		defaults = {
 			"board": 19,
@@ -100,7 +101,7 @@ class CNNPolicy(object):
 			border_mode='same'))
 
 		# create all other layers
-		for i in range(2,params["layers"]+1):
+		for i in range(2, params["layers"] + 1):
 			# use filter_width_K if it is there, otherwise use 3
 			filter_key = "filter_width_%d" % i
 			filter_width = params.get(filter_key, 3)
@@ -120,7 +121,7 @@ class CNNPolicy(object):
 			init='uniform',
 			border_mode='same'))
 		# reshape output to be board x board
-		network.add(Reshape((params["board"],params["board"])))
+		network.add(Reshape((params["board"], params["board"])))
 		# softmax makes it into a probability distribution
 		network.add(Activation('softmax'))
 
@@ -148,8 +149,8 @@ class CNNPolicy(object):
 		# entry in the saved file. Keras just happens to serialize models with JSON
 		# as well. Note how this format makes load_model fairly clean as well.
 		object_specs = {
-			'keras_model' : self.model.to_json(),
-			'feature_list' : self.preprocessor.feature_list
+			'keras_model': self.model.to_json(),
+			'feature_list': self.preprocessor.feature_list
 		}
 		# use the json module to write object_specs to file
 		with open(json_file, 'w') as f:
