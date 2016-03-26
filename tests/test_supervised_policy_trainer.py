@@ -18,7 +18,7 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
         # Remove files created during testing
         [os.remove(os.path.join("tests/test_data",f)) for
             f in os.listdir("tests/test_data")
-            if f.split('.')[0]=="test"]
+            if f.split('.')[0] == "test"]
 
-if __name__=='__main__':
+if __name__ == '__main__':
     unittest.main()
