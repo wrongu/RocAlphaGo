@@ -1,6 +1,5 @@
 from AlphaGo.go import GameState
 import AlphaGo.go as go
-import numpy as np
 import unittest
 
 
