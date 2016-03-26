@@ -149,47 +149,47 @@ def get_sensibleness(state):
 
 # named features and their sizes are defined here
 FEATURES = {
-	"board" : {
+	"board": {
 		"size": 3,
 		"function": get_board
 	},
-	"ones" : {
+	"ones": {
 		"size": 1,
 		"function": lambda state: np.zeros((state.size, state.size))
 	},
-	"turns_since" : {
+	"turns_since": {
 		"size": 8,
 		"function": get_turns_since
 	},
-	"liberties" : {
+	"liberties": {
 		"size": 8,
 		"function": get_liberties
 	},
-	"capture_size" : {
+	"capture_size": {
 		"size": 8,
 		"function": get_capture_size
 	},
-	"self_atari_size" : {
+	"self_atari_size": {
 		"size": 8,
 		"function": get_self_atari_size
 	},
-	"liberties_after" : {
+	"liberties_after": {
 		"size": 8,
 		"function": get_liberties_after
 	},
-	"ladder_capture" : {
+	"ladder_capture": {
 		"size": 1,
 		"function": get_ladder_capture
 	},
-	"ladder_escape" : {
+	"ladder_escape": {
 		"size": 1,
 		"function": get_ladder_escape
 	},
-	"sensibleness" : {
+	"sensibleness": {
 		"size": 1,
 		"function": get_sensibleness
 	},
-	"zeros" : {
+	"zeros": {
 		"size": 1,
 		"function": lambda state: np.zeros((state.size, state.size))
 	}

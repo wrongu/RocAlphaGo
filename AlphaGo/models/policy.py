@@ -148,8 +148,8 @@ class CNNPolicy(object):
 		# entry in the saved file. Keras just happens to serialize models with JSON
 		# as well. Note how this format makes load_model fairly clean as well.
 		object_specs = {
-			'keras_model' : self.model.to_json(),
-			'feature_list' : self.preprocessor.feature_list
+			'keras_model': self.model.to_json(),
+			'feature_list': self.preprocessor.feature_list
 		}
 		# use the json module to write object_specs to file
 		with open(json_file, 'w') as f:
