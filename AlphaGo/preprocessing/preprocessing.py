@@ -10,9 +10,9 @@ def get_board(state):
 	always refers to the current player and plane 1 to the opponent
 	"""
 	planes = np.zeros((state.size, state.size, 3))
-	planes[:, :, 0] = state.board == state.current_player # own stone
-	planes[:, :, 1] = state.board == -state.current_player # opponent stone
-	planes[:, :, 2] = state.board == go.EMPTY # empty space
+	planes[:, :, 0] = state.board == state.current_player  # own stone
+	planes[:, :, 1] = state.board == -state.current_player  # opponent stone
+	planes[:, :, 2] = state.board == go.EMPTY  # empty space
 	return planes
 
 def get_turns_since(state, maximum=8):

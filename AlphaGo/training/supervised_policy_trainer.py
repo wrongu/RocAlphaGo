@@ -61,7 +61,7 @@ class supervised_policy_trainer:
 
 		# 2. Construct generators to fetch train and test data
 		X_shape = model.get_config()['layers'][0]['input_shape']
-		y_shape = X_shape[-2:] # class labels will always be board x board
+		y_shape = X_shape[-2:]  # class labels will always be board x board
 
 		trainset_size, train_generator = self._setup_generator(
 			train_folder, X_shape, y_shape,
@@ -107,7 +107,7 @@ class supervised_policy_trainer:
 	def _prep_sample(self, folder, filename, sym_transform):
 		with open(os.path.join(folder, filename), 'r') as sample_filename:
 			feature_input, label = pickle.load(sample_filename)
-		if sym_transform: # randomly transform sample to some symmetric version of itself
+		if sym_transform:  # randomly transform sample to some symmetric version of itself
 			transform = random.choice(self.BOARD_TRANSFORMATIONS)
 			# apply tranform at every depth
 			feature_input[0] = np.array([transform(feature) for feature in feature_input[0]])

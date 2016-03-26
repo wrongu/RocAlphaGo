@@ -7,15 +7,15 @@ class TestKo(unittest.TestCase):
 
 	def test_standard_ko(self):
 		gs = GameState(size=9)
-		gs.do_move((1, 0)) # B
-		gs.do_move((2, 0)) # W
-		gs.do_move((0, 1)) # B
-		gs.do_move((3, 1)) # W
-		gs.do_move((1, 2)) # B
-		gs.do_move((2, 2)) # W
-		gs.do_move((2, 1)) # B
+		gs.do_move((1, 0))  # B
+		gs.do_move((2, 0))  # W
+		gs.do_move((0, 1))  # B
+		gs.do_move((3, 1))  # W
+		gs.do_move((1, 2))  # B
+		gs.do_move((2, 2))  # W
+		gs.do_move((2, 1))  # B
 
-		gs.do_move((1, 1)) # W trigger capture and ko
+		gs.do_move((1, 1))  # W trigger capture and ko
 
 		self.assertEqual(gs.num_black_prisoners, 1)
 		self.assertEqual(gs.num_white_prisoners, 0)
@@ -63,14 +63,14 @@ class TestEye(unittest.TestCase):
 		# create a black eye in top left (1,1), white in bottom right (5,5)
 
 		gs = GameState(size=7)
-		gs.do_move((1, 0)) # B
-		gs.do_move((5, 4)) # W
-		gs.do_move((2, 1)) # B
-		gs.do_move((6, 5)) # W
-		gs.do_move((1, 2)) # B
-		gs.do_move((5, 6)) # W
-		gs.do_move((0, 1)) # B
-		gs.do_move((4, 5)) # W
+		gs.do_move((1, 0))  # B
+		gs.do_move((5, 4))  # W
+		gs.do_move((2, 1))  # B
+		gs.do_move((6, 5))  # W
+		gs.do_move((1, 2))  # B
+		gs.do_move((5, 6))  # W
+		gs.do_move((0, 1))  # B
+		gs.do_move((4, 5))  # W
 
 		# test black eye top left
 		self.assertTrue(gs.is_eye((1, 1), go.BLACK))

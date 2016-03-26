@@ -21,21 +21,21 @@ def simple_board():
 	gs = go.GameState(size=7)
 
 	# ladder-looking thing in the top-left
-	gs.do_move((0, 0)) # B
-	gs.do_move((1, 0)) # W
-	gs.do_move((0, 1)) # B
-	gs.do_move((1, 1)) # W
-	gs.do_move((0, 2)) # B
+	gs.do_move((0, 0))  # B
+	gs.do_move((1, 0))  # W
+	gs.do_move((0, 1))  # B
+	gs.do_move((1, 1))  # W
+	gs.do_move((0, 2))  # B
 
 	# ko position in the middle
-	gs.do_move((3, 4)) # W
-	gs.do_move((3, 3)) # B
-	gs.do_move((4, 5)) # W
-	gs.do_move((4, 2)) # B
-	gs.do_move((5, 4)) # W
-	gs.do_move((5, 3)) # B
-	gs.do_move((4, 3)) # W - the ko position
-	gs.do_move((4, 4)) # B - does the capture
+	gs.do_move((3, 4))  # W
+	gs.do_move((3, 3))  # B
+	gs.do_move((4, 5))  # W
+	gs.do_move((4, 2))  # B
+	gs.do_move((5, 4))  # W
+	gs.do_move((5, 3))  # B
+	gs.do_move((4, 3))  # W - the ko position
+	gs.do_move((4, 4))  # B - does the capture
 
 	return gs
 
@@ -185,7 +185,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
 		gs = simple_board()
 		pp = Preprocess(["sensibleness"])
-		feature = pp.state_to_tensor(gs)[0, 0] # 1D tensor; no need to transpose
+		feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
 		expectation = np.zeros((gs.size, gs.size))
 		for (x, y) in gs.get_legal_moves():

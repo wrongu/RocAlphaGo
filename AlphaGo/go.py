@@ -70,7 +70,7 @@ class GameState(object):
 		for (nx, ny) in self._neighbors(position):
 			if self.board[nx][ny] != EMPTY:
 				group = self.group_sets[nx][ny]
-				group_member = next(iter(group)) # pick any stone
+				group_member = next(iter(group))  # pick any stone
 				if not any(group_member in g for g in groups):
 					groups.append(group)
 		return groups

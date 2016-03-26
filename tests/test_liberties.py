@@ -23,12 +23,12 @@ class TestLiberties(unittest.TestCase):
 	def test_neighbors_edge_cases(self):
 
 		st = GameState()
-		st.do_move((0, 0)) #  B B . . . . .
-		st.do_move((5, 5)) #  B W . . . . .
-		st.do_move((0, 1)) #  . . . . . . .
-		st.do_move((6, 6)) #  . . . . . . .
-		st.do_move((1, 0)) #  . . . . . W .
-		st.do_move((1, 1)) #  . . . . . . W
+		st.do_move((0, 0))  #  B B . . . . .
+		st.do_move((5, 5))  #  B W . . . . .
+		st.do_move((0, 1))  #  . . . . . . .
+		st.do_move((6, 6))  #  . . . . . . .
+		st.do_move((1, 0))  #  . . . . . W .
+		st.do_move((1, 1))  #  . . . . . . W
 
 		# get_group in the corner
 		self.assertEqual(len(st.get_group((0, 0))), 3, "group size in corner")

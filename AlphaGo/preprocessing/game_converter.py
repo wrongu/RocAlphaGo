@@ -93,7 +93,7 @@ if __name__ == '__main__':
 	file_num = 0
 
 	if args.auto_split:
-		np.random.seed(0) # ensures reproducibility of splits
+		np.random.seed(0)  # ensures reproducibility of splits
 		train_path = os.path.join(args.outfolder, 'train')
 		test_path = os.path.join(args.outfolder, 'test')
 		dev_path = os.path.join(args.outfolder, 'dev')

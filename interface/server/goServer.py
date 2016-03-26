@@ -249,10 +249,10 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             return self.extensions_map['']
 
     if not mimetypes.inited:
-        mimetypes.init() # try to read system mime.types
+        mimetypes.init()  # try to read system mime.types
     extensions_map = mimetypes.types_map.copy()
     extensions_map.update({
-        '': 'application/octet-stream', # Default
+        '': 'application/octet-stream',  # Default
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
