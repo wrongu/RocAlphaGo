@@ -9,8 +9,8 @@ from AlphaGo.models.policy import CNNPolicy
 
 class supervised_policy_trainer:
 	def __init__(
-		self,train_batch_size,test_batch_size=None,
-		learning_rate=.003,decay=.0001,nb_epoch=10,nb_worker=1):
+		self, train_batch_size, test_batch_size=None,
+		learning_rate=.003, decay=.0001, nb_epoch=10, nb_worker=1):
 		"""Construct a supervised-learning policy trainer.
 
 		Training parameters:
@@ -34,16 +34,16 @@ class supervised_policy_trainer:
 		# which mitigates overfitting.
 		self.BOARD_TRANSFORMATIONS = [
 			lambda feature: feature,
-			lambda feature: np.rot90(feature,1),
-			lambda feature: np.rot90(feature,2),
-			lambda feature: np.rot90(feature,3),
+			lambda feature: np.rot90(feature, 1),
+			lambda feature: np.rot90(feature, 2),
+			lambda feature: np.rot90(feature, 3),
 			lambda feature: np.fliplr(feature),
 			lambda feature: np.flipud(feature),
 			lambda feature: np.transpose(feature),
-			lambda feature: np.fliplr(np.rot90(feature,1))
+			lambda feature: np.fliplr(np.rot90(feature, 1))
 		]
 
-	def train(self,model,train_folder,test_folder,model_folder=None,checkpt_prefix="weights"):
+	def train(self, model, train_folder, test_folder, model_folder=None, checkpt_prefix="weights"):
 		'''Fit an arbitrary keras model according to the training parameters.
 
 		Options:
@@ -56,7 +56,7 @@ class supervised_policy_trainer:
 							Used for definiteness across training sessions.
 		'''
 		# 1. Compile model
-		sgd = SGD(lr=self.learning_rate,decay=self.decay)
+		sgd = SGD(lr=self.learning_rate, decay=self.decay)
 		model.compile(loss='binary_crossentropy', optimizer=sgd)
 
 		# 2. Construct generators to fetch train and test data
@@ -64,9 +64,9 @@ class supervised_policy_trainer:
 		y_shape = X_shape[-2:] # class labels will always be board x board
 
 		trainset_size, train_generator = self._setup_generator(
-			train_folder,X_shape,y_shape,
-			self.train_batch_size,sym_transform=True)
-		testset_size, test_generator = self._setup_generator(test_folder,X_shape,y_shape,self.test_batch_size)
+			train_folder, X_shape, y_shape,
+			self.train_batch_size, sym_transform=True)
+		testset_size, test_generator = self._setup_generator(test_folder, X_shape, y_shape, self.test_batch_size)
 
 		self.train_batch_size = self.train_batch_size or trainset_size
 		self.test_batch_size = self.test_batch_size or testset_size
@@ -78,63 +78,63 @@ class supervised_policy_trainer:
 			"samples drawn without replacement from a pool of", str(testset_size), "."
 		if not model_folder:
 			model.fit_generator(
-				generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,
-				validation_data=test_generator,nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True)
+				generator=train_generator, samples_per_epoch=self.train_batch_size, nb_epoch=self.nb_epoch,
+				validation_data=test_generator, nb_val_samples=self.test_batch_size, nb_worker=self.nb_worker, show_accuracy=True)
 		else:
 			# filename encodes checkpt_prefix, epoch number, and test set loss
-			model_path = os.path.join(model_folder,checkpt_prefix + ".{epoch:02d}-{val_loss:.2f}.hdf5")
+			model_path = os.path.join(model_folder, checkpt_prefix + ".{epoch:02d}-{val_loss:.2f}.hdf5")
 			checkpointer = ModelCheckpoint(filepath=model_path)
 			model.fit_generator(
-				generator=train_generator,samples_per_epoch=self.train_batch_size,nb_epoch=self.nb_epoch,validation_data=test_generator,
-				nb_val_samples=self.test_batch_size,nb_worker=self.nb_worker,show_accuracy=True,callbacks=[checkpointer])
+				generator=train_generator, samples_per_epoch=self.train_batch_size, nb_epoch=self.nb_epoch, validation_data=test_generator,
+				nb_val_samples=self.test_batch_size, nb_worker=self.nb_worker, show_accuracy=True, callbacks=[checkpointer])
 
-	def _setup_generator(self,folder,X_shape,y_shape,num_samples,sym_transform=False):
+	def _setup_generator(self, folder, X_shape, y_shape, num_samples, sym_transform=False):
 		# Returns number of samples in folder and a generator yielding batches of them
 		filenames = [filename for filename in os.listdir(folder) if filename[-4:] == '.pkl']
 		num_samples = num_samples or len(filenames)
 		def generator():
 			while True:
-				sample_filenames = random.sample(filenames,num_samples)
+				sample_filenames = random.sample(filenames, num_samples)
 				X = np.empty((num_samples,) + X_shape, dtype='float64')
 				y = np.empty((num_samples,) + y_shape, dtype='float64')
-				for index,filename in enumerate(sample_filenames):
-					feature_input, label = self._prep_sample(folder,filename,sym_transform)
+				for index, filename in enumerate(sample_filenames):
+					feature_input, label = self._prep_sample(folder, filename, sym_transform)
 					X[index] = feature_input
 					y[index] = label
-				yield (X,y)
-		return(len(filenames),generator())
+				yield (X, y)
+		return(len(filenames), generator())
 
-	def _prep_sample(self,folder,filename,sym_transform):
-		with open(os.path.join(folder,filename),'r') as sample_filename:
+	def _prep_sample(self, folder, filename, sym_transform):
+		with open(os.path.join(folder, filename), 'r') as sample_filename:
 			feature_input, label = pickle.load(sample_filename)
 		if sym_transform: # randomly transform sample to some symmetric version of itself
 			transform = random.choice(self.BOARD_TRANSFORMATIONS)
 			# apply tranform at every depth
 			feature_input[0] = np.array([transform(feature) for feature in feature_input[0]])
 			label[0] = transform(label[0])
-		return feature_input[0],label[0]
+		return feature_input[0], label[0]
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
 	parser.add_argument("train_folder", help="Path to folder of training samples")
 	parser.add_argument("test_folder", help="Path to folder of testing samples")
-	parser.add_argument("train_batch_size",help="Number of samples per SGD batch.",type=int)
-	parser.add_argument("-test_batch_size",help="Number of samples per SGD batch. If omitted, all samples in folder will be used.",type=int,default=None)
-	parser.add_argument("-model_folder", help="Path to folder where the model params will be saved after each epoch. Default: None",default=None)
-	parser.add_argument("-nb_epoch",help="Total number of iterations on the data. Default: 10",type=int,default=10)
-	parser.add_argument("-learning_rate",help="How quickly the model learns at first. A (small) number between 0 and 1. Default: .03",type=float,default=.03)
-	parser.add_argument("-decay",help="The rate at which learning decreases. Default: .0001",type=float,default=.0001)
-	parser.add_argument("-nb_worker",help="Number of threads to use when training in parallel. Requires appropriately set Theano flags.",type=int,default=1)
+	parser.add_argument("train_batch_size", help="Number of samples per SGD batch.", type=int)
+	parser.add_argument("-test_batch_size", help="Number of samples per SGD batch. If omitted, all samples in folder will be used.", type=int, default=None)
+	parser.add_argument("-model_folder", help="Path to folder where the model params will be saved after each epoch. Default: None", default=None)
+	parser.add_argument("-nb_epoch", help="Total number of iterations on the data. Default: 10", type=int, default=10)
+	parser.add_argument("-learning_rate", help="How quickly the model learns at first. A (small) number between 0 and 1. Default: .03", type=float, default=.03)
+	parser.add_argument("-decay", help="The rate at which learning decreases. Default: .0001", type=float, default=.0001)
+	parser.add_argument("-nb_worker", help="Number of threads to use when training in parallel. Requires appropriately set Theano flags.", type=int, default=1)
 	args = parser.parse_args()
 
-	metapath = os.path.join(args.train_folder,'../metadata.json')
-	assert (os.path.isfile(metapath)),"error. couldn't find metadata.json"
+	metapath = os.path.join(args.train_folder, '../metadata.json')
+	assert (os.path.isfile(metapath)), "error. couldn't find metadata.json"
 	with open(metapath) as metafile:
 		metadata = json.load(metafile)
 	policy_obj = CNNPolicy(feature_list = metadata['features'])
 	net = policy_obj.model
 
 	trainer = supervised_policy_trainer(
-		train_batch_size=args.train_batch_size,test_batch_size=args.test_batch_size,
-		learning_rate=args.learning_rate,decay=args.decay,nb_epoch=args.nb_epoch,nb_worker=args.nb_worker)
-	trainer.train(net,args.train_folder,args.test_folder,args.model_folder)
+		train_batch_size=args.train_batch_size, test_batch_size=args.test_batch_size,
+		learning_rate=args.learning_rate, decay=args.decay, nb_epoch=args.nb_epoch, nb_worker=args.nb_worker)
+	trainer.train(net, args.train_folder, args.test_folder, args.model_folder)

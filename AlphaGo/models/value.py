@@ -14,7 +14,7 @@ class value_trainer:
         self.model.add(convolutional.Convolution2D(
             input_shape=(49, 19, 19), nb_filter=K, nb_row=5, nb_col=5,
             init='uniform', activation='relu', border_mode='same'))
-        for i in range(2,13):
+        for i in range(2, 13):
             self.model.add(convolutional.Convolution2D(
                 nb_filter=K, nb_row=3, nb_col=3,
                 init='uniform', activation='relu', border_mode='same'))
@@ -23,8 +23,8 @@ class value_trainer:
             nb_filter=1, nb_row=1, nb_col=1,
             init='uniform', activation='linear', border_mode='same'))
         self.model.add(Flatten())
-        self.model.add(Dense(256,init='uniform'))
-        self.model.add(Dense(1,init='uniform',activation="tanh"))
+        self.model.add(Dense(256, init='uniform'))
+        self.model.add(Dense(1, init='uniform', activation="tanh"))
 
         #sgd = SGD(lr=LEARNING_RATE, decay=DECAY)
         #self.model.compile(loss='mean_squared_error', optimizer=sgd)

@@ -6,7 +6,7 @@ import unittest
 class TestSupervisedPolicyTrainer(unittest.TestCase):
     def testTrain(self):
         net = CNNPolicy.create_network(input_dim=46)
-        trainer = supervised_policy_trainer(train_batch_size=3,nb_epoch=2)
+        trainer = supervised_policy_trainer(train_batch_size=3, nb_epoch=2)
         trainer.train(
             net,
             train_folder='tests/test_data/pickle/train',
@@ -16,7 +16,7 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
         #TODO: What's a good check that training has been conducted as expected?
 
         # Remove files created during testing
-        [os.remove(os.path.join("tests/test_data",f)) for
+        [os.remove(os.path.join("tests/test_data", f)) for
             f in os.listdir("tests/test_data")
             if f.split('.')[0] == "test"]
 

@@ -10,9 +10,9 @@ def get_board(state):
 	always refers to the current player and plane 1 to the opponent
 	"""
 	planes = np.zeros((state.size, state.size, 3))
-	planes[:,:,0] = state.board == state.current_player # own stone
-	planes[:,:,1] = state.board == -state.current_player # opponent stone
-	planes[:,:,2] = state.board == go.EMPTY # empty space
+	planes[:, :, 0] = state.board == state.current_player # own stone
+	planes[:, :, 1] = state.board == -state.current_player # opponent stone
+	planes[:, :, 2] = state.board == go.EMPTY # empty space
 	return planes
 
 def get_turns_since(state, maximum=8):
@@ -28,8 +28,8 @@ def get_turns_since(state, maximum=8):
 	# for the most recent move, a 1 in plane 1 for two moves ago, etc..
 	for move in state.history[::-1]:
 		if move is not go.PASS_MOVE:
-			(x,y) = move
-			planes[x,y,depth] = 1
+			(x, y) = move
+			planes[x, y, depth] = 1
 		# increment depth if there are more planes available
 		# (the last plane serves as the "maximum-1 or more" feature)
 		if depth < maximum - 1:
@@ -65,17 +65,17 @@ def get_capture_size(state, maximum=8):
 	"""
 	planes = np.zeros((state.size, state.size, maximum))
 	# check difference in size after doing each move
-	for (x,y) in state.get_legal_moves():
+	for (x, y) in state.get_legal_moves():
 		n_captured = 0
-		for neighbor_group in state.get_groups_around((x,y)):
+		for neighbor_group in state.get_groups_around((x, y)):
 			# if the neighboring group is opponent stones and they have
 			# one liberty, it must be (x,y) and we are capturing them
 			# (note suicide and ko are not an issue because they are not
 			# legal moves)
-			(gx,gy) = next(iter(neighbor_group))
+			(gx, gy) = next(iter(neighbor_group))
 			if state.liberty_counts[gx][gy] == 1:
 				n_captured += len(state.group_sets[gx][gy])
-		planes[x,y,min(n_captured,maximum - 1)] = 1
+		planes[x, y, min(n_captured, maximum - 1)] = 1
 	return planes
 
 def get_self_atari_size(state, maximum=8):
@@ -83,25 +83,25 @@ def get_self_atari_size(state, maximum=8):
 	"""
 	planes = np.zeros((state.size, state.size, maximum))
 
-	for (x,y) in state.get_legal_moves():
+	for (x, y) in state.get_legal_moves():
 		# make a copy of the liberty/group sets at (x,y) so we can manipulate them
 		lib_set_after = set(state.liberty_sets[x][y])
 		group_set_after = set()
-		group_set_after.add((x,y))
-		for neighbor_group in state.get_groups_around((x,y)):
+		group_set_after.add((x, y))
+		for neighbor_group in state.get_groups_around((x, y)):
 			# if the neighboring group is of the same color as the current player
 			# then playing here will connect this stone to that group
-			(gx,gy) = next(iter(neighbor_group))
-			if state.board[gx,gy] == state.current_player:
+			(gx, gy) = next(iter(neighbor_group))
+			if state.board[gx, gy] == state.current_player:
 				lib_set_after |= state.liberty_sets[gx][gy]
 				group_set_after |= state.liberty_sets[gx][gy]
-		if (x,y) in lib_set_after:
-			lib_set_after.remove((x,y))
+		if (x, y) in lib_set_after:
+			lib_set_after.remove((x, y))
 		# check if this move resulted in atari
 		if len(lib_set_after) == 1:
 			group_size = len(group_set_after)
 			# 0th plane used for size=1, so group_size-1 is the index
-			planes[x,y,min(group_size - 1,maximum - 1)] = 1
+			planes[x, y, min(group_size - 1, maximum - 1)] = 1
 	return planes
 
 def get_liberties_after(state, maximum=8):
@@ -115,21 +115,21 @@ def get_liberties_after(state, maximum=8):
 	"""
 	feature = np.zeros((state.size, state.size, maximum))
 	# note - left as all zeros if not a legal move
-	for (x,y) in state.get_legal_moves():
+	for (x, y) in state.get_legal_moves():
 		# make a copy of the set of liberties at (x,y) so we can add to it
 		lib_set_after = set(state.liberty_sets[x][y])
-		for neighbor_group in state.get_groups_around((x,y)):
+		for neighbor_group in state.get_groups_around((x, y)):
 			# if the neighboring group is of the same color as the current player
 			# then playing here will connect this stone to that group and
 			# therefore add in all that group's liberties
-			(gx,gy) = next(iter(neighbor_group))
-			if state.board[gx,gy] == state.current_player:
+			(gx, gy) = next(iter(neighbor_group))
+			if state.board[gx, gy] == state.current_player:
 				lib_set_after |= state.liberty_sets[gx][gy]
 		# (x,y) itself may have made its way back in, but shouldn't count
 		# since it's clearly not a liberty after playing there
-		if (x,y) in lib_set_after:
-			lib_set_after.remove((x,y))
-		feature[x,y,min(maximum - 1,len(lib_set_after))] = 1
+		if (x, y) in lib_set_after:
+			lib_set_after.remove((x, y))
+		feature[x, y, min(maximum - 1, len(lib_set_after))] = 1
 	return feature
 
 def get_ladder_capture(state):
@@ -142,9 +142,9 @@ def get_sensibleness(state):
 	"""A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
 	"""
 	feature = np.zeros((state.size, state.size))
-	for (x,y) in state.get_legal_moves():
-		if not state.is_eye((x,y), state.current_player):
-			feature[x,y] = 1
+	for (x, y) in state.get_legal_moves():
+		if not state.is_eye((x, y), state.current_player):
+			feature[x, y] = 1
 	return feature
 
 # named features and their sizes are defined here
@@ -231,12 +231,12 @@ class Preprocess(object):
 		for i, feat in enumerate(feat_tensors):
 			# reshape (width,height,depth) to (depth,width,height)
 			if feat.ndim == 2:
-				(w,h) = feat.shape
+				(w, h) = feat.shape
 				d = 1
 			else:
-				(w,h,d) = feat.shape
-			feat_tensors[i] = feat.reshape((w,h,d)).transpose((2,0,1))
+				(w, h, d) = feat.shape
+			feat_tensors[i] = feat.reshape((w, h, d)).transpose((2, 0, 1))
 
 		# concatenate along feature dimension then add in a singleton 'batch' dimensino
-		f,s = self.output_dim, state.size
-		return np.concatenate(feat_tensors).reshape((1,f,s,s))
+		f, s = self.output_dim, state.size
+		return np.concatenate(feat_tensors).reshape((1, f, s, s))

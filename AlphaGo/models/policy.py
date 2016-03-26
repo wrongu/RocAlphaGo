@@ -59,7 +59,7 @@ class CNNPolicy(object):
 
 		# get network activations at legal move locations
 		# note: may not be a proper distribution by ignoring illegal moves
-		return [((x,y), network_output[x,y]) for (x,y) in state.get_legal_moves()]
+		return [((x, y), network_output[x, y]) for (x, y) in state.get_legal_moves()]
 
 	@staticmethod
 	def create_network(**kwargs):
@@ -100,7 +100,7 @@ class CNNPolicy(object):
 			border_mode='same'))
 
 		# create all other layers
-		for i in range(2,params["layers"] + 1):
+		for i in range(2, params["layers"] + 1):
 			# use filter_width_K if it is there, otherwise use 3
 			filter_key = "filter_width_%d" % i
 			filter_width = params.get(filter_key, 3)
@@ -120,7 +120,7 @@ class CNNPolicy(object):
 			init='uniform',
 			border_mode='same'))
 		# reshape output to be board x board
-		network.add(Reshape((params["board"],params["board"])))
+		network.add(Reshape((params["board"], params["board"])))
 		# softmax makes it into a probability distribution
 		network.add(Activation('softmax'))
 
