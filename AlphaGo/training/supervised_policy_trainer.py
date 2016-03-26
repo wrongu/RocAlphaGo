@@ -30,7 +30,7 @@ class supervised_policy_trainer:
 		self.nb_worker = nb_worker
 
 		# These are 8 symmetric groups used to randomly transform training samples,
-			# which mitigates overfitting.
+		# which mitigates overfitting.
 		self.BOARD_TRANSFORMATIONS = [
 			lambda feature: feature,
 			lambda feature: np.rot90(feature,1),
