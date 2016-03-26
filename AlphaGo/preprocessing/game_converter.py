@@ -46,7 +46,8 @@ class game_converter:
 		"""
 		file_names = os.listdir(folder_path)
 		for file_name in file_names:
-			if file_name[-4:] != '.sgf': continue
+			if file_name[-4:] != '.sgf':
+				continue
 			print file_name
 			try:
 				training_samples = self.convert_game(os.path.join(folder_path, file_name), features)
@@ -99,9 +100,12 @@ if __name__ == '__main__':
 		test_path = os.path.join(args.outfolder, 'test')
 		dev_path = os.path.join(args.outfolder, 'dev')
 
-		if not os.path.exists(train_path): os.makedirs(train_path)
-		if not os.path.exists(test_path): os.makedirs(test_path)
-		if not os.path.exists(dev_path): os.makedirs(dev_path)
+		if not os.path.exists(train_path):
+			os.makedirs(train_path)
+		if not os.path.exists(test_path):
+			os.makedirs(test_path)
+		if not os.path.exists(dev_path):
+			os.makedirs(dev_path)
 
 	save_directory = args.outfolder
 	for s_a_tuple in converter.batch_convert(args.infolder, features=feature_list):
