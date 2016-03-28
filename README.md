@@ -3,6 +3,7 @@
 This project is a replication/reference implementation of DeepMind's 2016 Nature publication, "Mastering the game of Go with deep neural networks and tree search," details of which can be found [on their website](http://deepmind.com/alpha-go.html). This implementation uses Python and Keras - a decision to prioritize code clarity, at least in the early stages.
 
 [![Build Status](https://travis-ci.org/Rochester-NRT/AlphaGo.svg?branch=develop)](https://travis-ci.org/Rochester-NRT/AlphaGo)
+[![Gitter](https://badges.gitter.im/Rochester-NRT/AlphaGo.svg)](https://gitter.im/Rochester-NRT/AlphaGo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 # Current project status
 
