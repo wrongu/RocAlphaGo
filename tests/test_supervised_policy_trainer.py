@@ -1,25 +1,20 @@
 import os
-from AlphaGo.training.supervised_policy_trainer import supervised_policy_trainer
-from AlphaGo.models.policy import CNNPolicy
+from AlphaGo.training.supervised_policy_trainer import run_training
 import unittest
 
 
 class TestSupervisedPolicyTrainer(unittest.TestCase):
-    def testTrain(self):
-        net = CNNPolicy.create_network(input_dim=46)
-        trainer = supervised_policy_trainer(train_batch_size=3, nb_epoch=2)
-        trainer.train(
-            net,
-            train_folder='tests/test_data/pickle/train',
-            test_folder='tests/test_data/pickle/test',
-            model_folder='tests/test_data',
-            checkpt_prefix="test")
-        # TODO: What's a good check that training has been conducted as expected?
+	def testTrain(self):
+		model = 'tests/test_data/minimodel.json'
+		data = 'tests/test_data/hdf5/alphago-vs-lee-sedol-features.hdf5'
+		output = 'tests/test_data/.tmp.training/'
+		args = [model, data, output, '--epochs', '1']
+		run_training(args)
 
-        # Remove files created during testing
-        [os.remove(os.path.join("tests/test_data", f)) for
-            f in os.listdir("tests/test_data")
-            if f.split('.')[0] == "test"]
+		os.remove(os.path.join(output, 'metadata.json'))
+		os.remove(os.path.join(output, 'shuffle.npz'))
+		os.remove(os.path.join(output, 'weights.00.hdf5'))
+		os.rmdir(output)
 
 if __name__ == '__main__':
-    unittest.main()
+	unittest.main()

@@ -1,143 +1,209 @@
-import os
-import argparse
-import json
-import cPickle as pickle
-import random
 import numpy as np
+import os
+import h5py as h5
+import json
 from keras.optimizers import SGD
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, Callback
 from AlphaGo.models.policy import CNNPolicy
 
 
-class supervised_policy_trainer:
-	def __init__(
-		self, train_batch_size, test_batch_size=None,
-		learning_rate=.003, decay=.0001, nb_epoch=10, nb_worker=1):
-		"""Construct a supervised-learning policy trainer.
+def one_hot_action(action, size=19):
+	"""Convert an (x,y) action into a size x size array of zeros with a 1 at x,y
+	"""
+	categorical = np.zeros((size, size))
+	categorical[action] = 1
+	return categorical
 
-		Training parameters:
-		- train_batch_size:	Number of training samples per SGD minibatch (no default)
-		- test_batch_size:	Number of test samples to use when estimating model accuracy.
-							If None, whole folder is used. (default None)
-		- learning_rate:	Initial learning rate for SGD (default .003)
-		- decay:			Rate of learning rate decay (default .0001)
-		- nb_epoch:			Number of iterations through training set (default 10)
-		- nb_worker:		Number of threads to use when training in parallel.
-							Requires appropriately set Theano flags if >= 1. (default 1)
-		"""
-		self.learning_rate = learning_rate
-		self.decay = decay
-		self.train_batch_size = train_batch_size
-		self.test_batch_size = test_batch_size
-		self.nb_epoch = nb_epoch
-		self.nb_worker = nb_worker
 
-		# These are 8 symmetric groups used to randomly transform training samples,
-		# which mitigates overfitting.
-		self.BOARD_TRANSFORMATIONS = [
-			lambda feature: feature,
-			lambda feature: np.rot90(feature, 1),
-			lambda feature: np.rot90(feature, 2),
-			lambda feature: np.rot90(feature, 3),
-			lambda feature: np.fliplr(feature),
-			lambda feature: np.flipud(feature),
-			lambda feature: np.transpose(feature),
-			lambda feature: np.fliplr(np.rot90(feature, 1))
-		]
+def shuffled_hdf5_batch_generator(state_dataset, action_dataset, indices, batch_size, transforms=[]):
+	"""A generator of batches of training data for use with the fit_generator function
+	of Keras. Data is accessed in the order of the given indices for shuffling.
+	"""
+	state_batch_shape = (batch_size,) + state_dataset.shape[1:]
+	game_size = state_batch_shape[-1]
+	Xbatch = np.zeros(state_batch_shape)
+	Ybatch = np.zeros((batch_size, game_size, game_size))
+	batch_idx = 0
+	while True:
+		for data_idx in indices:
+			# choose a random transformation of the data (rotations/reflections of the board)
+			transform = np.random.choice(transforms)
+			# get state from dataset and transform it.
+			# loop comprehension is used so that the transformation acts on the 3rd and 4th dimensions
+			state = np.array([transform(plane) for plane in state_dataset[data_idx]])
+			action = transform(one_hot_action(action_dataset[data_idx], game_size))
+			Xbatch[batch_idx] = state
+			Ybatch[batch_idx] = action
+			batch_idx += 1
+			if batch_idx == batch_size:
+				batch_idx = 0
+				yield (Xbatch, Ybatch)
 
-	def train(self, model, train_folder, test_folder, model_folder=None, checkpt_prefix="weights"):
-		'''Fit an arbitrary keras model according to the training parameters.
 
-		Options:
-		- model:			A keras model to fit. Assumed not to be compiled.
-		- train_folder:		Folder of samples for training.
-		- test_folder:		Folder of samples for accuracy validation.
-		- model_folder:		Folder to save the model as a .hdf5 file at the end of every epoch.
-							If omitted, no models are saved.
-		- checkpt_prefix: 	String to prepend to each saved model file.
-							Used for definiteness across training sessions.
-		'''
-		# 1. Compile model
-		sgd = SGD(lr=self.learning_rate, decay=self.decay)
-		model.compile(loss='binary_crossentropy', optimizer=sgd)
+class MetadataWriterCallback(Callback):
 
-		# 2. Construct generators to fetch train and test data
-		X_shape = model.get_config()['layers'][0]['input_shape']
-		y_shape = X_shape[-2:]  # class labels will always be board x board
+	def __init__(self, path):
+		self.file = path
+		self.metadata = {
+			"epochs": [],
+			"best_epoch": 0
+		}
 
-		trainset_size, train_generator = self._setup_generator(
-			train_folder, X_shape, y_shape,
-			self.train_batch_size, sym_transform=True)
-		testset_size, test_generator = self._setup_generator(test_folder, X_shape, y_shape, self.test_batch_size)
+	def on_epoch_end(self, epoch, logs={}):
+		self.metadata["epochs"].append({
+			"acc": logs.get("acc"),
+			"val_acc": logs.get("val_acc")
+		})
 
-		self.train_batch_size = self.train_batch_size or trainset_size
-		self.test_batch_size = self.test_batch_size or testset_size
+		best_accuracy = self.metadata["epochs"][self.metadata["best_epoch"]]["val_acc"]
+		if logs.get("val_acc") > best_accuracy:
+			self.metadata["best_epoch"] = epoch
 
-		# 3. Train. Save model to new file each epoch.
-		print "Training prepared successfully. Commencing training on", str(trainset_size), \
-			"training samples in batches of", str(self.train_batch_size), "."
-		print "Testing will occur on", str(self.test_batch_size), \
-			"samples drawn without replacement from a pool of", str(testset_size), "."
-		if not model_folder:
-			model.fit_generator(
-				generator=train_generator, samples_per_epoch=self.train_batch_size, nb_epoch=self.nb_epoch,
-				validation_data=test_generator, nb_val_samples=self.test_batch_size, nb_worker=self.nb_worker, show_accuracy=True)
+		with open(self.file, "w") as f:
+			json.dump(self.metadata, f)
+
+BOARD_TRANSFORMATIONS = [
+	lambda feature: feature,
+	lambda feature: np.rot90(feature, 1),
+	lambda feature: np.rot90(feature, 2),
+	lambda feature: np.rot90(feature, 3),
+	lambda feature: np.fliplr(feature),
+	lambda feature: np.flipud(feature),
+	lambda feature: np.transpose(feature),
+	lambda feature: np.fliplr(np.rot90(feature, 1))
+]
+
+
+def run_training(cmd_line_args=None):
+	"""Run training. command-line args may be passed in as a list
+	"""
+	import argparse
+	parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
+	# required args
+	parser.add_argument("model", help="Path to a JSON model file (i.e. from CNNPolicy.save_model())")
+	parser.add_argument("train_data", help="A .h5 file of training data")
+	parser.add_argument("out_directory", help="directory where metadata and weights will be saved")
+	# frequently used args
+	parser.add_argument("--minibatch", "-B", help="Size of training data minibatches. Default: 16", type=int, default=16)
+	parser.add_argument("--epochs", "-E", help="Total number of iterations on the data. Default: 10", type=int, default=10)
+	parser.add_argument("--learning-rate", "-r", help="Learning rate - how quickly the model learns at first. Default: .03", type=float, default=.03)
+	parser.add_argument("--decay", "-d", help="The rate at which learning decreases. Default: .0001", type=float, default=.0001)
+	parser.add_argument("--workers", "-w", help="Number of 'workers' workon on batch generator in parallel. Default: 4", type=int, default=4)
+	parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
+	# slightly fancier args
+	parser.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)
+	parser.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Invalid if restarting training", nargs=3, type=float, default=[0.93, .05, .02])
+	# TODO - an argument to specify which transformations to use, put it in metadata
+
+	if cmd_line_args is None:
+		args = parser.parse_args()
+	else:
+		args = parser.parse_args(cmd_line_args)
+
+	# TODO - what follows here should be refactored into a series of small functions
+
+	resume = args.weights is not None
+
+	if args.verbose:
+		if resume:
+			print "trying to resume from %s with weights %s" % (args.out_directory, os.path.join(args.out_directory, args.weights))
 		else:
-			# filename encodes checkpt_prefix, epoch number, and test set loss
-			model_path = os.path.join(model_folder, checkpt_prefix + ".{epoch:02d}-{val_loss:.2f}.hdf5")
-			checkpointer = ModelCheckpoint(filepath=model_path)
-			model.fit_generator(
-				generator=train_generator, samples_per_epoch=self.train_batch_size, nb_epoch=self.nb_epoch, validation_data=test_generator,
-				nb_val_samples=self.test_batch_size, nb_worker=self.nb_worker, show_accuracy=True, callbacks=[checkpointer])
+			if os.path.exists(args.out_directory):
+				print "directory %s exists. any previous data will be overwritten" % args.out_directory
+			else:
+				print "starting fresh output directory %s" % args.out_directory
 
-	def _setup_generator(self, folder, X_shape, y_shape, num_samples, sym_transform=False):
-		# Returns number of samples in folder and a generator yielding batches of them
-		filenames = [filename for filename in os.listdir(folder) if filename[-4:] == '.pkl']
-		num_samples = num_samples or len(filenames)
+	# load model from json spec
+	model = CNNPolicy.load_model(args.model).model
+	if resume:
+		model.load_weights(args.weights)
 
-		def generator():
-			while True:
-				sample_filenames = random.sample(filenames, num_samples)
-				X = np.empty((num_samples,) + X_shape, dtype='float64')
-				y = np.empty((num_samples,) + y_shape, dtype='float64')
-				for index, filename in enumerate(sample_filenames):
-					feature_input, label = self._prep_sample(folder, filename, sym_transform)
-					X[index] = feature_input
-					y[index] = label
-				yield (X, y)
-		return(len(filenames), generator())
+	# TODO - (waiting on game_converter) verify that features of model match features of training data
+	dataset = h5.File(args.train_data)
+	n_total_data = len(dataset["states"])
+	n_train_data = np.floor(args.train_val_test[0] * n_total_data)
+	n_val_data = np.floor(args.train_val_test[1] * n_total_data)
+	# n_test_data = n_total_data - (n_train_data + n_val_data)
 
-	def _prep_sample(self, folder, filename, sym_transform):
-		with open(os.path.join(folder, filename), 'r') as sample_filename:
-			feature_input, label = pickle.load(sample_filename)
-		if sym_transform:  # randomly transform sample to some symmetric version of itself
-			transform = random.choice(self.BOARD_TRANSFORMATIONS)
-			# apply tranform at every depth
-			feature_input[0] = np.array([transform(feature) for feature in feature_input[0]])
-			label[0] = transform(label[0])
-		return feature_input[0], label[0]
+	if args.verbose:
+		print "datset loaded"
+		print "\t%d total samples" % n_total_data
+		print "\t%d training samples" % n_train_data
+		print "\t%d validaion samples" % n_val_data
+
+	# ensure output directory is available
+	if not os.path.exists(args.out_directory):
+		os.makedirs(args.out_directory)
+
+	# create metadata file and the callback object that will write to it
+	meta_file = os.path.join(args.out_directory, "metadata.json")
+	meta_writer = MetadataWriterCallback(meta_file)
+	# load prior data if it already exists
+	if os.path.exists(meta_file) and resume:
+		with open(meta_file, "r") as f:
+			meta_writer.metadata = json.load(f)
+		if args.verbose:
+			print "previous metadata loadeda: %d epochs. new epochs will be appended." % len(meta_writer.metadata["epochs"])
+	elif args.verbose:
+		print "starting with empty metadata"
+	# the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add in anything else we like here
+	# TODO - model and train_data are saved in meta_file; check that they match (and make args optional when restarting?)
+	meta_writer.metadata["training_data"] = args.train_data
+	meta_writer.metadata["model_file"] = args.model
+
+	# create ModelCheckpoint to save weights every epoch
+	checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:02d}.hdf5")
+	checkpointer = ModelCheckpoint(checkpoint_template)
+
+	# load precomputed random-shuffle indices or create them
+	# TODO - save each train/val/test indices separately so there's no danger of
+	# changing args.train_val_test when resuming
+	shuffle_file = os.path.join(args.out_directory, "shuffle.npz")
+	if os.path.exists(shuffle_file) and resume:
+		with open(shuffle_file, "r") as f:
+			shuffle_indices = np.load(f)
+		if args.verbose:
+			print "loading previous data shuffling indices"
+	else:
+		# create shuffled indices
+		shuffle_indices = np.random.permutation(n_total_data)
+		with open(shuffle_file, "w") as f:
+			np.save(f, shuffle_indices)
+		if args.verbose:
+			print "created new data shuffling indices"
+	# training indices are the first consecutive set of shuffled indices, val next, then test gets the remainder
+	train_indices = shuffle_indices[0:n_train_data]
+	val_indices = shuffle_indices[n_train_data:n_train_data + n_val_data]
+	# test_indices = shuffle_indices[n_train_data + n_val_data:]
+
+	# create dataset generators
+	train_data_generator = shuffled_hdf5_batch_generator(
+		dataset["states"],
+		dataset["actions"],
+		train_indices,
+		args.minibatch,
+		BOARD_TRANSFORMATIONS)
+	val_data_generator = shuffled_hdf5_batch_generator(
+		dataset["states"],
+		dataset["actions"],
+		val_indices,
+		args.minibatch,
+		BOARD_TRANSFORMATIONS)
+
+	sgd = SGD(lr=args.learning_rate, decay=args.decay)
+	model.compile(loss='binary_crossentropy', optimizer=sgd)
+
+	if args.verbose:
+		print "STARTING TRAINING"
+
+	model.fit_generator(
+		generator=train_data_generator,
+		samples_per_epoch=n_train_data,
+		nb_epoch=args.epochs,
+		callbacks=[checkpointer, meta_writer],
+		validation_data=val_data_generator,
+		nb_val_samples=n_val_data,
+		nb_worker=args.workers)
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
-	parser.add_argument("train_folder", help="Path to folder of training samples")
-	parser.add_argument("test_folder", help="Path to folder of testing samples")
-	parser.add_argument("train_batch_size", help="Number of samples per SGD batch.", type=int)
-	parser.add_argument("-test_batch_size", help="Number of samples per SGD batch. If omitted, all samples in folder will be used.", type=int, default=None)
-	parser.add_argument("-model_folder", help="Path to folder where the model params will be saved after each epoch. Default: None", default=None)
-	parser.add_argument("-nb_epoch", help="Total number of iterations on the data. Default: 10", type=int, default=10)
-	parser.add_argument("-learning_rate", help="How quickly the model learns at first. A (small) number between 0 and 1. Default: .03", type=float, default=.03)
-	parser.add_argument("-decay", help="The rate at which learning decreases. Default: .0001", type=float, default=.0001)
-	parser.add_argument("-nb_worker", help="Number of threads to use when training in parallel. Requires appropriately set Theano flags.", type=int, default=1)
-	args = parser.parse_args()
-
-	metapath = os.path.join(args.train_folder, '../metadata.json')
-	assert (os.path.isfile(metapath)), "error. couldn't find metadata.json"
-	with open(metapath) as metafile:
-		metadata = json.load(metafile)
-	policy_obj = CNNPolicy(feature_list=metadata['features'])
-	net = policy_obj.model
-
-	trainer = supervised_policy_trainer(
-		train_batch_size=args.train_batch_size, test_batch_size=args.test_batch_size,
-		learning_rate=args.learning_rate, decay=args.decay, nb_epoch=args.nb_epoch, nb_worker=args.nb_worker)
-	trainer.train(net, args.train_folder, args.test_folder, args.model_folder)
+	run_training()
