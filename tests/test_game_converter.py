@@ -1,6 +1,7 @@
-from AlphaGo.preprocessing.game_converter import game_converter
+from AlphaGo.preprocessing.game_converter import run_game_converter
 from AlphaGo.util import sgf_to_gamestate
 import unittest
+import os
 
 
 class TestSGFLoading(unittest.TestCase):
@@ -9,18 +10,17 @@ class TestSGFLoading(unittest.TestCase):
 			sgf_to_gamestate(f.read())
 
 
-class TestGameState(unittest.TestCase):
-	def setUp(self):
-		self.gc = game_converter()
+class TestCmdlineConverter(unittest.TestCase):
 
-	def test_batch_convert(self):
-		sample_generator = self.gc.batch_convert(
-			"tests/test_data/sgf",
-			features=[
-				"board", "ones", "turns_since", "liberties", "capture_size",
-				"self_atari_size", "liberties_after", "sensibleness", "zeros"])
-		for sample in sample_generator:
-			self.assertIsNot(sample, None)
+	def test_directory_conversion(self):
+		args = ['--features', 'board,ones,turns_since', '--outfile', '.tmp.testing.h5', '--directory', 'tests/test_data/sgf/']
+		run_game_converter(args)
+		os.remove('.tmp.testing.h5')
+
+	def test_directory_walk(self):
+		args = ['--features', 'board,ones,turns_since', '--outfile', '.tmp.testing.h5', '--directory', 'tests/test_data', '--recurse']
+		run_game_converter(args)
+		os.remove('.tmp.testing.h5')
 
 if __name__ == '__main__':
 	unittest.main()
