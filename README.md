@@ -15,8 +15,8 @@ We are still early in development. There are quite a few pieces to AlphaGo that 
 >
 > -Silver et al. (page 8)
 
-For now, you can only run some tests, as described in the ['Contributing'](CONTRIBUTING.md) document.
+See the wiki page on the [training pipeline](https://github.com/Rochester-NRT/AlphaGo/wiki/Neural-Networks-and-Training) for information on how to run the training commands.
 
 # How to contribute
 
-See the ['Contributing'](CONTRIBUTING.md) document.
+See the ['Contributing'](CONTRIBUTING.md) document and join the [Gitter chat](https://gitter.im/Rochester-NRT/AlphaGo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge).
