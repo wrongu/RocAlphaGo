@@ -63,7 +63,7 @@ class game_converter:
 
 		# make a hidden temporary file in case of a crash.
 		# on success, this is renamed to hdf5_file
-		tmp_file = ".tmp." + hdf5_file
+		tmp_file = os.path.join(os.path.dirname(hdf5_file), ".tmp." + os.path.basename(hdf5_file))
 		h5f = h5.File(tmp_file, 'w')
 
 		try:
@@ -189,13 +189,19 @@ if __name__ == '__main__':
 					# yield the full (relative) path to the file
 					yield os.path.join(dirpath, filename)
 
+	def _list_sgfs(path):
+		"""helper function to get all SGF files in a directory (does not recurse)
+		"""
+		files = os.listdir(path)
+		return (os.path.join(path, f) for f in files if _is_sgf(f))
+
 	# get an iterator of SGF files according to command line args
 	if args.directory:
 		if args.recurse:
 			files = _walk_all_sgfs(args.directory)
 		else:
-			files = os.listdir(os.path.join(args.directory, "*.sgf"))
+			files = _list_sgfs(args.directory)
 	else:
-		files = (f for f in sys.stdin if _is_sgf(f))
+		files = (f.strip() for f in sys.stdin if _is_sgf(f))
 
 	converter.sgfs_to_hdf5(files, args.outfile, bd_size=args.size, verbose=args.verbose)
