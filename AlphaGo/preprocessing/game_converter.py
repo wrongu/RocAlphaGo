@@ -39,7 +39,7 @@ class game_converter:
 				nn_input = self.feature_processor.state_to_tensor(state)
 				yield (nn_input, move)
 
-	def sgfs_to_hdf5(self, sgf_files, hdf5_file, bd_size=19, ignore_errors=True):
+	def sgfs_to_hdf5(self, sgf_files, hdf5_file, bd_size=19, ignore_errors=True, verbose=False):
 		"""Convert all files in the iterable sgf_files into an hdf5 group to be stored in hdf5_file
 
 		Arguments:
@@ -87,8 +87,13 @@ class game_converter:
 			# 'file_offsets' is an HDF5 group so that 'file_name in file_offsets' is fast
 			file_offsets = h5f.require_group('file_offsets')
 
+			if verbose:
+				print "created HDF5 dataset in", tmp_file
+
 			next_idx = 0
 			for file_name in sgf_files:
+				if verbose:
+					print file_name
 				# count number of state/action pairs yielded by this game
 				n_pairs = 0
 				file_start_idx = next_idx
@@ -118,10 +123,17 @@ class game_converter:
 						# '/' has special meaning in HDF5 key names, so they are replaced with ':' here
 						file_name_key = file_name.replace('/', ':')
 						file_offsets[file_name_key] = [file_start_idx, n_pairs]
+						if verbose:
+							print "\t%d state/action pairs extracted" % n_pairs
+					elif verbose:
+						print "\t-no usable data-"
 		except Exception as e:
 			print "sgfs_to_hdf5 failed"
 			os.remove(tmp_file)
 			raise e
+
+		if verbose:
+			print "finished. renaming %s to %s" % (tmp_file, hdf5_file)
 
 		# processing complete; rename tmp_file to hdf5_file
 		os.rename(tmp_file, hdf5_file)
@@ -135,15 +147,33 @@ if __name__ == '__main__':
 		epilog="Available features are: board, ones, turns_since, liberties,\
 		capture_size, self_atari_size, liberties_after, sensibleness, and zeros.\
 		Ladder features are not currently implemented")
-	parser.add_argument("--features", "-f", help="Comma-separated list of features to compute and store", required=True)
+	parser.add_argument("--features", "-f", help="Comma-separated list of features to compute and store or 'all'", default='all')
 	parser.add_argument("--outfile", "-o", help="Destination to write data (hdf5 file)", required=True)
 	parser.add_argument("--recurse", "-R", help="Set to recurse through directories searching for SGF files", default=False, action="store_true")
 	parser.add_argument("--directory", "-d", help="Directory containing SGF files to process. if not present, expects files from stdin", default=None)
 	parser.add_argument("--size", "-s", help="Size of the game board. SGFs not matching this are discarded with a warning", default=19)
+	parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
 
 	args = parser.parse_args()
 
-	feature_list = args.features.split(",")
+	if args.features.lower() == 'all':
+		feature_list = [
+			"board",
+			"ones",
+			"turns_since",
+			"liberties",
+			"capture_size",
+			"self_atari_size",
+			"liberties_after",
+			# "ladder_capture",
+			# "ladder_escape",
+			"sensibleness",
+			"zeros"]
+	else:
+		feature_list = args.features.split(",")
+
+	if args.verbose:
+		print "using features", feature_list
 
 	converter = game_converter(feature_list)
 
@@ -168,4 +198,4 @@ if __name__ == '__main__':
 	else:
 		files = (f for f in sys.stdin if _is_sgf(f))
 
-	converter.sgfs_to_hdf5(files, args.outfile, bd_size=args.size)
+	converter.sgfs_to_hdf5(files, args.outfile, bd_size=args.size, verbose=args.verbose)
