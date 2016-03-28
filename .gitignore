@@ -1,8 +1,9 @@
 *.pyc
 *.npy
 *.h5
+*.hdf5
 *.sgf
 *.pkl
 !tests/test_data/sgf/*.sgf
-!tests/test_data/pickle/test/*.pkl
-!tests/test_data/pickle/train/*.pkl
+!tests/test_data/hdf5/*.h5
+!tests/test_data/hdf5/*.hdf5
