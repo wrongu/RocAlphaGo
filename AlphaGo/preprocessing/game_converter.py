@@ -138,7 +138,10 @@ class game_converter:
 		# processing complete; rename tmp_file to hdf5_file
 		os.rename(tmp_file, hdf5_file)
 
-if __name__ == '__main__':
+
+def run_game_converter(cmd_line_args=None):
+	"""Run conversions. command-line args may be passed in as a list
+	"""
 	import argparse
 	import sys
 
@@ -154,7 +157,10 @@ if __name__ == '__main__':
 	parser.add_argument("--size", "-s", help="Size of the game board. SGFs not matching this are discarded with a warning", default=19)
 	parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
 
-	args = parser.parse_args()
+	if cmd_line_args is None:
+		args = parser.parse_args()
+	else:
+		args = parser.parse_args(cmd_line_args)
 
 	if args.features.lower() == 'all':
 		feature_list = [
@@ -205,3 +211,7 @@ if __name__ == '__main__':
 		files = (f.strip() for f in sys.stdin if _is_sgf(f))
 
 	converter.sgfs_to_hdf5(files, args.outfile, bd_size=args.size, verbose=args.verbose)
+
+
+if __name__ == '__main__':
+	run_game_converter()

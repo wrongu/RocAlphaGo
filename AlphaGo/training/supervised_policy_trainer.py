@@ -73,7 +73,10 @@ BOARD_TRANSFORMATIONS = [
 	lambda feature: np.fliplr(np.rot90(feature, 1))
 ]
 
-if __name__ == '__main__':
+
+def run_training(cmd_line_args=None):
+	"""Run training. command-line args may be passed in as a list
+	"""
 	import argparse
 	parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
 	# required args
@@ -90,9 +93,13 @@ if __name__ == '__main__':
 	# slightly fancier args
 	parser.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)
 	parser.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Invalid if restarting training", nargs=3, type=float, default=[0.93, .05, .02])
-	args = parser.parse_args()
-
 	# TODO - an argument to specify which transformations to use, put it in metadata
+
+	if cmd_line_args is None:
+		args = parser.parse_args()
+	else:
+		args = parser.parse_args(cmd_line_args)
+
 	# TODO - what follows here should be refactored into a series of small functions
 
 	resume = args.weights is not None
@@ -116,7 +123,7 @@ if __name__ == '__main__':
 	n_total_data = len(dataset["states"])
 	n_train_data = np.floor(args.train_val_test[0] * n_total_data)
 	n_val_data = np.floor(args.train_val_test[1] * n_total_data)
-	n_test_data = n_total_data - (n_train_data + n_val_data)
+	# n_test_data = n_total_data - (n_train_data + n_val_data)
 
 	if args.verbose:
 		print "datset loaded"
@@ -167,7 +174,7 @@ if __name__ == '__main__':
 	# training indices are the first consecutive set of shuffled indices, val next, then test gets the remainder
 	train_indices = shuffle_indices[0:n_train_data]
 	val_indices = shuffle_indices[n_train_data:n_train_data + n_val_data]
-	test_indices = shuffle_indices[n_train_data + n_val_data:]
+	# test_indices = shuffle_indices[n_train_data + n_val_data:]
 
 	# create dataset generators
 	train_data_generator = shuffled_hdf5_batch_generator(
@@ -197,3 +204,6 @@ if __name__ == '__main__':
 		validation_data=val_data_generator,
 		nb_val_samples=n_val_data,
 		nb_worker=args.workers)
+
+if __name__ == '__main__':
+	run_training()
