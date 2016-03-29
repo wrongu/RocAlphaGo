@@ -10,7 +10,7 @@ class GameState(object):
 	"""State of a game of Go and some basic functions to interact with it
 	"""
 
-	def __init__(self, size=19):
+	def __init__(self, size=19, komi=5):
 		self.board = np.zeros((size, size))
 		self.board.fill(EMPTY)
 		self.size = size
@@ -20,6 +20,10 @@ class GameState(object):
 		self.history = []
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
+		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
+		# Each pass move by a player subtracts a point
+		self.passes_white = 0
+		self.passes_black = 0
 		# `self.liberty_sets` is a 2D array with the same indexes as `board`
 		# each entry points to a set of tuples - the liberties of a stone's
 		# connected block. By caching liberties in this way, we can directly
@@ -260,6 +264,36 @@ class GameState(object):
 					moves.append((x, y))
 		return moves
 
+	def get_winner(self):
+		"""Calculate score of board state and return player ID (1, -1, or 0 for tie)
+		corresponding to winner. Uses 'Area scoring'.
+		"""
+		# Count number of positions filled by each player, and add 1 for each eye
+		# Assumes that only empty spaces left on board are eyes (i.e. game fully
+		# played out)
+		score_white = np.sum(self.board == WHITE)
+		score_black = np.sum(self.board == BLACK)
+		eyes = np.where(self.board == 0)
+		eyes = zip(eyes[0], eyes[1])
+		for eye in eyes:
+			# Check that all surrounding points are of one color
+			neighbors = self._neighbors((eye[0], eye[1]))
+			if np.all([self.board[n] == BLACK for n in neighbors]):
+				score_black += 1
+			if np.all([self.board[n] == WHITE for n in neighbors]):
+				score_white += 1
+		score_white += self.komi
+		score_white -= self.passes_white
+		score_black -= self.passes_black
+		if score_black > score_white:
+			winner = BLACK
+		elif score_white > score_black:
+			winner = WHITE
+		else:
+			# Tie
+			winner = None
+		return winner
+
 	def do_move(self, action, color=None):
 		"""Play stone at action=(x,y). If color is not specified, current_player is used
 
@@ -270,12 +304,10 @@ class GameState(object):
 		if self.is_legal(action):
 			# reset ko
 			self.ko = None
-			# is_sensible = True
 			if action is not PASS_MOVE:
 				(x, y) = action
 				self.board[x][y] = color
 				self._update_neighbors(action)
-
 				# check neighboring groups' liberties for captures
 				for (nx, ny) in self._neighbors(action):
 					if self.board[nx, ny] == -color and len(self.liberty_sets[nx][ny]) == 0:
@@ -297,11 +329,16 @@ class GameState(object):
 							if would_recapture and recapture_size_is_1:
 								# note: (nx,ny) is the stone that was captured
 								self.ko = (nx, ny)
+			else:
+				# Subtract point for pass move
+				if self.current_player == WHITE:
+					self.passes_white += 1
+				else:
+					self.passes_black += 1
 			# next turn
 			self.current_player = -color
 			self.turns_played += 1
 			self.history.append(action)
-			# return is_sensible
 		else:
 			raise IllegalMove(str(action))
 
