@@ -89,6 +89,7 @@ def run_training(cmd_line_args=None):
 	# frequently used args
 	parser.add_argument("--minibatch", "-B", help="Size of training data minibatches. Default: 16", type=int, default=16)
 	parser.add_argument("--epochs", "-E", help="Total number of iterations on the data. Default: 10", type=int, default=10)
+	parser.add_argument("--epoch-length", "-l", help="Number of training examples considered 'one epoch'. Default: # training data", type=int, default=None)
 	parser.add_argument("--learning-rate", "-r", help="Learning rate - how quickly the model learns at first. Default: .03", type=float, default=.03)
 	parser.add_argument("--decay", "-d", help="The rate at which learning decreases. Default: .0001", type=float, default=.0001)
 	parser.add_argument("--workers", "-w", help="Number of 'workers' workon on batch generator in parallel. Default: 4", type=int, default=4)
@@ -196,12 +197,14 @@ def run_training(cmd_line_args=None):
 	sgd = SGD(lr=args.learning_rate, decay=args.decay)
 	model.compile(loss='binary_crossentropy', optimizer=sgd)
 
+	samples_per_epoch = args.epoch_length or n_train_data
+
 	if args.verbose:
 		print "STARTING TRAINING"
 
 	model.fit_generator(
 		generator=train_data_generator,
-		samples_per_epoch=n_train_data,
+		samples_per_epoch=samples_per_epoch,
 		nb_epoch=args.epochs,
 		callbacks=[checkpointer, meta_writer],
 		validation_data=val_data_generator,
