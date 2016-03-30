@@ -50,17 +50,20 @@ class MetadataWriterCallback(Callback):
 		}
 
 	def on_epoch_end(self, epoch, logs={}):
-		self.metadata["epochs"].append({
-			"acc": logs.get("acc"),
-			"val_acc": logs.get("val_acc")
-		})
+		self.metadata["epochs"].append(logs)
 
-		best_accuracy = self.metadata["epochs"][self.metadata["best_epoch"]]["val_acc"]
-		if logs.get("val_acc") > best_accuracy:
+		if "val_loss" in logs:
+			key = "val_loss"
+		else:
+			key = "loss"
+
+		best_loss = self.metadata["epochs"][self.metadata["best_epoch"]][key]
+		if logs.get(key) < best_loss:
 			self.metadata["best_epoch"] = epoch
 
 		with open(self.file, "w") as f:
 			json.dump(self.metadata, f)
+
 
 BOARD_TRANSFORMATIONS = [
 	lambda feature: feature,
