@@ -136,6 +136,7 @@ class game_converter:
 			print "finished. renaming %s to %s" % (tmp_file, hdf5_file)
 
 		# processing complete; rename tmp_file to hdf5_file
+		h5f.close()
 		os.rename(tmp_file, hdf5_file)
 
 
