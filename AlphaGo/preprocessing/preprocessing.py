@@ -72,8 +72,9 @@ def get_capture_size(state, maximum=8):
 	- illegal move locations are all-zero features
 	"""
 	planes = np.zeros((state.size, state.size, maximum))
-	# check difference in size after doing each move
 	for (x, y) in state.get_legal_moves():
+		# multiple disconnected groups may be captured. hence we loop over
+		# groups and count sizes if captured.
 		n_captured = 0
 		for neighbor_group in state.get_groups_around((x, y)):
 			# if the neighboring group is opponent stones and they have
