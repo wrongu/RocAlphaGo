@@ -30,8 +30,12 @@ def get_turns_since(state, maximum=8):
 	# for the most recent move, a 1 in plane 1 for two moves ago, etc..
 	for move in state.history[::-1]:
 		if move is not go.PASS_MOVE:
-			(x, y) = move
-			planes[x, y, depth] = 1
+			# check that this stone wasn't captured
+			if state.board[move] != go.EMPTY:
+				(x, y) = move
+				# check that a newer move isn't occupying (x,y)
+				if np.sum(planes[x, y, :]) == 0:
+					planes[x, y, depth] = 1
 		# increment depth if there are more planes available
 		# (the last plane serves as the "maximum-1 or more" feature)
 		if depth < maximum - 1:
