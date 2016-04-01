@@ -167,7 +167,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 			copy.do_move((x, y))
 			libs = copy.liberty_counts[x, y]
 			if libs < 7:
-				one_hot_liberties[x, y, libs] = 1
+				one_hot_liberties[x, y, libs-1] = 1
 			else:
 				one_hot_liberties[x, y, 7] = 1
 
