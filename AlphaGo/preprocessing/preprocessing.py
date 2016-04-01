@@ -164,7 +164,7 @@ FEATURES = {
 	},
 	"ones": {
 		"size": 1,
-		"function": lambda state: np.zeros((state.size, state.size))
+		"function": lambda state: np.ones((state.size, state.size))
 	},
 	"turns_since": {
 		"size": 8,
