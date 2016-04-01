@@ -87,5 +87,24 @@ class TestEye(unittest.TestCase):
 		self.assertFalse(gs.is_eyeish((2, 2), go.BLACK))
 		self.assertFalse(gs.is_eyeish((2, 2), go.WHITE))
 
+	def test_true_eye(self):
+		gs = GameState(size=7)
+		gs.do_move((1,0), go.BLACK)
+		gs.do_move((0,1), go.BLACK)
+
+		# false eye at 0,0
+		self.assertTrue(gs.is_eyeish((0,0), go.BLACK))
+		self.assertFalse(gs.is_eye((0,0), go.BLACK))
+
+		# make it a true eye by turning the corner (1,1) into an eye itself
+		gs.do_move((1,2), go.BLACK)
+		gs.do_move((2,1), go.BLACK)
+		gs.do_move((2,2), go.BLACK)
+		gs.do_move((0,2), go.BLACK)
+
+		self.assertTrue(gs.is_eyeish((0,0), go.BLACK))
+		self.assertTrue(gs.is_eye((0,0), go.BLACK))
+		self.assertTrue(gs.is_eye((1,1), go.BLACK))
+
 if __name__ == '__main__':
 	unittest.main()
