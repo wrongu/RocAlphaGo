@@ -92,7 +92,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 			for y in range(gs.size):
 				if gs.board[x, y] != go.EMPTY:
 					# find most recent move at x, y
-					age = rev_moves.index((x,y))
+					age = rev_moves.index((x, y))
 					one_hot_turns[x, y, min(age, 7)] = 1
 
 		self.assertTrue(np.all(feature == one_hot_turns))
@@ -167,7 +167,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 			copy.do_move((x, y))
 			libs = copy.liberty_counts[x, y]
 			if libs < 7:
-				one_hot_liberties[x, y, libs-1] = 1
+				one_hot_liberties[x, y, libs - 1] = 1
 			else:
 				one_hot_liberties[x, y, 7] = 1
 

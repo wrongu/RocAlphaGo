@@ -93,7 +93,7 @@ class GameState(object):
 		"""Like _neighbors but for diagonal positions
 		"""
 		(x, y) = position
-		return filter(self._on_board, [(x - 1, y - 1), (x + 1, y  + 1), (x + 1, y - 1), (x - 1, y + 1)])
+		return filter(self._on_board, [(x - 1, y - 1), (x + 1, y + 1), (x + 1, y - 1), (x - 1, y + 1)])
 
 	def _update_neighbors(self, position):
 		"""A private helper function to update self.group_sets and self.liberty_sets

@@ -140,7 +140,7 @@ def get_liberties_after(state, maximum=8):
 		# since it's clearly not a liberty after playing there
 		if (x, y) in lib_set_after:
 			lib_set_after.remove((x, y))
-		feature[x, y, min(maximum - 1, len(lib_set_after)-1)] = 1
+		feature[x, y, min(maximum - 1, len(lib_set_after) - 1)] = 1
 	return feature
 
 
