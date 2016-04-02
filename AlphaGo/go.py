@@ -89,6 +89,12 @@ class GameState(object):
 		(x, y) = position
 		return filter(self._on_board, [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)])
 
+	def _diagonals(self, position):
+		"""Like _neighbors but for diagonal positions
+		"""
+		(x, y) = position
+		return filter(self._on_board, [(x - 1, y - 1), (x + 1, y + 1), (x + 1, y - 1), (x - 1, y + 1)])
+
 	def _update_neighbors(self, position):
 		"""A private helper function to update self.group_sets and self.liberty_sets
 		given that a stone was just played at `position`
@@ -203,7 +209,7 @@ class GameState(object):
 		ko = action == self.ko
 		return self._on_board(action) and (not suicide) and (not ko) and empty
 
-	def is_eye(self, position, owner):
+	def is_eyeish(self, position, owner):
 		"""returns whether the position is empty and is surrounded by all stones of 'owner'
 		"""
 		(x, y) = position
@@ -213,6 +219,37 @@ class GameState(object):
 		for (nx, ny) in self._neighbors(position):
 			if self.board[nx, ny] != owner:
 					return False
+		return True
+
+	def is_eye(self, position, owner, stack=[]):
+		"""returns whether the position is a true eye of 'owner'
+
+		Requires a recursive call; empty spaces diagonal to 'position' are fine
+		as long as they themselves are eyes
+		"""
+		if not self.is_eyeish(position, owner):
+			return False
+		# (as in Fuego/Michi/etc) ensure that num "bad" diagonals is 0 (edges) or 1
+		# where a bad diagonal is an opponent stone or an empty non-eye space
+		num_bad_diagonal = 0
+		# if in middle of board, 1 bad neighbor is allowable; zero for edges and corners
+		allowable_bad_diagonal = 1 if len(self._neighbors(position)) == 4 else 0
+
+		for d in self._diagonals(position):
+			# opponent stones count against this being eye
+			if self.board[d] == -owner:
+				num_bad_diagonal += 1
+			# empty spaces (that aren't themselves eyes) count against it too
+			# the 'stack' keeps track of where we've already been to prevent
+			# infinite loops of recursion
+			elif self.board[d] == EMPTY and d not in stack:
+				stack.append(position)
+				if not self.is_eye(d, owner, stack):
+					num_bad_diagonal += 1
+				stack.pop()
+			# at any point, if we've surpassed # allowable, we can stop
+			if num_bad_diagonal > allowable_bad_diagonal:
+				return False
 		return True
 
 	def get_legal_moves(self):

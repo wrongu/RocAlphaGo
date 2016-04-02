@@ -85,14 +85,15 @@ class TestPreprocessingFeatures(unittest.TestCase):
 		feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
 		one_hot_turns = np.zeros((gs.size, gs.size, 8))
-		rev_history = gs.history[::-1]
-		# one plane per move for the last 7
-		for i in range(7):
-			move = rev_history[i]
-			one_hot_turns[move[0], move[1], i] = 1
-		# far back plane gets all other moves
-		for move in rev_history[7:]:
-			one_hot_turns[move[0], move[1], 7] = 1
+
+		rev_moves = gs.history[::-1]
+
+		for x in range(gs.size):
+			for y in range(gs.size):
+				if gs.board[x, y] != go.EMPTY:
+					# find most recent move at x, y
+					age = rev_moves.index((x, y))
+					one_hot_turns[x, y, min(age, 7)] = 1
 
 		self.assertTrue(np.all(feature == one_hot_turns))
 
@@ -166,7 +167,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 			copy.do_move((x, y))
 			libs = copy.liberty_counts[x, y]
 			if libs < 7:
-				one_hot_liberties[x, y, libs] = 1
+				one_hot_liberties[x, y, libs - 1] = 1
 			else:
 				one_hot_liberties[x, y, 7] = 1
 

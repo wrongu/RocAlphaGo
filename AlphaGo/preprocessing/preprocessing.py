@@ -30,8 +30,12 @@ def get_turns_since(state, maximum=8):
 	# for the most recent move, a 1 in plane 1 for two moves ago, etc..
 	for move in state.history[::-1]:
 		if move is not go.PASS_MOVE:
-			(x, y) = move
-			planes[x, y, depth] = 1
+			# check that this stone wasn't captured
+			if state.board[move] != go.EMPTY:
+				(x, y) = move
+				# check that a newer move isn't occupying (x,y)
+				if np.sum(planes[x, y, :]) == 0:
+					planes[x, y, depth] = 1
 		# increment depth if there are more planes available
 		# (the last plane serves as the "maximum-1 or more" feature)
 		if depth < maximum - 1:
@@ -68,8 +72,9 @@ def get_capture_size(state, maximum=8):
 	- illegal move locations are all-zero features
 	"""
 	planes = np.zeros((state.size, state.size, maximum))
-	# check difference in size after doing each move
 	for (x, y) in state.get_legal_moves():
+		# multiple disconnected groups may be captured. hence we loop over
+		# groups and count sizes if captured.
 		n_captured = 0
 		for neighbor_group in state.get_groups_around((x, y)):
 			# if the neighboring group is opponent stones and they have
@@ -135,7 +140,7 @@ def get_liberties_after(state, maximum=8):
 		# since it's clearly not a liberty after playing there
 		if (x, y) in lib_set_after:
 			lib_set_after.remove((x, y))
-		feature[x, y, min(maximum - 1, len(lib_set_after))] = 1
+		feature[x, y, min(maximum - 1, len(lib_set_after) - 1)] = 1
 	return feature
 
 
@@ -164,7 +169,7 @@ FEATURES = {
 	},
 	"ones": {
 		"size": 1,
-		"function": lambda state: np.zeros((state.size, state.size))
+		"function": lambda state: np.ones((state.size, state.size))
 	},
 	"turns_since": {
 		"size": 8,
