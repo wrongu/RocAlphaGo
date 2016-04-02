@@ -106,5 +106,15 @@ class TestEye(unittest.TestCase):
 		self.assertTrue(gs.is_eye((0, 0), go.BLACK))
 		self.assertTrue(gs.is_eye((1, 1), go.BLACK))
 
+	def test_eye_recursion(self):
+		# a checkerboard pattern of black is 'technically' all true eyes
+		# mutually supporting each other
+		gs = GameState(7)
+		for x in range(gs.size):
+			for y in range(gs.size):
+				if (x + y) % 2 == 1:
+					gs.do_move((x, y), go.BLACK)
+		self.assertTrue(gs.is_eye((0, 0), go.BLACK))
+
 if __name__ == '__main__':
 	unittest.main()
