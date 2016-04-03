@@ -1,5 +1,6 @@
-import numpy as np
+"""Policy players"""
 from AlphaGo import go
+import numpy as np
 
 
 class GreedyPolicyPlayer(object):
@@ -20,7 +21,7 @@ class GreedyPolicyPlayer(object):
 		return go.PASS_MOVE
 
 
-class SamplingPolicyPlayer(object):
+class ProbabilisticPolicyPlayer(object):
 	"""A player that samples a move in proportion to the probability given by the
 	policy.
 
@@ -31,7 +32,7 @@ class SamplingPolicyPlayer(object):
 	def __init__(self, policy_function, temperature=1.0):
 		assert(temperature > 0.0)
 		self.policy = policy_function
-		self.exp = 1.0 / temperature
+		self.beta = 1.0 / temperature
 
 	def get_move(self, state):
 		sensible_moves = [move for move in state.get_legal_moves() if not state.is_eye(move, state.current_player)]
@@ -40,9 +41,9 @@ class SamplingPolicyPlayer(object):
 			# zip(*list) is like the 'transpose' of zip; zip(*zip([1,2,3], [4,5,6])) is [(1,2,3), (4,5,6)]
 			moves, probabilities = zip(*move_probs)
 			probabilities = np.array(probabilities)
-			probabilities = probabilities ** self.exp
+			probabilities = probabilities ** self.beta
 			probabilities = probabilities / probabilities.sum()
 			# numpy interprets a list of tuples as 2D, so we must choose an _index_ of moves then apply it in 2 steps
-			choice_idx = np.random.choice(range(len(moves)), p=probabilities)
+			choice_idx = np.random.choice(len(moves), p=probabilities)
 			return moves[choice_idx]
 		return go.PASS_MOVE
