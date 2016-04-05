@@ -155,7 +155,7 @@ def run_game_converter(cmd_line_args=None):
 	parser.add_argument("--outfile", "-o", help="Destination to write data (hdf5 file)", required=True)
 	parser.add_argument("--recurse", "-R", help="Set to recurse through directories searching for SGF files", default=False, action="store_true")
 	parser.add_argument("--directory", "-d", help="Directory containing SGF files to process. if not present, expects files from stdin", default=None)
-	parser.add_argument("--size", "-s", help="Size of the game board. SGFs not matching this are discarded with a warning", default=19)
+	parser.add_argument("--size", "-s", help="Size of the game board. SGFs not matching this are discarded with a warning", type=int, default=19)
 	parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
 
 	if cmd_line_args is None:
