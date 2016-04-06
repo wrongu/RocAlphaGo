@@ -209,6 +209,7 @@ def run_training(cmd_line_args=None):
 		callbacks=[checkpointer, meta_writer],
 		validation_data=val_data_generator,
 		nb_val_samples=n_val_data,
+		show_accuracy=True,
 		nb_worker=args.workers)
 
 if __name__ == '__main__':
