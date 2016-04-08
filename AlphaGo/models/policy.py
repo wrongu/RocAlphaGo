@@ -47,6 +47,8 @@ class CNNPolicy(object):
 		"""helper function to normalize a distribution over the given list of moves
 		and return a list of (move, prob) tuples
 		"""
+		if len(moves) == 0:
+			return []
 		move_indices = [flatten_idx(m, size) for m in moves]
 		# get network activations at legal move locations
 		distribution = nn_output[move_indices]
