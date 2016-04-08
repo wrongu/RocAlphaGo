@@ -1,9 +1,10 @@
 from keras.models import Sequential
 from keras.models import model_from_json
 from keras.layers import convolutional
-from keras.layers.core import Activation, Reshape
+from keras.layers.core import Activation, Flatten
 import keras.backend as K
 from AlphaGo.preprocessing.preprocessing import Preprocess
+from AlphaGo.util import flatten_idx
 import json
 
 
@@ -25,6 +26,9 @@ class CNNPolicy(object):
 		"""Construct a function using the current keras backend that, when given a batch
 		of inputs, simply processes them forward and returns the output
 
+		The output has size (batch x 361) for 19x19 boards (i.e. the output is a batch
+		of distributions over flattened boards. See AlphaGo.util#flatten_idx)
+
 		This is as opposed to model.compile(), which takes a loss function
 		and training method.
 
@@ -36,9 +40,7 @@ class CNNPolicy(object):
 
 		# the forward_function returns a list of tensors
 		# the first [0] gets the front tensor.
-		# this tensor, however, has dimensions (1, width, height)
-		# and we just want (width,height) hence the second [0]
-		return lambda inpt: forward_function(inpt)[0][0]
+		return lambda inpt: forward_function([inpt])[0]
 
 	def batch_eval_state(self, state_gen, batch=16):
 		"""Given a stream of states in state_gen, evaluates them in batches
@@ -49,18 +51,25 @@ class CNNPolicy(object):
 		"""
 		raise NotImplementedError()
 
-	def eval_state(self, state):
+	def eval_state(self, state, moves=None):
 		"""Given a GameState object, returns a list of (action, probability) pairs
 		according to the network outputs
+
+		If a list of moves is specified, only those moves are kept in the distribution
 		"""
 		tensor = self.preprocessor.state_to_tensor(state)
 
 		# run the tensor through the network
-		network_output = self.forward([tensor])
+		network_output = self.forward(tensor)
+
+		moves = moves or state.get_legal_moves()
+		move_indices = [flatten_idx(m, state.size) for m in moves]
 
 		# get network activations at legal move locations
 		# note: may not be a proper distribution by ignoring illegal moves
-		return [((x, y), network_output[x, y]) for (x, y) in state.get_legal_moves()]
+		distribution = network_output[0][move_indices]
+		distribution = distribution / distribution.sum()
+		return zip(moves, distribution)
 
 	@staticmethod
 	def create_network(**kwargs):
@@ -121,7 +130,7 @@ class CNNPolicy(object):
 			init='uniform',
 			border_mode='same'))
 		# reshape output to be board x board
-		network.add(Reshape((params["board"], params["board"])))
+		network.add(Flatten())
 		# softmax makes it into a probability distribution
 		network.add(Activation('softmax'))
 

@@ -3,6 +3,16 @@ import string
 from AlphaGo import go
 
 
+def flatten_idx(position, size):
+	(x, y) = position
+	return x * size + y
+
+
+def unflatten_idx(idx, size):
+	x, y = divmod(idx, size)
+	return (x, y)
+
+
 def _parse_sgf_move(node_value):
 	"""Given a well-formed move string, return either PASS_MOVE or the (x, y) position
 	"""

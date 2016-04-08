@@ -13,12 +13,12 @@ class TestCNNPolicy(unittest.TestCase):
 
 	def test_output_size(self):
 		policy19 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=19)
-		output = policy19.forward([policy19.preprocessor.state_to_tensor(GameState(19))])
-		self.assertEqual(output.shape, (19, 19))
+		output = policy19.forward(policy19.preprocessor.state_to_tensor(GameState(19)))
+		self.assertEqual(output.shape, (1, 19 * 19))
 
 		policy13 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=13)
-		output = policy13.forward([policy13.preprocessor.state_to_tensor(GameState(13))])
-		self.assertEqual(output.shape, (13, 13))
+		output = policy13.forward(policy13.preprocessor.state_to_tensor(GameState(13)))
+		self.assertEqual(output.shape, (1, 13 * 13))
 
 	def test_save_load(self):
 		policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
