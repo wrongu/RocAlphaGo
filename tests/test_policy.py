@@ -1,5 +1,6 @@
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.go import GameState
+from AlphaGo.ai import GreedyPolicyPlayer
 import unittest
 import os
 
@@ -34,6 +35,18 @@ class TestCNNPolicy(unittest.TestCase):
 
 		os.remove(model_file)
 		os.remove(weights_file)
+
+
+class TestPlayers(unittest.TestCase):
+
+	def test_greedy_player(self):
+		gs = GameState()
+		policy = CNNPolicy(["board", "ones", "turns_since"])
+		player = GreedyPolicyPlayer(policy)
+		for i in range(20):
+			move = player.get_move(gs)
+			self.assertIsNotNone(move)
+			gs.do_move(move)
 
 if __name__ == '__main__':
 	unittest.main()
