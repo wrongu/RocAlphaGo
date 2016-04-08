@@ -22,7 +22,7 @@ def shuffled_hdf5_batch_generator(state_dataset, action_dataset, indices, batch_
 	state_batch_shape = (batch_size,) + state_dataset.shape[1:]
 	game_size = state_batch_shape[-1]
 	Xbatch = np.zeros(state_batch_shape)
-	Ybatch = np.zeros((batch_size, game_size, game_size))
+	Ybatch = np.zeros((batch_size, game_size * game_size))
 	batch_idx = 0
 	while True:
 		for data_idx in indices:
@@ -33,7 +33,7 @@ def shuffled_hdf5_batch_generator(state_dataset, action_dataset, indices, batch_
 			state = np.array([transform(plane) for plane in state_dataset[data_idx]])
 			action = transform(one_hot_action(action_dataset[data_idx], game_size))
 			Xbatch[batch_idx] = state
-			Ybatch[batch_idx] = action
+			Ybatch[batch_idx] = action.flatten()
 			batch_idx += 1
 			if batch_idx == batch_size:
 				batch_idx = 0
