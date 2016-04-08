@@ -1,6 +1,6 @@
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.go import GameState
-from AlphaGo.ai import GreedyPolicyPlayer
+from AlphaGo.ai import GreedyPolicyPlayer, SamplingPolicyPlayer
 import unittest
 import os
 
@@ -43,6 +43,15 @@ class TestPlayers(unittest.TestCase):
 		gs = GameState()
 		policy = CNNPolicy(["board", "ones", "turns_since"])
 		player = GreedyPolicyPlayer(policy)
+		for i in range(20):
+			move = player.get_move(gs)
+			self.assertIsNotNone(move)
+			gs.do_move(move)
+
+	def test_sampling_player(self):
+		gs = GameState()
+		policy = CNNPolicy(["board", "ones", "turns_since"])
+		player = SamplingPolicyPlayer(policy)
 		for i in range(20):
 			move = player.get_move(gs)
 			self.assertIsNotNone(move)
