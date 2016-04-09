@@ -1,7 +1,7 @@
 """Interface for AlphaGo self-play"""
 from AlphaGo.go import GameState
 
-
+# Deprecated?
 class play_match(object):
 	"""Interface to handle play between two players."""
 	def __init__(self, player1, player2, save_dir=None, size=19):
@@ -30,6 +30,5 @@ class play_match(object):
 	def play(self):
 		"""Play one turn, update game state, save to disk"""
 		end_of_game = self._play(self.player1)
-		# if not end_of_game:
-		#     end_of_game = self._play(self.player2)
+		# This is incorrect.
 		return end_of_game

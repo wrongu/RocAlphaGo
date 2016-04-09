@@ -18,6 +18,7 @@ class GameState(object):
 		self.current_player = BLACK
 		self.ko = None
 		self.history = []
+		self.is_end_of_game = False
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
 		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
@@ -341,6 +342,12 @@ class GameState(object):
 			self.history.append(action)
 		else:
 			raise IllegalMove(str(action))
+		# Check for end of game
+		if len(self.history) > 1:
+			if self.history[-1] is None and self.history[-2] is None \
+				and self.current_player == WHITE:
+				self.is_end_of_game = True
+		return self.is_end_of_game
 
 
 class IllegalMove(Exception):

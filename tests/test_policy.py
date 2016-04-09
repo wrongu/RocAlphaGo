@@ -1,6 +1,8 @@
 from AlphaGo.models.policy import CNNPolicy
+from AlphaGo import go
 from AlphaGo.go import GameState
 from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
+import numpy as np
 import unittest
 import os
 
@@ -48,7 +50,7 @@ class TestPlayers(unittest.TestCase):
 			self.assertIsNotNone(move)
 			gs.do_move(move)
 
-	def test_sampling_player(self):
+	def test_probabilistic_player(self):
 		gs = GameState()
 		policy = CNNPolicy(["board", "ones", "turns_since"])
 		player = ProbabilisticPolicyPlayer(policy)
@@ -56,6 +58,31 @@ class TestPlayers(unittest.TestCase):
 			move = player.get_move(gs)
 			self.assertIsNotNone(move)
 			gs.do_move(move)
+
+	def test_sensible_probabilistic(self):
+		gs = GameState()
+		policy = CNNPolicy(["board", "ones", "turns_since"])
+		player = ProbabilisticPolicyPlayer(policy)
+		empty = (10, 10)
+		for x in range(19):
+			for y in range(19):
+				if (x, y) != empty:
+					gs.do_move((x, y), go.BLACK)
+		gs.current_player = go.BLACK
+		self.assertIsNone(player.get_move(gs))
+
+	def test_sensible_greedy(self):
+		gs = GameState()
+		policy = CNNPolicy(["board", "ones", "turns_since"])
+		player = GreedyPolicyPlayer(policy)
+		empty = (10, 10)
+		for x in range(19):
+			for y in range(19):
+				if (x, y) != empty:
+					gs.do_move((x, y), go.BLACK)
+		gs.current_player = go.BLACK
+		self.assertIsNone(player.get_move(gs))
+
 
 if __name__ == '__main__':
 	unittest.main()
