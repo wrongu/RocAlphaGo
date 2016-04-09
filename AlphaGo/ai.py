@@ -47,3 +47,22 @@ class ProbabilisticPolicyPlayer(object):
 			choice_idx = np.random.choice(len(moves), p=probabilities)
 			return moves[choice_idx]
 		return go.PASS_MOVE
+
+	def get_moves(self, states):
+		"""Batch version of get_move. A list of moves is returned (one per state)
+		"""
+		sensible_move_lists = [[move for move in st.get_legal_moves() if not st.is_eye(move, st.current_player)] for st in states]
+		all_moves_distributions = self.policy.batch_eval_state(states, sensible_move_lists)
+		move_list = [None] * len(states)
+		for i, move_probs in enumerate(all_moves_distributions):
+			if len(move_probs) == 0:
+				move_list[i] = go.PASS_MOVE
+			else:
+				# this 'else' clause is identical to ProbabilisticPolicyPlayer.get_move
+				moves, probabilities = zip(*move_probs)
+				probabilities = np.array(probabilities)
+				probabilities = probabilities ** self.beta
+				probabilities = probabilities / probabilities.sum()
+				choice_idx = np.random.choice(len(moves), p=probabilities)
+				move_list[i] = moves[choice_idx]
+		return move_list

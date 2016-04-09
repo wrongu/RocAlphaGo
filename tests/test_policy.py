@@ -14,6 +14,12 @@ class TestCNNPolicy(unittest.TestCase):
 		policy.eval_state(GameState())
 		# just hope nothing breaks
 
+	def test_batch_eval_state(self):
+		policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
+		results = policy.batch_eval_state([GameState(), GameState()])
+		self.assertEqual(len(results), 2) # one result per GameState
+		self.assertEqual(len(results[0]), 361) # each one has 361 (move,prob) pairs
+
 	def test_output_size(self):
 		policy19 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=19)
 		output = policy19.forward(policy19.preprocessor.state_to_tensor(GameState(19)))
