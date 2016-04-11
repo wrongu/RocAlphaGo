@@ -13,7 +13,7 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
 
 		os.remove(os.path.join(output, 'metadata.json'))
 		os.remove(os.path.join(output, 'shuffle.npz'))
-		os.remove(os.path.join(output, 'weights.00.hdf5'))
+		os.remove(os.path.join(output, 'weights.00000.hdf5'))
 		os.rmdir(output)
 
 if __name__ == '__main__':
