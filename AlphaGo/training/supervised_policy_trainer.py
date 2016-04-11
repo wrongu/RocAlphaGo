@@ -156,7 +156,7 @@ def run_training(cmd_line_args=None):
 	meta_writer.metadata["model_file"] = args.model
 
 	# create ModelCheckpoint to save weights every epoch
-	checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:02d}.hdf5")
+	checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:05d}.hdf5")
 	checkpointer = ModelCheckpoint(checkpoint_template)
 
 	# load precomputed random-shuffle indices or create them
