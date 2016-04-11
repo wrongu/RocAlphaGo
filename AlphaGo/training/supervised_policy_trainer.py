@@ -195,7 +195,7 @@ def run_training(cmd_line_args=None):
 		BOARD_TRANSFORMATIONS)
 
 	sgd = SGD(lr=args.learning_rate, decay=args.decay)
-	model.compile(loss='binary_crossentropy', optimizer=sgd)
+	model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
 	samples_per_epoch = args.epoch_length or n_train_data
 
