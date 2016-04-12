@@ -120,7 +120,7 @@ def run_training(cmd_line_args=None):
 	# load model from json spec
 	model = CNNPolicy.load_model(args.model).model
 	if resume:
-		model.load_weights(args.weights)
+		model.load_weights(os.path.join(args.out_directory, args.weights))
 
 	# TODO - (waiting on game_converter) verify that features of model match features of training data
 	dataset = h5.File(args.train_data)
