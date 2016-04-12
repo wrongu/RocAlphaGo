@@ -1,5 +1,5 @@
 import argparse
-from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
+from AlphaGo.ai import ProbabilisticPolicyPlayer
 import AlphaGo.go as go
 from AlphaGo.go import GameState
 from AlphaGo.models.policy import CNNPolicy
@@ -29,13 +29,14 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 	winners -- list of winners associated with each game in batch
 	"""
 
-	def do_move(states, states_prev, moves, X_list, y_list):
+	def do_move(states, states_prev, moves, X_list, y_list, player_color):
 		bsize_flat = bsize * bsize
-		for st, st_prev, mv, X, y in zip(states, states_prev, moves, X_list, y_list):
+		for st, st_prev, mv, X, y in zip(states, states_prev, moves, X_list,
+										 y_list):
 			if not st.is_end_of_game:
 				# Only do more moves if not end of game already
 				st.do_move(mv)
-				if st.current_player != go.BLACK and mv is not go.PASS_MOVE:
+				if st.current_player != player_color and mv is not go.PASS_MOVE:
 					# Convert move to one-hot
 					state_1hot = preprocessor.state_to_tensor(st_prev)
 					move_1hot = np.zeros(bsize_flat)
@@ -45,21 +46,27 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 		return states, X_list, y_list
 
 	# Lists of game training pairs (1-hot)
-	X_list = [list()] * mini_batch_size
-	y_list = [list()] * mini_batch_size
+	X_list = [list() for _ in xrange(mini_batch_size)]
+	y_list = [list() for _ in xrange(mini_batch_size)]
 	preprocessor = Preprocess(features)
 	bsize = player.policy.model.input_shape[-1]
 	states = [GameState() for i in xrange(mini_batch_size)]
+	# Randomly choose who goes first (i.e. color of 'player')
+	player_color = np.random.choice([go.BLACK, go.WHITE])
+	player1, player2 = (player, opp) if player_color == go.BLACK else \
+		(opp, player)
 	while True:
 		# Cache states before moves
 		states_prev = [st.copy() for st in states]
 		# Get moves (batch)
-		moves = player.get_moves(states)
-		# Do moves (player)
-		states, X_list, y_list = do_move(states, states_prev, moves, X_list, y_list)
-		# Do moves (opponent)
-		moves_opp = opp.get_moves(states)
-		states, X_list, y_list = do_move(states, states_prev, moves_opp, X_list, y_list)
+		moves_black = player1.get_moves(states)
+		# Do moves (black)
+		states, X_list, y_list = do_move(states, states_prev, moves_black,
+										 X_list, y_list, player_color)
+		# Do moves (white)
+		moves_white = player2.get_moves(states)
+		states, X_list, y_list = do_move(states, states_prev, moves_white,
+										 X_list, y_list, player_color)
 		# If all games have ended, we're done. Get winners.
 		done = [st.is_end_of_game for st in states]
 		if all(done):
@@ -78,7 +85,8 @@ def train_batch(player, X_list, y_list, winners, lr):
 
 	   Args:
 	   player -- player object with policy weights to be updated
-	   training_pairs_list -- List of one-hot encoded state-action pairs.
+	   X_list -- List of one-hot encoded states.
+	   y_list -- List of one-hot encoded actions (to pair with X_list).
 	   winners -- List of winners corresponding to each item in
 				  training_pairs_list
 	   lr -- Keras learning rate
@@ -92,6 +100,8 @@ def train_batch(player, X_list, y_list, winners, lr):
 		# Setting learning rate negative is hack for negative weights update.
 		if winner == -1:
 			player.policy.model.optimizer.lr.set_value(-lr)
+		else:
+			player.policy.model.optimizer.lr.set_value(lr)
 		player.policy.model.fit(X, y, nb_epoch=1, batch_size=len(X))
 	return player
 
@@ -105,7 +115,7 @@ def run(player, args, opponents, features):
 		# Train mini-batches
 		for i_batch in xrange(args.save_every):
 			# Randomly choose opponent from pool
-			opp = np.random.choice(opponents)
+			opp = np.random.choice(opponents)  # TODO: change to file-loading scheme
 			# Make training pairs and do RL
 			X_list, y_list, winners = make_training_pairs(
 				player, opp, features, args.game_batch_size)
@@ -113,9 +123,8 @@ def run(player, args, opponents, features):
 			player_wins_per_batch.append(n_wins)
 			print 'Number of wins this batch: {}/{}'.format(n_wins, args.game_batch_size)
 			player = train_batch(player, X_list, y_list, winners, args.learning_rate)
-		# TODO: Save policy to model folder
-		# Add snapshot of player to pool of opponents
-		opponents.append(player.copy())
+		# TODO: Save policy to model folder and add snapshot of player to pool of opponents
+		# opponent_pths.append(player_pth)  # Something like this?
 	return opponents
 
 
@@ -139,10 +148,6 @@ if __name__ == '__main__':
 		"--iterations", help="Number of training iterations (i.e. mini-batch) "
 		"(Default: 20)",
 		type=int, default=20)
-	# parser.add_argument(
-	# 	"--nb_workers", help="Number of threads to use when training in parallel. "
-	# 	"Requires appropriately set Theano flags.", type=int, default=1)
-	# game batch size
 	# Baseline function (TODO) default lambda state: 0  (receives either file 
 	# paths to JSON and weights or None, in which case it uses default baseline 0)
 	args = parser.parse_args()
