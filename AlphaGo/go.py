@@ -31,7 +31,7 @@ class GameState(object):
 				self.liberty_sets[x][y] = set(self._neighbors((x, y)))
 		# separately cache the 2D numpy array of the _size_ of liberty sets
 		# at each board position
-		self.liberty_counts = np.zeros((size, size))
+		self.liberty_counts = np.zeros((size, size), dtype=np.int)
 		self.liberty_counts.fill(-1)
 		# initialize liberty_sets of empty board: the set of neighbors of each position
 		# similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
