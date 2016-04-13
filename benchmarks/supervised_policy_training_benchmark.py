@@ -12,6 +12,7 @@ profile = Profile()
 # --epochs 5 --minibatch 32 --learning-rate 0.01
 arguments = ('model.json', 'debug_feature_planes.hdf5', 'training_results/', 5, 32, .01)
 
+
 def run_supervised_policy_training():
 	run_training(*arguments)
 
