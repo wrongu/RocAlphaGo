@@ -2,9 +2,9 @@ from AlphaGo.training.supervised_policy_trainer import run_training
 from AlphaGo.models.policy import CNNPolicy
 from cProfile import Profile
 
-arch = {'filters_per_layer': 128, 'layers': 12}
+architecture = {'filters_per_layer': 128, 'layers': 12}
 features = ['board', 'ones', 'turns_since']
-policy = CNNPolicy(features, **arch)
+policy = CNNPolicy(features, **architecture)
 policy.save_model('model.json')
 
 profile = Profile()
