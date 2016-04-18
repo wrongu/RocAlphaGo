@@ -1,28 +1,29 @@
-
-LAMBDA = 0.5
+import numpy as np
 
 
 class TreeNode(object):
-	"""Tree Representation of MCTS that covers Selection, Expansion, Evaluation, Backup
+	"""Tree Representation of MCTS that covers Selection, Expansion, Evaluation, and backUp (aka 'update()')
 	"""
-	def __init__(self):
+	def __init__(self, parent, prior_p):
+		self.parent = parent
 		self.nVisits = 0
 		self.Q_value = 0
-		self.u_value = 0
+		self.u_value = prior_p
 		self.children = {}
+		self.P = prior_p
 
 	def expansion(self, actions):
-		"""Expand subtree --a dictionary with a tuple of (x,y) position as keys, TreeNode object as values
+		"""Expand subtree - a dictionary with a tuple of (x,y) position as keys, TreeNode object as values
 
 		Keyword arguments:
-		Output from policy function-- a list of tuples of (x, y) position and prior probability
+		Output from policy function - a list of tuples of (x, y) position and prior probability
 
-		Return:
+		Returns:
 		None
-
 		"""
-		for action in actions:
-			self.children[action[0]] = TreeNode()
+		for action, prob in actions:
+			if action not in self.children:
+				self.children[action] = TreeNode(self, prob)
 
 	def selection(self):
 		"""Select among subtree to get the position that gives maximum action value Q plus bonus u(P)
@@ -30,66 +31,32 @@ class TreeNode(object):
 		Keyword arguments:
 		None.
 
-		Return:
-		action -- a tuple of (x, y)
-		treenode object
-
-
+		Returns:
+		a tuple of (action, next_node)
 		"""
-		selectednode = self.children.values()[0]
-		selectedaction = self.children.keys()[0]
-		maxValue = selectednode.toValue()
-
-		for child in self.children.items():
-			if child[1].toValue() > maxValue:
-				selectednode = child[1]
-				maxValue = child[1].toValue()
-				selectedaction = child[0]
-		return selectednode, selectedaction
+		return max(self.children.iteritems(), key=lambda (a, n): n.toValue())
 
 	def isLeaf(self):
-		"""Check if leaf state is reached
+		"""Check if leaf node (i.e. no nodes below this have been expanded)
 		"""
-
 		return self.children == {}
 
-	def updateVisits(self):
-		"""Update the count of visit times
-		"""
-		self.nVisits += 1
+	def update(self, leaf_value, c_puct):
+		"""Update node values from leaf evaluation
 
-	def updateQ_value(self, value):
-		"""Update the action value Q
-		"""
-		self.Q_value = (self.Q_value * self.nVisits + value) / (self.nVisits + 1)
+		Arguments:
+		value of traversed subtree evaluation
 
-	def updateU_value(self, actions):
-
-		"""Update the bonus value u(P)--proportional to the prior probability but decays with the number of visits to encourage exploration
-
-		Keyword arguments:
-		Output from policy function-- a list of tuples of (x, y) position and prior probability
-
-		Return:
+		Returns:
 		None
-
 		"""
-
-		for index in range(0, len(self.children)):
-			self.children[actions[index][0]].u_value = actions[index][1] / (1 + self.children[actions[index][0]].nVisits)
-
-	def backUp(self, value):
-
-		"""Track the mean value of evaluations in the subtrees
-
-		Keyword arguments:
-		value of traversed subtree evaluation each simulation
-
-		Return:
-		Mean value
-
-		"""
-		return value / len(self.children)
+		# count visit
+		self.nVisits += 1
+		# update Q
+		mean_V = self.Q_value * (self.nVisits - 1)
+		self.Q_value = (mean_V + leaf_value) / self.nVisits
+		# update u (note that u is not normalized to be a distribution)
+		self.u_value = c_puct * self.P * np.sqrt(self.parent.nVisits) / (1 + self.nVisits)
 
 	def toValue(self):
 		"""Return action value Q plus bonus u(P)
@@ -98,18 +65,30 @@ class TreeNode(object):
 
 
 class MCTS(object):
-	"""Monte Carlo tree search, takes an input of game state, value network function, policy network function, rollout policy function, outputs an action after lookahead search is complete.
+	"""Monte Carlo tree search, takes an input of game state, value network function, policy network function,
+	rollout policy function. get_move outputs an action after lookahead search is complete.
+
+	The value function should take in a state and output a number in [-1, 1]
+	The policy and rollout functions should take in a state and output a list of (action,prob) tuples where
+		action is an (x,y) tuple
+
+	lmbda and c_puct are hyperparameters. 0 <= lmbda <= 1 controls the relative weight of the value network and fast
+	rollouts in determining the value of a leaf node. 0 < c_puct < inf controls how quickly exploration converges
+	to the maximum-value policy
 	"""
 
-	def __init__(self, state, value_network, policy_network, rollout_policy):
-
-		self.state = state
-		self.treenode = TreeNode()
+	def __init__(self, state, value_network, policy_network, rollout_policy, lmbda=0.5, c_puct=5, rollout_limit=500, playout_depth=20, n_search=10000):
+		self.root = TreeNode(None, 1.0)
 		self._value = value_network
 		self._policy = policy_network
 		self._rollout = rollout_policy
+		self._lmbda = lmbda
+		self._c_puct = c_puct
+		self._rollout_limit = rollout_limit
+		self._L = playout_depth
+		self._n_search = n_search
 
-	def DFS(self, nDepth, treenode, state):
+	def _DFS(self, nDepth, treenode, state):
 		"""Monte Carlo tree search over a certain depth per simulation, at the end of simulation,
 		the action values and visits of counts of traversed treenode are updated.
 
@@ -118,86 +97,78 @@ class MCTS(object):
 		Initial TreeNode object
 		Search Depth
 
-		Return:
-		TreeNode object with updated statistics(visit count N, action value Q)
+		Returns:
+		None
 		"""
 
-		visited = []
-		visited.insert(0, (state, treenode))
+		visited = [None] * nDepth
 
-		for index in range(0, nDepth - 1):
-			actions = self.priorProb(state)
-			treenode.expansion(actions)
-			treenode.updateU_value(actions)
-			treenode, action = treenode.selection()
+		# Playout to nDepth moves using the full policy network
+		for index in xrange(nDepth):
+			action_probs = self._policy(state)
+			# check for end of game
+			if len(action_probs) == 0:
+				break
+			treenode.expansion(action_probs)
+			action, treenode = treenode.selection()
 			state.do_move(action)
-			visited.insert(0, (state, treenode))
+			visited[index] = treenode
 
-		for index in range(0, len(visited)):
-			if visited[index][1].isLeaf():
-				value = self.leafEvaluation(visited[index][0])
-			else:
-				value = visited[index][1].backUp(value)
-
-		visited[-1][1].updateQ_value(value)
-		visited[-1][1].updateVisits()
-		return visited[-1][1]
-
-	def leafEvaluation(self, state):
-		"""Calculate leaf evaluation, a weighted average using a mixing parameter LAMBDA, combined outcome z
-		of fast rollout policy function and value network function output v.
-
-		Keyword arguments:
-		GameState object
-
-		Return:
-		value
-		"""
-		z = self._rollout(state)
+		# leaf evaluation
 		v = self._value(state)
-		return (1 - LAMBDA) * v + LAMBDA * z
+		z = self._evaluate_rollout(state, self._rollout_limit)
+		leaf_value = (1 - self._lmbda) * v + self._lmbda * z
 
-	def priorProb(self, state):
-		"""Get a list of (action, probability) pairs according to policy network function outputs
+		# update value and visit count of nodes in this traversal
+		# Note: it is important that this happens from the root downward
+		# so that 'parent' visit counts are correct
+		for node in visited:
+			node.update(leaf_value, self._c_puct)
 
-		Keyword arguments:
-		GameState object
-
-		Return:
-		list of tuples ((x,y), probability)
-
+	def _evaluate_rollout(self, state, limit):
+		"""Use the rollout policy to play until the end of the game, get the winner (or 0 if tie)
 		"""
-		actions = self._policy(state)
+		for i in xrange(limit):
+			action_probs = self._rollout(state)
+			if len(action_probs) == 0:
+				break
+			max_action = max(action_probs, key=lambda (a, p): p)[0]
+			state.do_move(max_action)
+		else:
+			# if no break from the loop
+			print "WARNING: rollout reached move limit"
+		return state.get_winner()
 
-		return actions
-
-	def getMove(self, nDepth, nSimulations):
-
+	def get_move(self, state):
 		"""After running simulations for a certain number of times, when the search is complete, an action is selected
 		from root state
 
 		Keyword arguments:
 		Number of Simulations
 
-		Return:
+		Returns:
 		action -- a tuple of (x, y)
 		"""
+		action_probs = self._policy(state)
+		self.root.expansion(action_probs)
 
-		actions = self.priorProb(self.state)
-		self.treenode.expansion(actions)
+		for n in xrange(0, self._n_search):
+			state_copy = state.copy()
+			self._DFS(self._L, self.root, state_copy)
 
-		for n in range(0, nSimulations):
+		# chosen action is the *most visited child*, not the highest-value
+		# (note that they are the same as self._n_search gets large)
+		return max(self.root.children.iteritems(), key=lambda (a, n): n.nVisits)[0]
 
-			self.treenode.updateU_value(actions)
-			treenode, action = self.treenode.selection()
-			state = self.state.copy()
-			state.do_move(action)
-			treenode = self.DFS(nDepth, treenode, state)
-			self.treenode.children[action] = treenode
-
-		self.treenode.updateU_value(actions)
-		treenode, action = self.treenode.selection()
-		return action
+	def update_with_move(self, last_move):
+		"""step forward in the tree and discard everything that isn't still reachable
+		"""
+		if last_move in self.root.children:
+			self.root = self.root.children[last_move]
+			self.root.parent = None
+			# siblings of root will be garbage-collected because they are no longer reachable
+		else:
+			self.root = TreeNode(None, 1.0)
 
 
 class ParallelMCTS(MCTS):

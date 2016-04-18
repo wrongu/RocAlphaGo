@@ -1,53 +1,50 @@
 from AlphaGo.go import GameState
-from AlphaGo.mcts import MCTS
-from AlphaGo.mcts import TreeNode
-import random
+from AlphaGo.mcts import MCTS, TreeNode
+import numpy as np
 import unittest
 
 
 class TestMCTS(unittest.TestCase):
 
 	def setUp(self):
-		self.s = GameState()
-		self.mcts = MCTS(self.s, value_network, policy_network, rollout_policy)
-		self.treenode = TreeNode()
+		self.gs = GameState()
+		self.mcts = MCTS(self.gs, value_network, policy_network, rollout_policy, n_search=2)
 
 	def test_treenode_selection(self):
-		actions = self.mcts.priorProb(self.s)
-		self.treenode.expansion(actions)
-		self.treenode.updateU_value(actions)
-		selectednode, selectedaction = self.treenode.selection()
-		self.assertEqual(max(actions, key=lambda x: x[1])[1], selectednode.toValue(), 'incorrect node selected')
-		self.assertEqual(max(actions, key=lambda x: x[1])[0], selectedaction, 'incorrect action selected')
+		treenode = TreeNode(None, 1.0)
+		treenode.expansion(policy_network(self.gs))
+		action, node = treenode.selection()
+		self.assertEqual(action, (18, 18))  # according to the policy below
+		self.assertIsNotNone(node)
 
 	def test_mcts_DFS(self):
-		treenode = self.mcts.DFS(3, self.treenode, self.s)
-		self.assertEqual(1, treenode.nVisits, 'incorrect visit count')
+		treenode = TreeNode(None, 1.0)
+		self.mcts._DFS(8, treenode, self.gs.copy())
+		self.assertEqual(1, treenode.children[(18, 18)].nVisits, 'DFS visits incorrect')
 
 	def test_mcts_getMove(self):
-		action = self.mcts.getMove(3, 10)
-		self.assertIsNotNone(action, 'no output action')
-		action = self.mcts.getMove(4, 5)
-		self.assertIsNotNone(action, 'no output action')
-		action = self.mcts.getMove(6, 8)
-		self.assertIsNotNone(action, 'no output action')
+		move = self.mcts.get_move(self.gs)
+		self.mcts.update_with_move(move)
+		# success if no errors
 
 
 def policy_network(state):
-	s = GameState()
-	moves = s.get_legal_moves()
-	actions = []
-	for move in moves:
-		actions.append((move, random.uniform(0, 1)))
-	return actions
+	moves = state.get_legal_moves(include_eyes=False)
+	# 'random' distribution over positions that is smallest
+	# at (0,0) and largest at (18,18)
+	probs = np.arange(361, dtype=np.float)
+	probs = probs / probs.sum()
+	return zip(moves, probs)
 
 
 def value_network(state):
-	return 0.5
+	# it's not very confident
+	return 0.0
 
 
 def rollout_policy(state):
-	return 1
+	# just another policy network
+	return policy_network(state)
 
 
 if __name__ == '__main__':

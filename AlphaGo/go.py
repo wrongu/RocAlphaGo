@@ -10,16 +10,19 @@ class GameState(object):
 	"""State of a game of Go and some basic functions to interact with it
 	"""
 
-	def __init__(self, size=19):
+	def __init__(self, size=19, komi=7.5):
 		self.board = np.zeros((size, size))
 		self.board.fill(EMPTY)
 		self.size = size
 		self.turns_played = 0
 		self.current_player = BLACK
 		self.ko = None
+		self.komi = komi
 		self.history = []
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
+		self.passes_white = 0
+		self.passes_black = 0
 		# `self.liberty_sets` is a 2D array with the same indexes as `board`
 		# each entry points to a set of tuples - the liberties of a stone's
 		# connected block. By caching liberties in this way, we can directly
@@ -260,6 +263,32 @@ class GameState(object):
 					moves.append((x, y))
 		return moves
 
+	def get_winner(self):
+		"""Calculate score of board state and return player ID (1, -1, or 0 for tie)
+		corresponding to winner. Uses 'Area scoring'.
+		"""
+		# Count number of positions filled by each player, plus 1 for each eye-ish space owned
+		score_white = np.sum(self.board == WHITE)
+		score_black = np.sum(self.board == BLACK)
+		empties = zip(*np.where(self.board == EMPTY))
+		for empty in empties:
+			# Check that all surrounding points are of one color
+			if self.is_eyeish(empty, BLACK):
+				score_black += 1
+			elif self.is_eyeish(empty, WHITE):
+				score_white += 1
+		score_white += self.komi
+		score_white -= self.passes_white
+		score_black -= self.passes_black
+		if score_black > score_white:
+			winner = BLACK
+		elif score_white > score_black:
+			winner = WHITE
+		else:
+			# Tie
+			winner = 0
+		return winner
+
 	def do_move(self, action, color=None):
 		"""Play stone at action=(x,y). If color is not specified, current_player is used
 
@@ -296,6 +325,11 @@ class GameState(object):
 							if would_recapture and recapture_size_is_1:
 								# note: (nx,ny) is the stone that was captured
 								self.ko = (nx, ny)
+			else:
+				if color == BLACK:
+					self.passes_black += 1
+				if color == WHITE:
+					self.passes_white += 1
 			# next turn
 			self.current_player = -color
 			self.turns_played += 1
