@@ -156,9 +156,8 @@ def get_sensibleness(state):
 	"""A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
 	"""
 	feature = np.zeros((state.size, state.size))
-	for (x, y) in state.get_legal_moves():
-		if not state.is_eye((x, y), state.current_player):
-			feature[x, y] = 1
+	for (x, y) in state.get_legal_moves(include_eyes=False):
+		feature[x, y] = 1
 	return feature
 
 # named features and their sizes are defined here

@@ -252,11 +252,11 @@ class GameState(object):
 				return False
 		return True
 
-	def get_legal_moves(self):
+	def get_legal_moves(self, include_eyes=True):
 		moves = []
 		for x in range(self.size):
 			for y in range(self.size):
-				if self.is_legal((x, y)):
+				if self.is_legal((x, y)) and (include_eyes or not self.is_eye((x, y), self.current_player)):
 					moves.append((x, y))
 		return moves
 
