@@ -1,4 +1,5 @@
 import argparse
+from keras.callbacks import ModelCheckpoint
 from AlphaGo.ai import ProbabilisticPolicyPlayer
 import AlphaGo.go as go
 from AlphaGo.go import GameState
@@ -81,7 +82,7 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 
 def train_batch(player, X_list, y_list, winners, lr):
 	"""Given the outcomes of a mini-batch of play against a fixed opponent,
-	   update the weights with reinforcement learning.
+	   update the weights with reinforcement learning in place.
 
 	   Args:
 	   player -- player object with policy weights to be updated
@@ -90,9 +91,6 @@ def train_batch(player, X_list, y_list, winners, lr):
 	   winners -- List of winners corresponding to each item in
 				  training_pairs_list
 	   lr -- Keras learning rate
-
-	   Return:
-	   player -- same player, with updated weights.
 	"""
 
 	for X, y, winner in zip(X_list, y_list, winners):
@@ -103,10 +101,9 @@ def train_batch(player, X_list, y_list, winners, lr):
 		else:
 			player.policy.model.optimizer.lr.set_value(lr)
 		player.policy.model.fit(X, y, nb_epoch=1, batch_size=len(X))
-	return player
 
 
-def run(player, args, opponents, features):
+def run(player, args, opponents, features, model_folder):
 	# Set SGD and compile
 	sgd = SGD(lr=args.learning_rate)
 	player.policy.model.compile(loss='binary_crossentropy', optimizer=sgd)
@@ -115,18 +112,19 @@ def run(player, args, opponents, features):
 		# Train mini-batches
 		for i_batch in xrange(args.save_every):
 			# Randomly choose opponent from pool
-			opp = np.random.choice(opponents)  # TODO: change to file-loading scheme
+			opp_filepath = np.random.choice(os.listdir(model_folder))
+			opp_path = os.path.join(model_folder,opp_filepath)
+			opp = CNNPolicy.create_network().load_weights(opp_path)
 			# Make training pairs and do RL
 			X_list, y_list, winners = make_training_pairs(
 				player, opp, features, args.game_batch_size)
 			n_wins = np.sum(np.array(winners) == 1)
 			player_wins_per_batch.append(n_wins)
 			print 'Number of wins this batch: {}/{}'.format(n_wins, args.game_batch_size)
-			player = train_batch(player, X_list, y_list, winners, args.learning_rate)
-		# TODO: Save policy to model folder and add snapshot of player to pool of opponents
-		# opponent_pths.append(player_pth)  # Something like this?
-	return opponents
-
+			train_batch(player, X_list, y_list, winners, args.learning_rate)
+		# Save intermediate models
+		model_path = os.path.join(model_folder,str(i_iter))
+		player.policy.model.save_weights(model_path)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Perform reinforcement learning '
@@ -148,7 +146,7 @@ if __name__ == '__main__':
 		"--iterations", help="Number of training iterations (i.e. mini-batch) "
 		"(Default: 20)",
 		type=int, default=20)
-	# Baseline function (TODO) default lambda state: 0  (receives either file 
+	# Baseline function (TODO) default lambda state: 0  (receives either file
 	# paths to JSON and weights or None, in which case it uses default baseline 0)
 	args = parser.parse_args()
 	# Load policy from file
