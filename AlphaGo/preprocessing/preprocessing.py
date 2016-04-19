@@ -104,7 +104,7 @@ def get_self_atari_size(state, maximum=8):
 			(gx, gy) = next(iter(neighbor_group))
 			if state.board[gx, gy] == state.current_player:
 				lib_set_after |= state.liberty_sets[gx][gy]
-				group_set_after |= state.liberty_sets[gx][gy]
+				group_set_after |= state.group_sets[gx][gy]
 		if (x, y) in lib_set_after:
 			lib_set_after.remove((x, y))
 		# check if this move resulted in atari
