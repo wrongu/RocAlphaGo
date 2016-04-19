@@ -10,10 +10,10 @@ def get_board(state):
 	"""A feature encoding WHITE BLACK and EMPTY on separate planes, but plane 0
 	always refers to the current player and plane 1 to the opponent
 	"""
-	planes = np.zeros((state.size, state.size, 3))
-	planes[:, :, 0] = state.board == state.current_player  # own stone
-	planes[:, :, 1] = state.board == -state.current_player  # opponent stone
-	planes[:, :, 2] = state.board == go.EMPTY  # empty space
+	planes = np.zeros((3, state.size, state.size))
+	planes[0, :, :] = state.board == state.current_player  # own stone
+	planes[1, :, :] = state.board == -state.current_player  # opponent stone
+	planes[2, :, :] = state.board == go.EMPTY  # empty space
 	return planes
 
 
@@ -24,7 +24,7 @@ def get_turns_since(state, maximum=8):
 	- the [maximum-1] plane is used for any stone with age greater than or equal to maximum
 	- EMPTY locations are all-zero features
 	"""
-	planes = np.zeros((state.size, state.size, maximum))
+	planes = np.zeros((maximum, state.size, state.size))
 	depth = 0
 	# loop backwards over history and place a 1 in plane 0
 	# for the most recent move, a 1 in plane 1 for two moves ago, etc..
@@ -34,8 +34,8 @@ def get_turns_since(state, maximum=8):
 			if state.board[move] != go.EMPTY:
 				(x, y) = move
 				# check that a newer move isn't occupying (x,y)
-				if np.sum(planes[x, y, :]) == 0:
-					planes[x, y, depth] = 1
+				if np.sum(planes[:, x, y]) == 0:
+					planes[depth, x, y] = 1
 		# increment depth if there are more planes available
 		# (the last plane serves as the "maximum-1 or more" feature)
 		if depth < maximum - 1:
@@ -52,12 +52,12 @@ def get_liberties(state, maximum=8):
 	- the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
 	- EMPTY locations are all-zero features
 	"""
-	planes = np.zeros((state.size, state.size, maximum))
+	planes = np.zeros((maximum, state.size, state.size))
 	for i in range(maximum):
 		# single liberties in plane zero (groups won't have zero), double liberties in plane one, etc
-		planes[state.liberty_counts == i + 1, i] = 1
+		planes[i, state.liberty_counts == i + 1] = 1
 	# the "maximum-or-more" case on the backmost plane
-	planes[state.liberty_counts >= maximum, maximum - 1] = 1
+	planes[maximum - 1, state.liberty_counts >= maximum] = 1
 	return planes
 
 
@@ -71,7 +71,7 @@ def get_capture_size(state, maximum=8):
 	- the 0th plane is used for legal moves that would not result in capture
 	- illegal move locations are all-zero features
 	"""
-	planes = np.zeros((state.size, state.size, maximum))
+	planes = np.zeros((maximum, state.size, state.size))
 	for (x, y) in state.get_legal_moves():
 		# multiple disconnected groups may be captured. hence we loop over
 		# groups and count sizes if captured.
@@ -84,14 +84,14 @@ def get_capture_size(state, maximum=8):
 			(gx, gy) = next(iter(neighbor_group))
 			if (state.liberty_counts[gx][gy] == 1) and (state.board[gx, gy] != state.current_player):
 				n_captured += len(state.group_sets[gx][gy])
-		planes[x, y, min(n_captured, maximum - 1)] = 1
+		planes[min(n_captured, maximum - 1), x, y] = 1
 	return planes
 
 
 def get_self_atari_size(state, maximum=8):
 	"""A feature encoding the size of the own-stone group that is put into atari by playing at a location
 	"""
-	planes = np.zeros((state.size, state.size, maximum))
+	planes = np.zeros((maximum, state.size, state.size))
 
 	for (x, y) in state.get_legal_moves():
 		# make a copy of the liberty/group sets at (x,y) so we can manipulate them
@@ -111,7 +111,7 @@ def get_self_atari_size(state, maximum=8):
 		if len(lib_set_after) == 1:
 			group_size = len(group_set_after)
 			# 0th plane used for size=1, so group_size-1 is the index
-			planes[x, y, min(group_size - 1, maximum - 1)] = 1
+			planes[min(group_size - 1, maximum - 1), x, y] = 1
 	return planes
 
 
@@ -124,7 +124,7 @@ def get_liberties_after(state, maximum=8):
 	- the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
 	- illegal move locations are all-zero features
 	"""
-	feature = np.zeros((state.size, state.size, maximum))
+	planes = np.zeros((maximum, state.size, state.size))
 	# note - left as all zeros if not a legal move
 	for (x, y) in state.get_legal_moves():
 		# make a copy of the set of liberties at (x,y) so we can add to it
@@ -140,8 +140,8 @@ def get_liberties_after(state, maximum=8):
 		# since it's clearly not a liberty after playing there
 		if (x, y) in lib_set_after:
 			lib_set_after.remove((x, y))
-		feature[x, y, min(maximum - 1, len(lib_set_after) - 1)] = 1
-	return feature
+		planes[min(maximum - 1, len(lib_set_after) - 1), x, y] = 1
+	return planes
 
 
 def get_ladder_capture(state):
@@ -155,9 +155,9 @@ def get_ladder_escape(state):
 def get_sensibleness(state):
 	"""A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
 	"""
-	feature = np.zeros((state.size, state.size))
+	feature = np.zeros((1, state.size, state.size))
 	for (x, y) in state.get_legal_moves(include_eyes=False):
-		feature[x, y] = 1
+		feature[0, x, y] = 1
 	return feature
 
 # named features and their sizes are defined here
@@ -168,7 +168,7 @@ FEATURES = {
 	},
 	"ones": {
 		"size": 1,
-		"function": lambda state: np.ones((state.size, state.size))
+		"function": lambda state: np.ones((1, state.size, state.size))
 	},
 	"turns_since": {
 		"size": 8,
@@ -204,7 +204,7 @@ FEATURES = {
 	},
 	"zeros": {
 		"size": 1,
-		"function": lambda state: np.zeros((state.size, state.size))
+		"function": lambda state: np.zeros((1, state.size, state.size))
 	}
 }
 
@@ -240,17 +240,6 @@ class Preprocess(object):
 		"""
 		feat_tensors = [proc(state) for proc in self.processors]
 
-		# TODO - make features smarter so they don't have to be transposed and reshaped,
-		# just stacked, and this loop could be avoided
-		for i, feat in enumerate(feat_tensors):
-			# reshape (width,height,depth) to (depth,width,height)
-			if feat.ndim == 2:
-				(w, h) = feat.shape
-				d = 1
-			else:
-				(w, h, d) = feat.shape
-			feat_tensors[i] = feat.reshape((w, h, d)).transpose((2, 0, 1))
-
-		# concatenate along feature dimension then add in a singleton 'batch' dimensino
+		# concatenate along feature dimension then add in a singleton 'batch' dimension
 		f, s = self.output_dim, state.size
 		return np.concatenate(feat_tensors).reshape((1, f, s, s))
