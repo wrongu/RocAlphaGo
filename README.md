@@ -5,6 +5,10 @@ This project is a replication/reference implementation of DeepMind's 2016 Nature
 [![Build Status](https://travis-ci.org/Rochester-NRT/AlphaGo.svg?branch=develop)](https://travis-ci.org/Rochester-NRT/AlphaGo)
 [![Gitter](https://badges.gitter.im/Rochester-NRT/AlphaGo.svg)](https://gitter.im/Rochester-NRT/AlphaGo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
+# Documentation
+
+See the [project wiki](https://github.com/Rochester-NRT/AlphaGo/wiki).
+
 # Current project status
 
 _This is not yet a full implementation of AlphaGo_. Development is being carried out on the `develop` branch.
