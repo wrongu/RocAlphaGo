@@ -10,19 +10,17 @@ class GameState(object):
 	"""State of a game of Go and some basic functions to interact with it
 	"""
 
-	def __init__(self, size=19, komi=5):
+	def __init__(self, size=19, komi=7.5):
 		self.board = np.zeros((size, size))
 		self.board.fill(EMPTY)
 		self.size = size
 		self.turns_played = 0
 		self.current_player = BLACK
 		self.ko = None
+		self.komi = komi
 		self.history = []
-		self.is_end_of_game = False
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
-		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
-		# Each pass move by a player subtracts a point
 		self.passes_white = 0
 		self.passes_black = 0
 		# `self.liberty_sets` is a 2D array with the same indexes as `board`
@@ -36,7 +34,7 @@ class GameState(object):
 				self.liberty_sets[x][y] = set(self._neighbors((x, y)))
 		# separately cache the 2D numpy array of the _size_ of liberty sets
 		# at each board position
-		self.liberty_counts = np.zeros((size, size))
+		self.liberty_counts = np.zeros((size, size), dtype=np.int)
 		self.liberty_counts.fill(-1)
 		# initialize liberty_sets of empty board: the set of neighbors of each position
 		# similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
@@ -45,12 +43,10 @@ class GameState(object):
 
 	def get_group(self, position):
 		"""Get the group of connected same-color stones to the given position
-
 		Keyword arguments:
 		position -- a tuple of (x, y)
 		x being the column index of the starting position of the search
 		y being the row index of the starting position of the search
-
 		Return:
 		a set of tuples consist of (x, y)s which are the same-color cluster
 		which contains the input single position. len(group) is size of the cluster, can be large.
@@ -61,15 +57,12 @@ class GameState(object):
 
 	def get_groups_around(self, position):
 		"""returns a list of the unique groups adjacent to position
-
 		'unique' means that, for example in this position:
-
 			. . . . .
 			. B W . .
 			. W W . .
 			. . . . .
 			. . . . .
-
 		only the one white group would be returned on get_groups_around((1,1))
 		"""
 		groups = []
@@ -202,7 +195,6 @@ class GameState(object):
 
 	def is_legal(self, action):
 		"""determine if the given action (x,y tuple) is a legal move
-
 		note: we only check ko, not superko at this point (TODO?)
 		"""
 		# passing move
@@ -228,7 +220,6 @@ class GameState(object):
 
 	def is_eye(self, position, owner, stack=[]):
 		"""returns whether the position is a true eye of 'owner'
-
 		Requires a recursive call; empty spaces diagonal to 'position' are fine
 		as long as they themselves are eyes
 		"""
@@ -257,11 +248,11 @@ class GameState(object):
 				return False
 		return True
 
-	def get_legal_moves(self):
+	def get_legal_moves(self, include_eyes=True):
 		moves = []
 		for x in range(self.size):
 			for y in range(self.size):
-				if self.is_legal((x, y)):
+				if self.is_legal((x, y)) and (include_eyes or not self.is_eye((x, y), self.current_player)):
 					moves.append((x, y))
 		return moves
 
@@ -269,19 +260,15 @@ class GameState(object):
 		"""Calculate score of board state and return player ID (1, -1, or 0 for tie)
 		corresponding to winner. Uses 'Area scoring'.
 		"""
-		# Count number of positions filled by each player, and add 1 for each eye
-		# Assumes that only empty spaces left on board are eyes (i.e. game fully
-		# played out)
+		# Count number of positions filled by each player, plus 1 for each eye-ish space owned
 		score_white = np.sum(self.board == WHITE)
 		score_black = np.sum(self.board == BLACK)
-		eyes = np.where(self.board == 0)
-		eyes = zip(eyes[0], eyes[1])
-		for eye in eyes:
+		empties = zip(*np.where(self.board == EMPTY))
+		for empty in empties:
 			# Check that all surrounding points are of one color
-			neighbors = self._neighbors((eye[0], eye[1]))
-			if np.all([self.board[n] == BLACK for n in neighbors]):
+			if self.is_eyeish(empty, BLACK):
 				score_black += 1
-			if np.all([self.board[n] == WHITE for n in neighbors]):
+			elif self.is_eyeish(empty, WHITE):
 				score_white += 1
 		score_white += self.komi
 		score_white -= self.passes_white
@@ -292,12 +279,11 @@ class GameState(object):
 			winner = WHITE
 		else:
 			# Tie
-			winner = None
+			winner = 0
 		return winner
 
 	def do_move(self, action, color=None):
 		"""Play stone at action=(x,y). If color is not specified, current_player is used
-
 		If it is a legal move, current_player switches to the opposite color
 		If not, an IllegalMove exception is raised
 		"""
@@ -309,6 +295,7 @@ class GameState(object):
 				(x, y) = action
 				self.board[x][y] = color
 				self._update_neighbors(action)
+
 				# check neighboring groups' liberties for captures
 				for (nx, ny) in self._neighbors(action):
 					if self.board[nx, ny] == -color and len(self.liberty_sets[nx][ny]) == 0:
@@ -331,23 +318,16 @@ class GameState(object):
 								# note: (nx,ny) is the stone that was captured
 								self.ko = (nx, ny)
 			else:
-				# Subtract point for pass move
-				if self.current_player == WHITE:
-					self.passes_white += 1
-				else:
+				if color == BLACK:
 					self.passes_black += 1
+				if color == WHITE:
+					self.passes_white += 1
 			# next turn
 			self.current_player = -color
 			self.turns_played += 1
 			self.history.append(action)
 		else:
 			raise IllegalMove(str(action))
-		# Check for end of game
-		if len(self.history) > 1:
-			if self.history[-1] is None and self.history[-2] is None \
-				and self.current_player == WHITE:
-				self.is_end_of_game = True
-		return self.is_end_of_game
 
 
 class IllegalMove(Exception):

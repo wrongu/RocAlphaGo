@@ -92,7 +92,6 @@ def run_training(cmd_line_args=None):
 	parser.add_argument("--epoch-length", "-l", help="Number of training examples considered 'one epoch'. Default: # training data", type=int, default=None)
 	parser.add_argument("--learning-rate", "-r", help="Learning rate - how quickly the model learns at first. Default: .03", type=float, default=.03)
 	parser.add_argument("--decay", "-d", help="The rate at which learning decreases. Default: .0001", type=float, default=.0001)
-	parser.add_argument("--workers", "-w", help="Number of 'workers' workon on batch generator in parallel. Default: 4", type=int, default=4)
 	parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
 	# slightly fancier args
 	parser.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)
@@ -120,13 +119,13 @@ def run_training(cmd_line_args=None):
 	# load model from json spec
 	model = CNNPolicy.load_model(args.model).model
 	if resume:
-		model.load_weights(args.weights)
+		model.load_weights(os.path.join(args.out_directory, args.weights))
 
 	# TODO - (waiting on game_converter) verify that features of model match features of training data
 	dataset = h5.File(args.train_data)
 	n_total_data = len(dataset["states"])
-	n_train_data = np.floor(args.train_val_test[0] * n_total_data)
-	n_val_data = np.floor(args.train_val_test[1] * n_total_data)
+	n_train_data = int(args.train_val_test[0] * n_total_data)
+	n_val_data = int(args.train_val_test[1] * n_total_data)
 	# n_test_data = n_total_data - (n_train_data + n_val_data)
 
 	if args.verbose:
@@ -156,7 +155,7 @@ def run_training(cmd_line_args=None):
 	meta_writer.metadata["model_file"] = args.model
 
 	# create ModelCheckpoint to save weights every epoch
-	checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:02d}.hdf5")
+	checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:05d}.hdf5")
 	checkpointer = ModelCheckpoint(checkpoint_template)
 
 	# load precomputed random-shuffle indices or create them
@@ -195,7 +194,7 @@ def run_training(cmd_line_args=None):
 		BOARD_TRANSFORMATIONS)
 
 	sgd = SGD(lr=args.learning_rate, decay=args.decay)
-	model.compile(loss='binary_crossentropy', optimizer=sgd)
+	model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
 
 	samples_per_epoch = args.epoch_length or n_train_data
 
@@ -208,9 +207,7 @@ def run_training(cmd_line_args=None):
 		nb_epoch=args.epochs,
 		callbacks=[checkpointer, meta_writer],
 		validation_data=val_data_generator,
-		nb_val_samples=n_val_data,
-		show_accuracy=True,
-		nb_worker=args.workers)
+		nb_val_samples=n_val_data)
 
 if __name__ == '__main__':
 	run_training()
