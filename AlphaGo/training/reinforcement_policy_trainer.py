@@ -104,12 +104,16 @@ def run(player, args, opponents, features, model_folder):
 		# Train mini-batches
 		for i_batch in xrange(args.save_every):
 			# Randomly choose opponent from pool
-			opp_filepath = np.random.choice(os.listdir(model_folder))
-			opp_path = os.path.join(model_folder,opp_filepath)
-			opp = CNNPolicy.create_network().load_weights(opp_path)
+			if len(os.listdir(model_folder))==0:
+				opp = player
+			else:
+				opp_filepath = np.random.choice(os.listdir(model_folder))
+				opp_path = os.path.join(model_folder,opp_filepath)
+				policy = CNNPolicy.create_network()
+				policy.model.load_weights(opp_path)
+				opp = ProbabilisticPolicyPlayer(policy)
 			# Make training pairs and do RL
-			X_list, y_list, winners = make_training_pairs(
-				player, opp, features, args.game_batch_size)
+			X_list, y_list, winners = make_training_pairs(player, opp, features, args.game_batch_size)
 			n_wins = np.sum(np.array(winners) == 1)
 			player_wins_per_batch.append(n_wins)
 			print 'Number of wins this batch: {}/{}'.format(n_wins, args.game_batch_size)
@@ -142,7 +146,7 @@ if __name__ == '__main__':
 	# Set initial conditions
 	policy = CNNPolicy.load_model(args.initial_json)
 	policy.model.load_weights(args.initial_weights)
-	player = ProbabilisticPolicyPlayer(policy.model)
+	player = ProbabilisticPolicyPlayer(policy)
 
 	opponent_files = os.listdir(args.model_folder)
 	if len(opponent_files) == 0: # Start new RL training session
@@ -151,6 +155,6 @@ if __name__ == '__main__':
 		opponents = opponent_files
 
 	with open(args.initial_json) as j:
-		features = json.load(j).feature_list
+		features = json.load(j)['feature_list']
 
 	run(player, args, opponents, features, args.model_folder)
