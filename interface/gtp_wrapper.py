@@ -49,6 +49,8 @@ def run_gtp(player_obj, inpt_fn=None):
 	if inpt_fn is None:
 		inpt_fn = raw_input
 
+	sys.stderr.write("GTP engine ready\n")
+	sys.stderr.flush()
 	while not gtp_engine.disconnect:
 		inpt = inpt_fn()
 		# handle either single lines at a time
