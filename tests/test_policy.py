@@ -2,7 +2,6 @@ from AlphaGo.models.policy import CNNPolicy
 from AlphaGo import go
 from AlphaGo.go import GameState
 from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
-import numpy as np
 import unittest
 import os
 
@@ -17,8 +16,8 @@ class TestCNNPolicy(unittest.TestCase):
 	def test_batch_eval_state(self):
 		policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
 		results = policy.batch_eval_state([GameState(), GameState()])
-		self.assertEqual(len(results), 2) # one result per GameState
-		self.assertEqual(len(results[0]), 361) # each one has 361 (move,prob) pairs
+		self.assertEqual(len(results), 2)  # one result per GameState
+		self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
 	def test_output_size(self):
 		policy19 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=19)

@@ -31,8 +31,7 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 
 	def do_move(states, states_prev, moves, X_list, y_list, player_color):
 		bsize_flat = bsize * bsize
-		for st, st_prev, mv, X, y in zip(states, states_prev, moves, X_list,
-										 y_list):
+		for st, st_prev, mv, X, y in zip(states, states_prev, moves, X_list, y_list):
 			if not st.is_end_of_game:
 				# Only do more moves if not end of game already
 				st.do_move(mv)
@@ -61,12 +60,10 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 		# Get moves (batch)
 		moves_black = player1.get_moves(states)
 		# Do moves (black)
-		states, X_list, y_list = do_move(states, states_prev, moves_black,
-										 X_list, y_list, player_color)
+		states, X_list, y_list = do_move(states, states_prev, moves_black, X_list, y_list, player_color)
 		# Do moves (white)
 		moves_white = player2.get_moves(states)
-		states, X_list, y_list = do_move(states, states_prev, moves_white,
-										 X_list, y_list, player_color)
+		states, X_list, y_list = do_move(states, states_prev, moves_white, X_list, y_list, player_color)
 		# If all games have ended, we're done. Get winners.
 		done = [st.is_end_of_game for st in states]
 		if all(done):
@@ -81,18 +78,18 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 
 def train_batch(player, X_list, y_list, winners, lr):
 	"""Given the outcomes of a mini-batch of play against a fixed opponent,
-	   update the weights with reinforcement learning.
+		update the weights with reinforcement learning.
 
-	   Args:
-	   player -- player object with policy weights to be updated
-	   X_list -- List of one-hot encoded states.
-	   y_list -- List of one-hot encoded actions (to pair with X_list).
-	   winners -- List of winners corresponding to each item in
-				  training_pairs_list
-	   lr -- Keras learning rate
+		Args:
+		player -- player object with policy weights to be updated
+		X_list -- List of one-hot encoded states.
+		y_list -- List of one-hot encoded actions (to pair with X_list).
+		winners -- List of winners corresponding to each item in
+					training_pairs_list
+		lr -- Keras learning rate
 
-	   Return:
-	   player -- same player, with updated weights.
+		Return:
+		player -- same player, with updated weights.
 	"""
 
 	for X, y, winner in zip(X_list, y_list, winners):
@@ -130,7 +127,7 @@ def run(player, args, opponents, features):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Perform reinforcement learning '
-									 'to improve given policy network. Second phase of pipeline.')
+									'to improve given policy network. Second phase of pipeline.')
 	parser.add_argument("initial_weights", help="Path to file with weights to start from.")
 	parser.add_argument("initial_json", help="Path to file with initial network params.")
 	parser.add_argument("--model_folder", help="Path to folder where the model "
@@ -148,7 +145,7 @@ if __name__ == '__main__':
 		"--iterations", help="Number of training iterations (i.e. mini-batch) "
 		"(Default: 20)",
 		type=int, default=20)
-	# Baseline function (TODO) default lambda state: 0  (receives either file 
+	# Baseline function (TODO) default lambda state: 0  (receives either file
 	# paths to JSON and weights or None, in which case it uses default baseline 0)
 	args = parser.parse_args()
 	# Load policy from file
