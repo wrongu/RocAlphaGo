@@ -1,7 +1,7 @@
 """Interface for AlphaGo self-play"""
 from AlphaGo.go import GameState
 
-# Deprecated?
+
 class play_match(object):
 	"""Interface to handle play between two players."""
 	def __init__(self, player1, player2, save_dir=None, size=19):
