@@ -41,6 +41,40 @@ def simple_board():
 	return gs
 
 
+def self_atari_board():
+	# another tiny board for testing self-atari specifically.
+	# positions marked with 'a' are self-atari for black
+	#
+	#         X
+	#   0 1 2 3 4 5 6
+	#   a W . . . W B 0
+	#   . . . . . . . 1
+	#   . . . . . . . 2
+	# Y . . W . W . . 3
+	#   . W B a B W . 4
+	#   . . W W W . . 5
+	#   . . . . . . . 6
+	#
+	# current_player = black
+	gs = go.GameState(size=7)
+
+	gs.do_move((2, 4), go.BLACK)
+	gs.do_move((4, 4), go.BLACK)
+	gs.do_move((6, 0), go.BLACK)
+
+	gs.do_move((1, 0), go.WHITE)
+	gs.do_move((5, 0), go.WHITE)
+	gs.do_move((2, 3), go.WHITE)
+	gs.do_move((4, 3), go.WHITE)
+	gs.do_move((1, 4), go.WHITE)
+	gs.do_move((5, 4), go.WHITE)
+	gs.do_move((2, 5), go.WHITE)
+	gs.do_move((3, 5), go.WHITE)
+	gs.do_move((4, 5), go.WHITE)
+
+	return gs
+
+
 class TestPreprocessingFeatures(unittest.TestCase):
 	"""Test the functions in preprocessing.py
 
@@ -147,12 +181,17 @@ class TestPreprocessingFeatures(unittest.TestCase):
 				"bad expectation: capturing %d stones" % i)
 
 	def test_get_self_atari_size(self):
-		# TODO - at the moment there is no imminent self-atari for white
-		gs = simple_board()
+		gs = self_atari_board()
 		pp = Preprocess(["self_atari_size"])
 		feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-		self.assertTrue(np.all(feature == np.zeros((gs.size, gs.size, 8))))
+		one_hot_self_atari = np.zeros((gs.size, gs.size, 8))
+		# self atari of size 1 at position 0,0
+		one_hot_self_atari[0, 0, 0] = 1
+		# self atari of size 3 at position 3,4
+		one_hot_self_atari[3, 4, 2] = 1
+
+		self.assertTrue(np.all(feature == one_hot_self_atari))
 
 	def test_get_liberties_after(self):
 		gs = simple_board()

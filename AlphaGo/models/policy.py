@@ -35,9 +35,7 @@ class CNNPolicy(object):
 
 		c.f. https://github.com/fchollet/keras/issues/1426
 		"""
-		model_input = self.model.get_input(train=False)
-		model_output = self.model.get_output(train=False)
-		forward_function = K.function([model_input], [model_output])
+		forward_function = K.function([self.model.input], [self.model.output])
 
 		# the forward_function returns a list of tensors
 		# the first [0] gets the front tensor.
