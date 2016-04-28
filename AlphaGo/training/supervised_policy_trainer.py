@@ -146,7 +146,7 @@ def run_training(cmd_line_args=None):
 		with open(meta_file, "r") as f:
 			meta_writer.metadata = json.load(f)
 		if args.verbose:
-			print "previous metadata loadeda: %d epochs. new epochs will be appended." % len(meta_writer.metadata["epochs"])
+			print "previous metadata loaded: %d epochs. new epochs will be appended." % len(meta_writer.metadata["epochs"])
 	elif args.verbose:
 		print "starting with empty metadata"
 	# the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add in anything else we like here
