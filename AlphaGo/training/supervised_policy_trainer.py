@@ -50,6 +50,9 @@ class MetadataWriterCallback(Callback):
 		}
 
 	def on_epoch_end(self, epoch, logs={}):
+		# in case appending to logs (resuming training), get epoch number ourselves
+		epoch = len(self.metadata["epochs"])
+
 		self.metadata["epochs"].append(logs)
 
 		if "val_loss" in logs:
