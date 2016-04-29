@@ -145,7 +145,7 @@ class GameState(object):
 			# clear group_sets for all positions in 'group'
 			self.group_sets[x][y] = set()
 			self.liberty_sets[x][y] = set()
-			self.liberty_counts[x][y] = 0
+			self.liberty_counts[x][y] = -1
 			for (nx, ny) in self._neighbors((x, y)):
 				if self.board[nx, ny] == EMPTY:
 					# add empty neighbors of (x,y) to its liberties
