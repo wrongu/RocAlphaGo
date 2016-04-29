@@ -150,11 +150,11 @@ class GameState(object):
 				if self.board[nx, ny] == EMPTY:
 					# add empty neighbors of (x,y) to its liberties
 					self.liberty_sets[x][y].add((nx, ny))
-					self.liberty_counts[x][y] += 1
 				else:
 					# add (x,y) to the liberties of its nonempty neighbors
 					self.liberty_sets[nx][ny].add((x, y))
-					self.liberty_counts[nx][ny] += 1
+					for (gx, gy) in self.group_sets[nx][ny]:
+						self.liberty_counts[gx][gy] += 1
 
 	def copy(self):
 		"""get a copy of this Game state
