@@ -299,6 +299,8 @@ class GameState(object):
 		If not, an IllegalMove exception is raised
 		"""
 		color = color or self.current_player
+		reset_player = self.current_player
+		self.current_player = color
 		if self.is_legal(action):
 			# reset ko
 			self.ko = None
@@ -337,6 +339,7 @@ class GameState(object):
 			self.turns_played += 1
 			self.history.append(action)
 		else:
+			self.current_player = reset_player
 			raise IllegalMove(str(action))
 		# Check for end of game
 		if len(self.history) > 1:
