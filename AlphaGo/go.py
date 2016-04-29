@@ -340,7 +340,7 @@ class GameState(object):
 			raise IllegalMove(str(action))
 		# Check for end of game
 		if len(self.history) > 1:
-			if self.history[-1] is None and self.history[-2] is None \
+			if self.history[-1] is PASS_MOVE and self.history[-2] is PASS_MOVE \
 				and self.current_player == WHITE:
 				self.is_end_of_game = True
 		return self.is_end_of_game
