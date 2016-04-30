@@ -134,6 +134,8 @@ class TestEye(unittest.TestCase):
 			gs_capture.do_move((x, 5), go.WHITE)
 			gs_reference.do_move((x, 1), go.WHITE)
 			gs_reference.do_move((x, 5), go.WHITE)
+		gs_capture.do_move((1, 1), go.WHITE)
+		gs_reference.do_move((1, 1), go.WHITE)
 		for y in range(2, 5):
 			gs_capture.do_move((1, y), go.WHITE)
 			gs_capture.do_move((5, y), go.WHITE)
