@@ -31,7 +31,9 @@ def shuffled_hdf5_batch_generator(state_dataset, action_dataset, indices, batch_
 			# get state from dataset and transform it.
 			# loop comprehension is used so that the transformation acts on the 3rd and 4th dimensions
 			state = np.array([transform(plane) for plane in state_dataset[data_idx]])
-			action = transform(one_hot_action(action_dataset[data_idx], game_size))
+			# must be cast to a tuple so that it is interpreted as (x,y) not [(x,:), (y,:)]
+			action_xy = tuple(action_dataset[data_idx])
+			action = transform(one_hot_action(action_xy, game_size))
 			Xbatch[batch_idx] = state
 			Ybatch[batch_idx] = action.flatten()
 			batch_idx += 1
