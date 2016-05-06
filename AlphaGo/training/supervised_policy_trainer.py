@@ -68,16 +68,16 @@ class MetadataWriterCallback(Callback):
 			json.dump(self.metadata, f)
 
 
-BOARD_TRANSFORMATIONS = [
-	lambda feature: feature,
-	lambda feature: np.rot90(feature, 1),
-	lambda feature: np.rot90(feature, 2),
-	lambda feature: np.rot90(feature, 3),
-	lambda feature: np.fliplr(feature),
-	lambda feature: np.flipud(feature),
-	lambda feature: np.transpose(feature),
-	lambda feature: np.fliplr(np.rot90(feature, 1))
-]
+BOARD_TRANSFORMATIONS = {
+	"noop": lambda feature: feature,
+	"rot90": lambda feature: np.rot90(feature, 1),
+	"rot180": lambda feature: np.rot90(feature, 2),
+	"rot270": lambda feature: np.rot90(feature, 3),
+	"fliplr": lambda feature: np.fliplr(feature),
+	"flipud": lambda feature: np.flipud(feature),
+	"diag1": lambda feature: np.transpose(feature),
+	"diag2": lambda feature: np.fliplr(np.rot90(feature, 1))
+}
 
 
 def run_training(cmd_line_args=None):
@@ -99,6 +99,7 @@ def run_training(cmd_line_args=None):
 	# slightly fancier args
 	parser.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)
 	parser.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Invalid if restarting training", nargs=3, type=float, default=[0.93, .05, .02])
+	parser.add_argument("--symmetries", help="Comma-separated list of transforms, subset of noop,rot90,rot180,rot270,fliplr,flipud,diag1,diag2", default='noop,rot90,rot180,rot270,fliplr,flipud,diag1,diag2')
 	# TODO - an argument to specify which transformations to use, put it in metadata
 
 	if cmd_line_args is None:
@@ -182,19 +183,21 @@ def run_training(cmd_line_args=None):
 	val_indices = shuffle_indices[n_train_data:n_train_data + n_val_data]
 	# test_indices = shuffle_indices[n_train_data + n_val_data:]
 
+	symmetries = [BOARD_TRANSFORMATIONS[name] for name in args.symmetries.strip().split(",")]
+
 	# create dataset generators
 	train_data_generator = shuffled_hdf5_batch_generator(
 		dataset["states"],
 		dataset["actions"],
 		train_indices,
 		args.minibatch,
-		BOARD_TRANSFORMATIONS)
+		symmetries)
 	val_data_generator = shuffled_hdf5_batch_generator(
 		dataset["states"],
 		dataset["actions"],
 		val_indices,
 		args.minibatch,
-		BOARD_TRANSFORMATIONS)
+		symmetries)
 
 	sgd = SGD(lr=args.learning_rate, decay=args.decay)
 	model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
