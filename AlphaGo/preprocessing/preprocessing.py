@@ -62,7 +62,7 @@ def get_liberties(state, maximum=8):
 
 
 def get_capture_size(state, maximum=8):
-	"""A feature encoding the number of opponent stones that would be captured by planing at each location,
+	"""A feature encoding the number of opponent stones that would be captured by playing at each location,
 	up to 'maximum'
 
 	Note:
