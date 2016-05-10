@@ -53,33 +53,37 @@ def sgf_to_gamestate(sgf_string):
 	"""Creates a GameState object from the first game in the given collection
 	"""
 	# Don't Repeat Yourself; parsing handled by sgf_iter_states
-	for (gs, move, player) in sgf_iter_states(sgf_string):
+	for (gs, move, player) in sgf_iter_states(sgf_string, True):
 		pass
 	# gs has been updated in-place to the final state by the time
 	# sgf_iter_states returns
 	return gs
 
 
-def sgf_iter_states(sgf_string):
+def sgf_iter_states(sgf_string, include_end=True):
 	"""Iterates over (GameState, move, player) tuples in the first game of the given SGF file.
 
 	Ignores variations - only the main line is returned.
+	The state object is modified in-place, so don't try to, for example, keep track of it through time
 
-	Note that the final tuple returned is the penultimate state,
-	but because 'gs' is modified in-place the state is at the final
-	position after iteration completes. See sgf_to_gamestate
+	If include_end is False, the final tuple yielded is the penultimate state, but the state
+	will still be left in the final position at the end of iteration because 'gs' is modified
+	in-place the state. See sgf_to_gamestate
 	"""
 	collection = sgf.parse(sgf_string)
 	game = collection[0]
 	gs = _sgf_init_gamestate(game.root)
-	for node in game.rest:
-		props = node.properties
-		if 'W' in props:
-			move = _parse_sgf_move(props['W'][0])
-			player = go.WHITE
-		elif 'B' in props:
-			move = _parse_sgf_move(props['B'][0])
-			player = go.BLACK
-		yield (gs, move, player)
-		# update state to n+1
-		gs.do_move(move, player)
+	if game.rest is not None:
+		for node in game.rest:
+			props = node.properties
+			if 'W' in props:
+				move = _parse_sgf_move(props['W'][0])
+				player = go.WHITE
+			elif 'B' in props:
+				move = _parse_sgf_move(props['B'][0])
+				player = go.BLACK
+			yield (gs, move, player)
+			# update state to n+1
+			gs.do_move(move, player)
+	if include_end:
+		yield (gs, None, None)

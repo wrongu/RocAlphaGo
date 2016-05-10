@@ -30,7 +30,7 @@ class game_converter:
 		"""
 
 		with open(file_name, 'r') as file_object:
-			state_action_iterator = sgf_iter_states(file_object.read())
+			state_action_iterator = sgf_iter_states(file_object.read(), include_end=False)
 
 		for (state, move, player) in state_action_iterator:
 			if state.size != bd_size:
