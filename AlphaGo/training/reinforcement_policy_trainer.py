@@ -1,4 +1,6 @@
-import os, argparse, json
+import os
+import argparse
+import json
 import numpy as np
 from keras.optimizers import SGD
 from AlphaGo.ai import ProbabilisticPolicyPlayer
@@ -7,6 +9,7 @@ from AlphaGo.go import GameState
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import flatten_idx
+
 
 def make_training_pairs(player, opp, features, mini_batch_size):
 	"""Make training pairs for batch of matches, utilizing player.get_moves (parallel form of
@@ -70,6 +73,7 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 		y_list[i] = np.vstack(y_list[i])
 	return X_list, y_list, winners
 
+
 def train_batch(player, X_list, y_list, winners, lr):
 	"""Given the outcomes of a mini-batch of play against a fixed opponent,
 		update the weights with reinforcement learning.
@@ -95,7 +99,40 @@ def train_batch(player, X_list, y_list, winners, lr):
 			player.policy.model.optimizer.lr.set_value(lr)
 		player.policy.model.fit(X, y, nb_epoch=1, batch_size=len(X))
 
-def run(player, args, opponents, features, model_folder):
+
+def run_training(cmd_line_args=None):
+	parser = argparse.ArgumentParser(description='Perform reinforcement learning to improve given policy network. Second phase of pipeline.')
+	parser.add_argument("model_json", help="Path to policy model JSON.")
+	parser.add_argument("initial_weights", help="Path to HDF5 file with inital weights.")
+	parser.add_argument("out_directory", help="Path to folder where the model params and metadata will be saved after each epoch.")
+	parser.add_argument("--learning-rate", help="Keras learning rate (Default: .03)", type=float, default=.03)
+	parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)
+	parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)
+	parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=1e4)
+	# Baseline function (TODO) default lambda state: 0  (receives either file
+	# paths to JSON and weights or None, in which case it uses default baseline 0)
+	if cmd_line_args is None:
+		args = parser.parse_args()
+	else:
+		args = parser.parse_args(cmd_line_args)
+
+	# Set initial conditions
+	policy = CNNPolicy.load_model(args.initial_json)
+	policy.model.load_weights(args.initial_weights)
+	player = ProbabilisticPolicyPlayer(policy)
+
+	opp_policy = CNNPolicy.load_model(args.initial_json)
+	opponent = ProbabilisticPolicyPlayer(opp_policy)
+
+	opponent_files = os.listdir(args.out_directory)
+	if len(opponent_files) == 0:  # Start new RL training session
+		opponents = [player]
+	else:                         # Resume existing RL training session
+		opponents = opponent_files
+
+	with open(args.initial_json) as j:
+		features = json.load(j)['feature_list']
+
 	# Set SGD and compile
 	sgd = SGD(lr=args.learning_rate)
 	player.policy.model.compile(loss='binary_crossentropy', optimizer=sgd)
@@ -103,60 +140,20 @@ def run(player, args, opponents, features, model_folder):
 	for i_iter in xrange(args.iterations):
 		# Train mini-batches
 		for i_batch in xrange(args.save_every):
-			# Randomly choose opponent from pool
-			if len(os.listdir(model_folder))==0:
-				opp = player
-			else:
-				opp_filepath = np.random.choice(os.listdir(model_folder))
-				opp_path = os.path.join(model_folder,opp_filepath)
-				policy = CNNPolicy.create_network()
-				policy.model.load_weights(opp_path)
-				opp = ProbabilisticPolicyPlayer(policy)
+			# Randomly choose opponent from pool (possibly self)
+			opp_filepath = np.random.choice(opponents)
+			opp_path = os.path.join(args.out_directory, opp_filepath)
+			# load new weights into opponent, but otherwise its the same
+			opponent.policy.model.load_weights(opp_path)
 			# Make training pairs and do RL
-			X_list, y_list, winners = make_training_pairs(player, opp, features, args.game_batch_size)
+			X_list, y_list, winners = make_training_pairs(player, opponent, features, args.game_batch)
 			n_wins = np.sum(np.array(winners) == 1)
 			player_wins_per_batch.append(n_wins)
-			print 'Number of wins this batch: {}/{}'.format(n_wins, args.game_batch_size)
+			print 'Number of wins this batch: {}/{}'.format(n_wins, args.game_batch)
 			train_batch(player, X_list, y_list, winners, args.learning_rate)
 		# Save intermediate models
-		model_path = os.path.join(model_folder,str(i_iter))
+		model_path = os.path.join(args.out_directory, str(i_iter))
 		player.policy.model.save_weights(model_path)
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='Perform reinforcement learning '
-									'to improve given policy network. Second phase of pipeline.')
-	parser.add_argument("initial_weights", help="Path to file with weights to start from.")
-	parser.add_argument("initial_json", help="Path to file with initial network params.")
-	parser.add_argument("model_folder", help="Path to folder where the model"
-						" params will be saved after each epoch.")
-	parser.add_argument(
-		"--learning_rate", help="Keras learning rate (Default: .03)",
-		          type=float, default=.03)
-	parser.add_argument(
-		"--save_every", help="Save policy every n mini-batches (Default: 500)",
-		          type=int, default=500)
-	parser.add_argument(
-		"--game_batch_size", help="Number of games per mini-batch (Default: 20)",
-		          type=int, default=20)
-	parser.add_argument(
-		"--iterations", help="Number of training iterations (i.e. mini-batch) "
-		"(Default: 20)", type=int, default=20)
-	# Baseline function (TODO) default lambda state: 0  (receives either file
-	# paths to JSON and weights or None, in which case it uses default baseline 0)
-	args = parser.parse_args()
-
-	# Set initial conditions
-	policy = CNNPolicy.load_model(args.initial_json)
-	policy.model.load_weights(args.initial_weights)
-	player = ProbabilisticPolicyPlayer(policy)
-
-	opponent_files = os.listdir(args.model_folder)
-	if len(opponent_files) == 0: # Start new RL training session
-		opponents = [player]
-	else:						 # Resume existing RL training session
-		opponents = opponent_files
-
-	with open(args.initial_json) as j:
-		features = json.load(j)['feature_list']
-
-	run(player, args, opponents, features, args.model_folder)
+	run_training()
