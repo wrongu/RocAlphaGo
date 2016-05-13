@@ -19,9 +19,9 @@ class GameState(object):
 		self.ko = None
 		self.komi = komi
 		self.history = []
-		self.is_end_of_game = False
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
+		self.is_end_of_game = False
 		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
 		# Each pass move by a player subtracts a point
 		self.passes_white = 0
@@ -46,12 +46,10 @@ class GameState(object):
 
 	def get_group(self, position):
 		"""Get the group of connected same-color stones to the given position
-
 		Keyword arguments:
 		position -- a tuple of (x, y)
 		x being the column index of the starting position of the search
 		y being the row index of the starting position of the search
-
 		Return:
 		a set of tuples consist of (x, y)s which are the same-color cluster
 		which contains the input single position. len(group) is size of the cluster, can be large.
@@ -62,15 +60,12 @@ class GameState(object):
 
 	def get_groups_around(self, position):
 		"""returns a list of the unique groups adjacent to position
-
 		'unique' means that, for example in this position:
-
 			. . . . .
 			. B W . .
 			. W W . .
 			. . . . .
 			. . . . .
-
 		only the one white group would be returned on get_groups_around((1,1))
 		"""
 		groups = []
@@ -203,7 +198,6 @@ class GameState(object):
 
 	def is_legal(self, action):
 		"""determine if the given action (x,y tuple) is a legal move
-
 		note: we only check ko, not superko at this point (TODO?)
 		"""
 		# passing move
@@ -229,7 +223,6 @@ class GameState(object):
 
 	def is_eye(self, position, owner, stack=[]):
 		"""returns whether the position is a true eye of 'owner'
-
 		Requires a recursive call; empty spaces diagonal to 'position' are fine
 		as long as they themselves are eyes
 		"""
@@ -294,7 +287,6 @@ class GameState(object):
 
 	def do_move(self, action, color=None):
 		"""Play stone at action=(x,y). If color is not specified, current_player is used
-
 		If it is a legal move, current_player switches to the opposite color
 		If not, an IllegalMove exception is raised
 		"""
@@ -308,6 +300,7 @@ class GameState(object):
 				(x, y) = action
 				self.board[x][y] = color
 				self._update_neighbors(action)
+
 				# check neighboring groups' liberties for captures
 				for (nx, ny) in self._neighbors(action):
 					if self.board[nx, ny] == -color and len(self.liberty_sets[nx][ny]) == 0:
