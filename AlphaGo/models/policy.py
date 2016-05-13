@@ -164,7 +164,14 @@ class CNNPolicy(object):
 		"""
 		with open(json_file, 'r') as f:
 			object_specs = json.load(f)
-		new_policy = CNNPolicy(object_specs['feature_list'])
+
+		# Create object; may be a subclass of CNNPolicy saved in specs['class']
+		policy_class = object_specs.get('class', 'CNNPolicy')
+		if policy_class == 'CNNPolicy':
+			new_policy = CNNPolicy(object_specs['feature_list'])
+		elif policy_class == 'ResnetPolicy':
+			new_policy = ResnetPolicy(object_specs['feature_list'])
+
 		new_policy.model = model_from_json(object_specs['keras_model'])
 		if 'weights_file' in object_specs:
 			new_policy.model.load_weights(object_specs['weights_file'])
@@ -185,6 +192,7 @@ class CNNPolicy(object):
 		# entry in the saved file. Keras just happens to serialize models with JSON
 		# as well. Note how this format makes load_model fairly clean as well.
 		object_specs = {
+			'class': self.__class__.__name__,
 			'keras_model': self.model.to_json(),
 			'feature_list': self.preprocessor.feature_list
 		}
