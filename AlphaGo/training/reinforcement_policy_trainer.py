@@ -110,7 +110,7 @@ def run_training(cmd_line_args=None):
 	parser.add_argument("--policy-temp", help="Distribution temperature of players using policies (Default: 0.67)", type=float, default=0.67)
 	parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)
 	parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)
-	parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=1e4)
+	parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)
 	parser.add_argument("--resume", help="Load latest weights in out_directory and resume", default=False, action="store_true")
 	parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
 	# Baseline function (TODO) default lambda state: 0  (receives either file
@@ -163,7 +163,7 @@ def run_training(cmd_line_args=None):
 	if not args.resume:
 		metadata = {
 			"model_file": args.model_json,
-			"init_weights": args.model_json,
+			"init_weights": player_weights,
 			"learning_rate": args.learning_rate,
 			"temperature": args.policy_temp,
 			"game_batch": args.game_batch,
