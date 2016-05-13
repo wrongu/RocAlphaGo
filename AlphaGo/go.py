@@ -21,6 +21,9 @@ class GameState(object):
 		self.history = []
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
+		self.is_end_of_game = False
+		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
+		# Each pass move by a player subtracts a point
 		self.passes_white = 0
 		self.passes_black = 0
 		# `self.liberty_sets` is a 2D array with the same indexes as `board`
@@ -85,7 +88,7 @@ class GameState(object):
 		the given (x,y) position. Basically it handles edges and corners.
 		"""
 		(x, y) = position
-		return filter(self._on_board, [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)])
+		return [xy for xy in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] if self._on_board(xy)]
 
 	def _diagonals(self, position):
 		"""Like _neighbors but for diagonal positions
@@ -137,16 +140,16 @@ class GameState(object):
 			# clear group_sets for all positions in 'group'
 			self.group_sets[x][y] = set()
 			self.liberty_sets[x][y] = set()
-			self.liberty_counts[x][y] = 0
+			self.liberty_counts[x][y] = -1
 			for (nx, ny) in self._neighbors((x, y)):
 				if self.board[nx, ny] == EMPTY:
 					# add empty neighbors of (x,y) to its liberties
 					self.liberty_sets[x][y].add((nx, ny))
-					self.liberty_counts[x][y] += 1
 				else:
 					# add (x,y) to the liberties of its nonempty neighbors
 					self.liberty_sets[nx][ny].add((x, y))
-					self.liberty_counts[nx][ny] += 1
+					for (gx, gy) in self.group_sets[nx][ny]:
+						self.liberty_counts[gx][gy] = len(self.liberty_sets[nx][ny])
 
 	def copy(self):
 		"""get a copy of this Game state
@@ -288,6 +291,8 @@ class GameState(object):
 		If not, an IllegalMove exception is raised
 		"""
 		color = color or self.current_player
+		reset_player = self.current_player
+		self.current_player = color
 		if self.is_legal(action):
 			# reset ko
 			self.ko = None
@@ -327,7 +332,14 @@ class GameState(object):
 			self.turns_played += 1
 			self.history.append(action)
 		else:
+			self.current_player = reset_player
 			raise IllegalMove(str(action))
+		# Check for end of game
+		if len(self.history) > 1:
+			if self.history[-1] is PASS_MOVE and self.history[-2] is PASS_MOVE \
+				and self.current_player == WHITE:
+				self.is_end_of_game = True
+		return self.is_end_of_game
 
 
 class IllegalMove(Exception):

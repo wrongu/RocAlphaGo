@@ -1,4 +1,5 @@
 from AlphaGo.go import GameState
+import numpy as np
 import AlphaGo.go as go
 import unittest
 
@@ -35,9 +36,9 @@ class TestKo(unittest.TestCase):
 		# . . . . .
 		# . . . . .
 		# here, imagine black plays at 'o' capturing
-		# the white stone at (2,0). White may play
-		# again at (2,0) to capture the black stones
-		# at (0,0), (1,0). this is 'snapback' not 'ko'
+		# the white stone at (2, 0). White may play
+		# again at (2, 0) to capture the black stones
+		# at (0, 0), (1, 0). this is 'snapback' not 'ko'
 		# since it doesn't return the game to a
 		# previous position
 		B = [(0, 0), (2, 1), (3, 0)]
@@ -61,7 +62,7 @@ class TestEye(unittest.TestCase):
 
 	def test_simple_eye(self):
 
-		# create a black eye in top left (1,1), white in bottom right (5,5)
+		# create a black eye in top left (1, 1), white in bottom right (5, 5)
 
 		gs = GameState(size=7)
 		gs.do_move((1, 0))  # B
@@ -92,11 +93,11 @@ class TestEye(unittest.TestCase):
 		gs.do_move((1, 0), go.BLACK)
 		gs.do_move((0, 1), go.BLACK)
 
-		# false eye at 0,0
+		# false eye at 0, 0
 		self.assertTrue(gs.is_eyeish((0, 0), go.BLACK))
 		self.assertFalse(gs.is_eye((0, 0), go.BLACK))
 
-		# make it a true eye by turning the corner (1,1) into an eye itself
+		# make it a true eye by turning the corner (1, 1) into an eye itself
 		gs.do_move((1, 2), go.BLACK)
 		gs.do_move((2, 1), go.BLACK)
 		gs.do_move((2, 2), go.BLACK)
@@ -115,6 +116,36 @@ class TestEye(unittest.TestCase):
 				if (x + y) % 2 == 1:
 					gs.do_move((x, y), go.BLACK)
 		self.assertTrue(gs.is_eye((0, 0), go.BLACK))
+
+	def test_liberties_after_capture(self):
+		# creates 3x3 black group in the middle, that is then all captured
+		# ...then an assertion is made that the resulting liberties after
+		# capture are the same as if the group had never been there
+		gs_capture = GameState(7)
+		gs_reference = GameState(7)
+		# add in 3x3 black stones
+		for x in range(2, 5):
+			for y in range(2, 5):
+				gs_capture.do_move((x, y), go.BLACK)
+		# surround the black group with white stones
+		# and set the same white stones in gs_reference
+		for x in range(2, 5):
+			gs_capture.do_move((x, 1), go.WHITE)
+			gs_capture.do_move((x, 5), go.WHITE)
+			gs_reference.do_move((x, 1), go.WHITE)
+			gs_reference.do_move((x, 5), go.WHITE)
+		gs_capture.do_move((1, 1), go.WHITE)
+		gs_reference.do_move((1, 1), go.WHITE)
+		for y in range(2, 5):
+			gs_capture.do_move((1, y), go.WHITE)
+			gs_capture.do_move((5, y), go.WHITE)
+			gs_reference.do_move((1, y), go.WHITE)
+			gs_reference.do_move((5, y), go.WHITE)
+
+		# board configuration and liberties of gs_capture and of gs_reference should be identical
+		self.assertTrue(np.all(gs_reference.board == gs_capture.board))
+		self.assertTrue(np.all(gs_reference.liberty_counts == gs_capture.liberty_counts))
+
 
 if __name__ == '__main__':
 	unittest.main()

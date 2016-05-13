@@ -75,6 +75,34 @@ def self_atari_board():
 	return gs
 
 
+def capture_board():
+	# another small board, this one with imminent captures
+	#
+	#         X
+	#   0 1 2 3 4 5 6
+	#   . . B B . . . 0
+	#   . B W W B . . 1
+	#   . B W . . . . 2
+	# Y . . B . . . . 3
+	#   . . . . W B . 4
+	#   . . . W . W B 5
+	#   . . . . W B . 6
+	#
+	# current_player = black
+	gs = go.GameState(size=7)
+
+	black = [(2, 0), (3, 0), (1, 1), (4, 1), (1, 2), (2, 3), (5, 4), (6, 5), (5, 6)]
+	white = [(2, 1), (3, 1), (2, 2), (4, 4), (3, 5), (5, 5), (4, 6)]
+
+	for B in black:
+		gs.do_move(B, go.BLACK)
+	for W in white:
+		gs.do_move(W, go.WHITE)
+	gs.current_player = go.BLACK
+
+	return gs
+
+
 class TestPreprocessingFeatures(unittest.TestCase):
 	"""Test the functions in preprocessing.py
 
@@ -165,15 +193,18 @@ class TestPreprocessingFeatures(unittest.TestCase):
 				"bad expectation: stones with %d liberties" % (i + 1))
 
 	def test_get_capture_size(self):
-		# TODO - at the moment there is no imminent capture
-		gs = simple_board()
+		gs = capture_board()
 		pp = Preprocess(["capture_size"])
 		feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
+		score_before = gs.num_white_prisoners
 		one_hot_capture = np.zeros((gs.size, gs.size, 8))
 		# there is no capture available; all legal moves are zero-capture
 		for (x, y) in gs.get_legal_moves():
-			one_hot_capture[x, y, 0] = 1
+			copy = gs.copy()
+			copy.do_move((x, y))
+			num_captured = copy.num_white_prisoners - score_before
+			one_hot_capture[x, y, min(7, num_captured)] = 1
 
 		for i in range(8):
 			self.assertTrue(
@@ -193,6 +224,20 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
 		self.assertTrue(np.all(feature == one_hot_self_atari))
 
+	def test_get_self_atari_size_cap(self):
+		gs = capture_board()
+		pp = Preprocess(["self_atari_size"])
+		feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
+
+		one_hot_self_atari = np.zeros((gs.size, gs.size, 8))
+		# self atari of size 1 at the ko position and just below it
+		one_hot_self_atari[4, 5, 0] = 1
+		one_hot_self_atari[3, 6, 0] = 1
+		# self atari of size 3 at bottom corner
+		one_hot_self_atari[6, 6, 2] = 1
+
+		self.assertTrue(np.all(feature == one_hot_self_atari))
+
 	def test_get_liberties_after(self):
 		gs = simple_board()
 		pp = Preprocess(["liberties_after"])
@@ -209,6 +254,26 @@ class TestPreprocessingFeatures(unittest.TestCase):
 				one_hot_liberties[x, y, libs - 1] = 1
 			else:
 				one_hot_liberties[x, y, 7] = 1
+
+		for i in range(8):
+			self.assertTrue(
+				np.all(feature[:, :, i] == one_hot_liberties[:, :, i]),
+				"bad expectation: stones with %d liberties after move" % (i + 1))
+
+	def test_get_liberties_after_cap(self):
+		"""A copy of test_get_liberties_after but where captures are imminent
+		"""
+		gs = capture_board()
+		pp = Preprocess(["liberties_after"])
+		feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
+
+		one_hot_liberties = np.zeros((gs.size, gs.size, 8))
+
+		for (x, y) in gs.get_legal_moves():
+			copy = gs.copy()
+			copy.do_move((x, y))
+			libs = copy.liberty_counts[x, y]
+			one_hot_liberties[x, y, min(libs - 1, 7)] = 1
 
 		for i in range(8):
 			self.assertTrue(
