@@ -175,7 +175,7 @@ class CNNPolicy(object):
 		elif policy_class == 'ResnetPolicy':
 			new_policy = ResnetPolicy(object_specs['feature_list'])
 
-		new_policy.model = model_from_json(object_specs['keras_model'])
+		new_policy.model = model_from_json(object_specs['keras_model'], custom_objects={'Bias': Bias})
 		if 'weights_file' in object_specs:
 			new_policy.model.load_weights(object_specs['weights_file'])
 		new_policy.forward = new_policy._model_forward()
