@@ -5,6 +5,7 @@ from keras.layers.core import Activation, Flatten
 import keras.backend as K
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import flatten_idx
+from AlphaGo.models.nn_util import Bias
 import numpy as np
 import json
 
@@ -153,6 +154,8 @@ class CNNPolicy(object):
 			border_mode='same'))
 		# reshape output to be board x board
 		network.add(Flatten())
+		# add a bias to each board location
+		network.add(Bias())
 		# softmax makes it into a probability distribution
 		network.add(Activation('softmax'))
 
@@ -324,6 +327,8 @@ class ResnetPolicy(CNNPolicy):
 			border_mode='same')(convolution_path)
 		# flatten output
 		network_output = Flatten()(convolution_path)
+		# add a bias to each board location
+		network_output = Bias()(network_output)
 		# softmax makes it into a probability distribution
 		network_output = Activation('softmax')(network_output)
 
