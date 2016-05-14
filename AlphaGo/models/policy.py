@@ -144,7 +144,7 @@ class CNNPolicy(object):
 				activation='relu',
 				border_mode='same'))
 
-		# the last layer maps each <filters_per_layer> featuer to a number
+		# the last layer maps each <filters_per_layer> feature to a number
 		network.add(convolutional.Convolution2D(
 			nb_filter=1,
 			nb_row=1,
