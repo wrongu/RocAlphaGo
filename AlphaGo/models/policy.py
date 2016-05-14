@@ -1,6 +1,6 @@
 from keras.models import Sequential, Model
 from keras.models import model_from_json
-from keras.layers import convolutional, merge, Input
+from keras.layers import convolutional, merge, Input, BatchNormalization
 from keras.layers.core import Activation, Flatten
 import keras.backend as K
 from AlphaGo.preprocessing.preprocessing import Preprocess
@@ -229,12 +229,13 @@ class ResnetPolicy(CNNPolicy):
 
 		A diagram may help explain (numbers indicate layer):
 
-			1        2         3              4         5         6
-		I--C -- R -- C -- R -- C -- M -- R -- C -- R -- C -- R -- C -- M  ...  M  -- R -- F -- O
-			\______________________/ \________________________________/ \ ... /
-				[n_skip_1 = 2]               [n_skip_3 = 3]
+			1             2              3                   4              5              6
+		I--C -- B -- R -- C -- B -- R -- C -- M -- B -- R -- C -- B -- R -- C -- B -- R -- C -- M  ...  M  -- R -- F -- O
+			\___________________________/ \____________________________________________________/ \ ... /
+					[n_skip_1 = 2]                             [n_skip_3 = 3]
 
 		I - input
+		B - BatchNormalization
 		R - ReLU
 		C - Conv2D
 		F - Flatten
@@ -285,6 +286,8 @@ class ResnetPolicy(CNNPolicy):
 			n_skip = params.get(skip_key, 1)
 			for i in range(n_skip):
 				layer = K + i
+				# add BatchNorm
+				path = BatchNormalization()(path)
 				# add ReLU
 				path = Activation('relu')(path)
 				# use filter_width_K if it is there, otherwise use 3
