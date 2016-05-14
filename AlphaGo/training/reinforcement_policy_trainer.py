@@ -163,7 +163,7 @@ def run_training(cmd_line_args=None):
 	if not args.resume:
 		metadata = {
 			"model_file": args.model_json,
-			"init_weights": player_weights,
+			"init_weights": args.initial_weights,
 			"learning_rate": args.learning_rate,
 			"temperature": args.policy_temp,
 			"game_batch": args.game_batch,
