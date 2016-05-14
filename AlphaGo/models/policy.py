@@ -38,11 +38,11 @@ class CNNPolicy(object):
 
 		c.f. https://github.com/fchollet/keras/issues/1426
 		"""
-		forward_function = K.function([self.model.input], [self.model.output])
+		forward_function = K.function([self.model.input, K.learning_phase()], [self.model.output])
 
 		# the forward_function returns a list of tensors
 		# the first [0] gets the front tensor.
-		return lambda inpt: forward_function([inpt])[0]
+		return lambda inpt: forward_function([inpt, 0])[0]
 
 	def _select_moves_and_normalize(self, nn_output, moves, size):
 		"""helper function to normalize a distribution over the given list of moves
