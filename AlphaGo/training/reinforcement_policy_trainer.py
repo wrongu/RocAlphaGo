@@ -201,7 +201,7 @@ def run_training(cmd_line_args=None):
 		player.policy.model.save_weights(os.path.join(args.out_directory, player_weights))
 		# add player to batch of oppenents once in a while
 		if i_iter % args.save_every == 0:
-			metadata["oppenents"].append(player_weights)
+			metadata["opponents"].append(player_weights)
 		save_metadata()
 
 if __name__ == '__main__':
