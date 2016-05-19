@@ -12,7 +12,7 @@ from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import flatten_idx
 
 
-def make_training_pairs(player, opp, features, mini_batch_size):
+def make_training_pairs(player, opp, features, mini_batch_size, board_size=19):
 	"""Make training pairs for batch of matches, utilizing player.get_moves (parallel form of
 	player.get_move), which calls `CNNPolicy.batch_eval_state`.
 
@@ -48,7 +48,7 @@ def make_training_pairs(player, opp, features, mini_batch_size):
 	y_list = [list() for _ in xrange(mini_batch_size)]
 	preprocessor = Preprocess(features)
 	bsize = player.policy.model.input_shape[-1]
-	states = [GameState() for i in xrange(mini_batch_size)]
+	states = [GameState(size=board_size) for i in xrange(mini_batch_size)]
 	# Randomly choose who goes first (i.e. color of 'player')
 	player_color = np.random.choice([go.BLACK, go.WHITE])
 	player1, player2 = (player, opp) if player_color == go.BLACK else \
@@ -181,6 +181,7 @@ def run_training(cmd_line_args=None):
 	# Set SGD and compile
 	sgd = SGD(lr=args.learning_rate)
 	player.policy.model.compile(loss='binary_crossentropy', optimizer=sgd)
+	board_size = player.policy.model.input_shape[-1]
 	for i_iter in xrange(1, args.iterations + 1):
 		# Train mini-batches by randomly choosing opponent from pool (possibly self)
 		# and playing game_batch games against them
@@ -191,7 +192,7 @@ def run_training(cmd_line_args=None):
 		if args.verbose:
 			print "Batch {}\tsampled opponent is {}".format(i_iter, opp_weights)
 		# Make training pairs and do RL
-		X_list, y_list, winners = make_training_pairs(player, opponent, features, args.game_batch)
+		X_list, y_list, winners = make_training_pairs(player, opponent, features, args.game_batch, board_size)
 		win_ratio = np.sum(np.array(winners) == 1) / float(args.game_batch)
 		metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 		train_batch(player, X_list, y_list, winners, args.learning_rate)
