@@ -10,6 +10,10 @@ class GameState(object):
 	"""State of a game of Go and some basic functions to interact with it
 	"""
 
+	# Looking up positions adjacent to a given position takes a surprising
+	# amount of time, hence this shared lookup table {boardsize: {position: [neighbors]}}
+	__NEIGHBORS_CACHE = {}
+
 	def __init__(self, size=19, komi=7.5):
 		self.board = np.zeros((size, size))
 		self.board.fill(EMPTY)
@@ -31,6 +35,7 @@ class GameState(object):
 		# connected block. By caching liberties in this way, we can directly
 		# optimize update functions (e.g. do_move) and in doing so indirectly
 		# speed up any function that queries liberties
+		self._create_neighbors_cache()
 		self.liberty_sets = [[set() for _ in range(size)] for _ in range(size)]
 		for x in range(size):
 			for y in range(size):
@@ -43,6 +48,8 @@ class GameState(object):
 		# similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
 		# containing all (x',y') pairs in the group connected to (x,y)
 		self.group_sets = [[set() for _ in range(size)] for _ in range(size)]
+		# cache of list of legal moves
+		self.__legal_move_cache = None
 
 	def get_group(self, position):
 		"""Get the group of connected same-color stones to the given position
@@ -70,11 +77,9 @@ class GameState(object):
 		"""
 		groups = []
 		for (nx, ny) in self._neighbors(position):
-			if self.board[nx][ny] != EMPTY:
-				group = self.group_sets[nx][ny]
-				group_member = next(iter(group))  # pick any stone
-				if not any(group_member in g for g in groups):
-					groups.append(group)
+			group = self.group_sets[nx][ny]
+			if len(group) > 0 and group not in groups:
+				groups.append(self.group_sets[nx][ny])
 		return groups
 
 	def _on_board(self, position):
@@ -83,12 +88,19 @@ class GameState(object):
 		(x, y) = position
 		return x >= 0 and y >= 0 and x < self.size and y < self.size
 
+	def _create_neighbors_cache(self):
+		if self.size not in GameState.__NEIGHBORS_CACHE:
+			GameState.__NEIGHBORS_CACHE[self.size] = {}
+			for x in xrange(self.size):
+				for y in xrange(self.size):
+					neighbors = [xy for xy in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] if self._on_board(xy)]
+					GameState.__NEIGHBORS_CACHE[self.size][(x, y)] = neighbors
+
 	def _neighbors(self, position):
 		"""A private helper function that simply returns a list of positions neighboring
 		the given (x,y) position. Basically it handles edges and corners.
 		"""
-		(x, y) = position
-		return [xy for xy in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] if self._on_board(xy)]
+		return GameState.__NEIGHBORS_CACHE[self.size][position]
 
 	def _diagonals(self, position):
 		"""Like _neighbors but for diagonal positions
@@ -252,12 +264,14 @@ class GameState(object):
 		return True
 
 	def get_legal_moves(self, include_eyes=True):
-		moves = []
+		if self.__legal_move_cache is not None:
+			return self.__legal_move_cache
+		self.__legal_move_cache = []
 		for x in range(self.size):
 			for y in range(self.size):
 				if self.is_legal((x, y)) and (include_eyes or not self.is_eye((x, y), self.current_player)):
-					moves.append((x, y))
-		return moves
+					self.__legal_move_cache.append((x, y))
+		return self.__legal_move_cache
 
 	def get_winner(self):
 		"""Calculate score of board state and return player ID (1, -1, or 0 for tie)
@@ -331,6 +345,7 @@ class GameState(object):
 			self.current_player = -color
 			self.turns_played += 1
 			self.history.append(action)
+			self.__legal_move_cache = None
 		else:
 			self.current_player = reset_player
 			raise IllegalMove(str(action))
