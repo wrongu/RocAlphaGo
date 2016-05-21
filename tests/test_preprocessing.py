@@ -299,6 +299,16 @@ class TestPreprocessingFeatures(unittest.TestCase):
 				expectation[x, y] = 1
 		self.assertTrue(np.all(expectation == feature))
 
+	def test_get_legal(self):
+		gs = simple_board()
+		pp = Preprocess(["legal"])
+		feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
+
+		expectation = np.zeros((gs.size, gs.size))
+		for (x, y) in gs.get_legal_moves():
+			expectation[x, y] = 1
+		self.assertTrue(np.all(expectation == feature))
+
 	def test_feature_concatenation(self):
 		gs = simple_board()
 		pp = Preprocess(["board", "sensibleness", "capture_size"])

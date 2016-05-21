@@ -185,6 +185,16 @@ def get_sensibleness(state):
 		feature[0, x, y] = 1
 	return feature
 
+
+def get_legal(state):
+	"""Zero at all illegal moves, one at all legal moves. Unlike sensibleness, no eye check is done
+	"""
+	feature = np.zeros((1, state.size, state.size))
+	for (x, y) in state.get_legal_moves():
+		feature[0, x, y] = 1
+	return feature
+
+
 # named features and their sizes are defined here
 FEATURES = {
 	"board": {
@@ -230,6 +240,10 @@ FEATURES = {
 	"zeros": {
 		"size": 1,
 		"function": lambda state: np.zeros((1, state.size, state.size))
+	},
+	"legal": {
+		"size": 1,
+		"function": get_legal
 	}
 }
 
