@@ -1,49 +1,15 @@
 from keras.models import Sequential, Model
-from keras.models import model_from_json
 from keras.layers import convolutional, merge, Input, BatchNormalization
 from keras.layers.core import Activation, Flatten
-import keras.backend as K
-from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import flatten_idx
-from AlphaGo.models.nn_util import Bias
+from AlphaGo.models.nn_util import Bias, NeuralNetBase
 import numpy as np
-import json
 
 
-class CNNPolicy(object):
+class CNNPolicy(NeuralNetBase):
 	"""uses a convolutional neural network to evaluate the state of the game
 	and compute a probability distribution over the next action
 	"""
-
-	def __init__(self, feature_list, **kwargs):
-		"""create a policy object that preprocesses according to feature_list and uses
-		a neural network specified by keyword arguments (see create_network())
-		"""
-		self.preprocessor = Preprocess(feature_list)
-		kwargs["input_dim"] = self.preprocessor.output_dim
-		# Using self.__class__ rather than explicitly CNNPolicy
-		# so that, introspectively, this works with sublcasses
-		# just as well
-		self.model = self.__class__.create_network(**kwargs)
-		self.forward = self._model_forward()
-
-	def _model_forward(self):
-		"""Construct a function using the current keras backend that, when given a batch
-		of inputs, simply processes them forward and returns the output
-
-		The output has size (batch x 361) for 19x19 boards (i.e. the output is a batch
-		of distributions over flattened boards. See AlphaGo.util#flatten_idx)
-
-		This is as opposed to model.compile(), which takes a loss function
-		and training method.
-
-		c.f. https://github.com/fchollet/keras/issues/1426
-		"""
-		forward_function = K.function([self.model.input, K.learning_phase()], [self.model.output])
-
-		# the forward_function returns a list of tensors
-		# the first [0] gets the front tensor.
-		return lambda inpt: forward_function([inpt, 0])[0]
 
 	def _select_moves_and_normalize(self, nn_output, moves, size):
 		"""helper function to normalize a distribution over the given list of moves
@@ -160,51 +126,6 @@ class CNNPolicy(object):
 		network.add(Activation('softmax'))
 
 		return network
-
-	@staticmethod
-	def load_model(json_file):
-		"""create a new CNNPolicy object from the architecture specified in json_file
-		"""
-		with open(json_file, 'r') as f:
-			object_specs = json.load(f)
-
-		# Create object; may be a subclass of CNNPolicy saved in specs['class']
-		policy_class = object_specs.get('class', 'CNNPolicy')
-		if policy_class == 'CNNPolicy':
-			new_policy = CNNPolicy(object_specs['feature_list'])
-		elif policy_class == 'ResnetPolicy':
-			new_policy = ResnetPolicy(object_specs['feature_list'])
-
-		new_policy.model = model_from_json(object_specs['keras_model'], custom_objects={'Bias': Bias})
-		if 'weights_file' in object_specs:
-			new_policy.model.load_weights(object_specs['weights_file'])
-		new_policy.forward = new_policy._model_forward()
-		return new_policy
-
-	def save_model(self, json_file, weights_file=None):
-		"""write the network model and preprocessing features to the specified file
-
-		If a weights_file (.hdf5 extension) is also specified, model weights are also
-		saved to that file and will be reloaded automatically in a call to load_model
-		"""
-		# this looks odd because we are serializing a model with json as a string
-		# then making that the value of an object which is then serialized as
-		# json again.
-		# It's not as crazy as it looks. A CNNPolicy has 2 moving parts - the
-		# feature preprocessing and the neural net, each of which gets a top-level
-		# entry in the saved file. Keras just happens to serialize models with JSON
-		# as well. Note how this format makes load_model fairly clean as well.
-		object_specs = {
-			'class': self.__class__.__name__,
-			'keras_model': self.model.to_json(),
-			'feature_list': self.preprocessor.feature_list
-		}
-		if weights_file is not None:
-			self.model.save_weights(weights_file)
-			object_specs['weights_file'] = weights_file
-		# use the json module to write object_specs to file
-		with open(json_file, 'w') as f:
-			json.dump(object_specs, f)
 
 
 class ResnetPolicy(CNNPolicy):
