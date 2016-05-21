@@ -10,6 +10,10 @@ class NeuralNetBase(object):
 	of a 'forward' function, etc.
 	"""
 
+	# keep track of subclasses to make generic saving/loading cleaner.
+	# subclasses can be 'registered' with the @neuralnet decorator
+	subclasses = {}
+
 	def __init__(self, feature_list, **kwargs):
 		"""create a neural net object that preprocesses according to feature_list and uses
 		a neural network specified by keyword arguments (using subclass' create_network())
@@ -56,16 +60,18 @@ class NeuralNetBase(object):
 	def load_model(json_file):
 		"""create a new neural net object from the architecture specified in json_file
 		"""
-		from policy import CNNPolicy, ResnetPolicy
 		with open(json_file, 'r') as f:
 			object_specs = json.load(f)
 
 		# Create object; may be a subclass of networks saved in specs['class']
-		network_class = object_specs.get('class', 'CNNPolicy')
-		if network_class == 'CNNPolicy':
-			new_net = CNNPolicy(object_specs['feature_list'], init_network=False)
-		elif network_class == 'ResnetPolicy':
-			new_net = ResnetPolicy(object_specs['feature_list'], init_network=False)
+		class_name = object_specs.get('class', 'CNNPolicy')
+		try:
+			network_class = NeuralNetBase.subclasses[class_name]
+		except KeyError:
+			raise ValueError("Unknown neural network type in json file: {}\n(was it registered with the @neuralnet decorator?)".format(network_class))
+
+		# create new object
+		new_net = network_class(object_specs['feature_list'], init_network=False)
 
 		new_net.model = model_from_json(object_specs['keras_model'], custom_objects={'Bias': Bias})
 		if 'weights_file' in object_specs:
@@ -97,6 +103,13 @@ class NeuralNetBase(object):
 		# use the json module to write object_specs to file
 		with open(json_file, 'w') as f:
 			json.dump(object_specs, f)
+
+
+def neuralnet(cls):
+	"""Class decorator for registering subclasses of NeuralNetBase
+	"""
+	NeuralNetBase.subclasses[cls.__name__] = cls
+	return cls
 
 
 class Bias(Layer):

@@ -2,10 +2,11 @@ from keras.models import Sequential, Model
 from keras.layers import convolutional, merge, Input, BatchNormalization
 from keras.layers.core import Activation, Flatten
 from AlphaGo.util import flatten_idx
-from AlphaGo.models.nn_util import Bias, NeuralNetBase
+from AlphaGo.models.nn_util import Bias, NeuralNetBase, neuralnet
 import numpy as np
 
 
+@neuralnet
 class CNNPolicy(NeuralNetBase):
 	"""uses a convolutional neural network to evaluate the state of the game
 	and compute a probability distribution over the next action
@@ -128,6 +129,7 @@ class CNNPolicy(NeuralNetBase):
 		return network
 
 
+@neuralnet
 class ResnetPolicy(CNNPolicy):
 	"""Residual network architecture as per He at al. 2015
 	"""
