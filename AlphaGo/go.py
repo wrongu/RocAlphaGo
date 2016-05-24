@@ -50,6 +50,8 @@ class GameState(object):
 		self.group_sets = [[set() for _ in range(size)] for _ in range(size)]
 		# cache of list of legal moves
 		self.__legal_move_cache = None
+		# on-the-fly record of 'age' of each stone
+		self.stone_ages = np.zeros((size, size), dtype=np.int) - 1
 
 	def get_group(self, position):
 		"""Get the group of connected same-color stones to the given position
@@ -153,6 +155,7 @@ class GameState(object):
 			self.group_sets[x][y] = set()
 			self.liberty_sets[x][y] = set()
 			self.liberty_counts[x][y] = -1
+			self.stone_ages[x][y] = -1
 			for (nx, ny) in self._neighbors((x, y)):
 				if self.board[nx, ny] == EMPTY:
 					# add empty neighbors of (x,y) to its liberties
@@ -310,10 +313,13 @@ class GameState(object):
 		if self.is_legal(action):
 			# reset ko
 			self.ko = None
+			# increment age of stones by 1
+			self.stone_ages[self.stone_ages >= 0] += 1
 			if action is not PASS_MOVE:
 				(x, y) = action
 				self.board[x][y] = color
 				self._update_neighbors(action)
+				self.stone_ages[x][y] = 0
 
 				# check neighboring groups' liberties for captures
 				for (nx, ny) in self._neighbors(action):
