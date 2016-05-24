@@ -48,8 +48,9 @@ class GameState(object):
 		# similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
 		# containing all (x',y') pairs in the group connected to (x,y)
 		self.group_sets = [[set() for _ in range(size)] for _ in range(size)]
-		# cache of list of legal moves
+		# cache of list of legal moves (actually 'sensible' moves, with a separate list for eye-moves on request)
 		self.__legal_move_cache = None
+		self.__legal_eyes_cache = None
 		# on-the-fly record of 'age' of each stone
 		self.stone_ages = np.zeros((size, size), dtype=np.int) - 1
 
@@ -268,13 +269,20 @@ class GameState(object):
 
 	def get_legal_moves(self, include_eyes=True):
 		if self.__legal_move_cache is not None:
-			return self.__legal_move_cache
+			if include_eyes:
+				return self.__legal_move_cache + self.__legal_eyes_cache
+			else:
+				return self.__legal_move_cache
 		self.__legal_move_cache = []
+		self.__legal_eyes_cache = []
 		for x in range(self.size):
 			for y in range(self.size):
-				if self.is_legal((x, y)) and (include_eyes or not self.is_eye((x, y), self.current_player)):
-					self.__legal_move_cache.append((x, y))
-		return self.__legal_move_cache
+				if self.is_legal((x, y)):
+					if not self.is_eye((x, y), self.current_player):
+						self.__legal_move_cache.append((x, y))
+					else:
+						self.__legal_eyes_cache.append((x, y))
+		return self.get_legal_moves(include_eyes)
 
 	def get_winner(self):
 		"""Calculate score of board state and return player ID (1, -1, or 0 for tie)
