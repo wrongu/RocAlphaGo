@@ -175,7 +175,7 @@ class GameState(object):
 		other.turns_played = self.turns_played
 		other.current_player = self.current_player
 		other.ko = self.ko
-		other.history = self.history
+		other.history = list(self.history)
 		other.num_black_prisoners = self.num_black_prisoners
 		other.num_white_prisoners = self.num_white_prisoners
 
