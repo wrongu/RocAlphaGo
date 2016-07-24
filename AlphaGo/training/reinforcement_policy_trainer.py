@@ -28,15 +28,15 @@ def make_training_pairs(player, opp, features, mini_batch_size, board_size=19):
 	winners -- list of winners associated with each game in batch
 	"""
 
-	def do_move(states, states_prev, moves, X_list, y_list, player_color):
+	def do_move(states, moves, X_list, y_list, player_color):
 		bsize_flat = bsize * bsize
-		for st, st_prev, mv, X, y in zip(states, states_prev, moves, X_list, y_list):
+		for st, mv, X, y in zip(states, moves, X_list, y_list):
+			# Only do more moves if not end of game already
 			if not st.is_end_of_game:
-				# Only do more moves if not end of game already
+				state_1hot = preprocessor.state_to_tensor(st)
 				st.do_move(mv)
 				if st.current_player != player_color and mv is not go.PASS_MOVE:
 					# Convert move to one-hot
-					state_1hot = preprocessor.state_to_tensor(st_prev)
 					move_1hot = np.zeros(bsize_flat)
 					move_1hot[flatten_idx(mv, bsize)] = 1
 					X.append(state_1hot)
@@ -54,15 +54,13 @@ def make_training_pairs(player, opp, features, mini_batch_size, board_size=19):
 	player1, player2 = (player, opp) if player_color == go.BLACK else \
 		(opp, player)
 	while True:
-		# Cache states before moves
-		states_prev = [st.copy() for st in states]
 		# Get moves (batch)
 		moves_black = player1.get_moves(states)
 		# Do moves (black)
-		states, X_list, y_list = do_move(states, states_prev, moves_black, X_list, y_list, player_color)
+		states, X_list, y_list = do_move(states, moves_black, X_list, y_list, player_color)
 		# Do moves (white)
 		moves_white = player2.get_moves(states)
-		states, X_list, y_list = do_move(states, states_prev, moves_white, X_list, y_list, player_color)
+		states, X_list, y_list = do_move(states, moves_white, X_list, y_list, player_color)
 		# If all games have ended, we're done. Get winners.
 		done = [st.is_end_of_game for st in states]
 		if all(done):
