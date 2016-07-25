@@ -33,16 +33,14 @@ def make_training_pairs(player, opp, features, mini_batch_size, board_size=19):
 		for st, mv, X, y in zip(states, moves, X_list, y_list):
 			# Only do more moves if not end of game already
 			if not st.is_end_of_game:
-				is_my_move = st.current_player == player_color
-				if is_my_move:
-					state_1hot = preprocessor.state_to_tensor(st)
-				st.do_move(mv)
-				if is_my_move and mv is not go.PASS_MOVE:
+				if st.current_player == player_color and mv is not go.PASS_MOVE:
 					# Convert move to one-hot
+					state_1hot = preprocessor.state_to_tensor(st)
 					move_1hot = np.zeros(bsize_flat)
 					move_1hot[flatten_idx(mv, bsize)] = 1
 					X.append(state_1hot)
 					y.append(move_1hot)
+				st.do_move(mv)
 		return states, X_list, y_list
 
 	# Lists of game training pairs (1-hot)
