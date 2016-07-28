@@ -1,3 +1,5 @@
+import os
+import itertools
 import sgf
 from AlphaGo import go
 
@@ -21,9 +23,9 @@ def _parse_sgf_move(node_value):
 	if node_value == '' or node_value == 'tt':
 		return go.PASS_MOVE
 	else:
-		row = LETTERS.index(node_value[1].upper())
-		col = LETTERS.index(node_value[0].upper())
 		# GameState expects (x, y) where x is column and y is row
+		col = LETTERS.index(node_value[0].upper())
+		row = LETTERS.index(node_value[1].upper())
 		return (col, row)
 
 
@@ -58,6 +60,30 @@ def sgf_to_gamestate(sgf_string):
 	# gs has been updated in-place to the final state by the time
 	# sgf_iter_states returns
 	return gs
+
+
+def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown', white_player_name='Unknown', size=19, komi=7.5):
+	"""Creates a simplified sgf for viewing playouts or positions
+	"""
+	str_list = []
+	# Game info
+	str_list.append('(;GM[1]FF[4]CA[UTF-8]')
+	str_list.append('SZ[{}]'.format(size))
+	str_list.append('KM[{}]'.format(komi))
+	str_list.append('PB[{}]'.format(black_player_name))
+	str_list.append('PW[{}]'.format(white_player_name))
+	# Move list
+	for move, color in zip(gamestate.history, itertools.cycle('BW')):
+		# Move color prefix
+		str_list.append(';{}'.format(color))
+		# Move coordinates
+		if move is None:
+			str_list.append('[tt]')
+		else:
+			str_list.append('[{}{}]'.format(LETTERS[move[0]].lower(), LETTERS[move[1]].lower()))
+	str_list.append(')')
+	with open(os.path.join(path, filename), "w") as f:
+		f.write(''.join(str_list))
 
 
 def sgf_iter_states(sgf_string, include_end=True):
