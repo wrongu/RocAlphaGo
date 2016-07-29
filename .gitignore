@@ -9,3 +9,4 @@
 !tests/test_data/hdf5/*.hdf5
 src/
 benchmarks/data/
+/.idea
