@@ -131,7 +131,9 @@ def run_training(cmd_line_args=None):
 	dataset = h5.File(args.train_data)
 	n_total_data = len(dataset["states"])
 	n_train_data = int(args.train_val_test[0] * n_total_data)
-	n_val_data = int(args.train_val_test[1] * n_total_data)
+	# Need to make sure training data is divisible by minibatch size or get warning mentioning accuracy from keras
+	n_train_data = n_train_data - (n_train_data % args.minibatch)
+	n_val_data = n_total_data - n_train_data
 	# n_test_data = n_total_data - (n_train_data + n_val_data)
 
 	if args.verbose:
