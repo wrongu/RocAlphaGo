@@ -1,6 +1,7 @@
 """Policy players"""
-from AlphaGo import go
 import numpy as np
+from AlphaGo import go
+from AlphaGo import mcts
 
 
 class GreedyPolicyPlayer(object):
@@ -66,3 +67,18 @@ class ProbabilisticPolicyPlayer(object):
 				choice_idx = np.random.choice(len(moves), p=probabilities)
 				move_list[i] = moves[choice_idx]
 		return move_list
+
+
+class MCTSPlayer(object):
+	def __init__(self, policy_function, value_function, rollout_function, lmbda=.5, c_puct=5, rollout_limit=500, playout_depth=40, n_search=100):
+		self.mcts = mcts.MCTS(value_function, policy_function, rollout_function, lmbda, c_puct,
+					rollout_limit, playout_depth, n_search)
+
+	def get_move(self, state):
+		sensible_moves = [move for move in state.get_legal_moves() if not state.is_eye(move, state.current_player)]
+		if len(sensible_moves) > 0:
+			move = self.mcts.get_move(state)
+			self.mcts.update_with_move(move)
+			return move
+		# No 'sensible' moves available, so do pass move
+		return go.PASS_MOVE
