@@ -174,7 +174,7 @@ def run_training(cmd_line_args=None):
 
 	def save_metadata():
 		with open(os.path.join(args.out_directory, "metadata.json"), "w") as f:
-			json.dump(metadata, f, sort_keys=True, indent=4)
+			json.dump(metadata, f, sort_keys=True, indent=2)
 
 	# Set SGD and compile
 	sgd = SGD(lr=args.learning_rate)

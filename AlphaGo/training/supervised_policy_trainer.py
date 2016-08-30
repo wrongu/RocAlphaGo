@@ -67,7 +67,7 @@ class MetadataWriterCallback(Callback):
 			self.metadata["best_epoch"] = epoch
 
 		with open(self.file, "w") as f:
-			json.dump(self.metadata, f)
+			json.dump(self.metadata, f, indent=2)
 
 
 BOARD_TRANSFORMATIONS = {
