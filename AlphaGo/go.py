@@ -310,6 +310,11 @@ class GameState(object):
 			winner = 0
 		return winner
 
+	def get_current_player(self):
+		"""Returns the color of the player who will make the next move.
+		"""
+		return self.current_player
+
 	def do_move(self, action, color=None):
 		"""Play stone at action=(x,y). If color is not specified, current_player is used
 		If it is a legal move, current_player switches to the opposite color
