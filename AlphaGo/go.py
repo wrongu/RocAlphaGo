@@ -170,7 +170,7 @@ class GameState(object):
 	def copy(self):
 		"""get a copy of this Game state
 		"""
-		other = GameState(self.size)
+		other = GameState(self.size, self.komi)
 		other.board = self.board.copy()
 		other.turns_played = self.turns_played
 		other.current_player = self.current_player
