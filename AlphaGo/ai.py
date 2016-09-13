@@ -45,6 +45,17 @@ class ProbabilisticPolicyPlayer(object):
         self.pass_when_offered = pass_when_offered
         self.move_limit = move_limit
 
+    def apply_temperature(self, distribution):
+        log_probabilities = np.log(distribution)
+        # apply beta exponent to probabilities (in log space)
+        log_probabilities = log_probabilities * self.beta
+        # scale probabilities to a more numerically stable range (in log space)
+        log_probabilities = log_probabilities - log_probabilities.max()
+        # convert back from log space
+        probabilities = np.exp(log_probabilities)
+        # re-normalize the distribution
+        return probabilities / probabilities.sum()
+
     def get_move(self, state):
         if self.move_limit is not None and len(state.history) > self.move_limit:
             return go.PASS_MOVE
@@ -57,9 +68,8 @@ class ProbabilisticPolicyPlayer(object):
             # zip(*list) is like the 'transpose' of zip;
             # zip(*zip([1,2,3], [4,5,6])) is [(1,2,3), (4,5,6)]
             moves, probabilities = zip(*move_probs)
-            probabilities = np.array(probabilities)
-            probabilities = probabilities ** self.beta
-            probabilities = probabilities / probabilities.sum()
+            # apply 'temperature' to the distribution
+            probabilities = self.apply_temperature(probabilities)
             # numpy interprets a list of tuples as 2D, so we must choose an
             # _index_ of moves then apply it in 2 steps
             choice_idx = np.random.choice(len(moves), p=probabilities)
