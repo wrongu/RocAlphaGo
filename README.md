@@ -19,7 +19,7 @@ Selected data (i.e. trained models) are released in our [data repository](http:/
 
 This project has primarily focused on the neural network training aspect of DeepMind's AlphaGo. We also have a simple single-threaded implementation of their tree search algorithm, though it is not fast enough to be competitive yet.
 
-See the wiki page on the [training pipeline](https://github.com/Rochester-NRT/RocAlphaGo/wiki/Neural-Networks-and-Training) for information on how to run the training commands.
+See the wiki page on the [training pipeline](https://github.com/Rochester-NRT/RocAlphaGo/wiki/04.-Neural-Networks-and-Training) for information on how to run the training commands.
 
 # How to contribute
 
