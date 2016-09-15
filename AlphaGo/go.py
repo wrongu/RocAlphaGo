@@ -18,7 +18,6 @@ class GameState(object):
 		self.board = np.zeros((size, size))
 		self.board.fill(EMPTY)
 		self.size = size
-		self.turns_played = 0
 		self.current_player = BLACK
 		self.ko = None
 		self.komi = komi
@@ -172,7 +171,6 @@ class GameState(object):
 		"""
 		other = GameState(self.size, self.komi)
 		other.board = self.board.copy()
-		other.turns_played = self.turns_played
 		other.current_player = self.current_player
 		other.ko = self.ko
 		other.history = list(self.history)
@@ -362,7 +360,6 @@ class GameState(object):
 					self.passes_white += 1
 			# next turn
 			self.current_player = -color
-			self.turns_played += 1
 			self.history.append(action)
 			self.__legal_move_cache = None
 		else:
