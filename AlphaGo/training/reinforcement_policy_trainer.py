@@ -201,6 +201,9 @@ def run_training(cmd_line_args=None):
 		with open(os.path.join(args.out_directory, "metadata.json"), "r") as f:
 			metadata = json.load(f)
 
+	# Append args of current run to history of full command args.
+	metadata["cmd_line_args"] = metadata.get("cmd_line_args", []).append(vars(args))
+
 	def save_metadata():
 		with open(os.path.join(args.out_directory, "metadata.json"), "w") as f:
 			json.dump(metadata, f, sort_keys=True, indent=2)

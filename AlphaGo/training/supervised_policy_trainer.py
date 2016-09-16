@@ -161,6 +161,8 @@ def run_training(cmd_line_args=None):
 	# TODO - model and train_data are saved in meta_file; check that they match (and make args optional when restarting?)
 	meta_writer.metadata["training_data"] = args.train_data
 	meta_writer.metadata["model_file"] = args.model
+	# Record all command line args in a list so that all args are recorded even when training is stopped and resumed.
+	meta_writer.metadata["cmd_line_args"] = meta_writer.metadata.get("cmd_line_args", []).append(vars(args))
 
 	# create ModelCheckpoint to save weights every epoch
 	checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:05d}.hdf5")
