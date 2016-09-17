@@ -68,7 +68,7 @@ class NeuralNetBase(object):
 		try:
 			network_class = NeuralNetBase.subclasses[class_name]
 		except KeyError:
-			raise ValueError("Unknown neural network type in json file: {}\n(was it registered with the @neuralnet decorator?)".format(network_class))
+			raise ValueError("Unknown neural network type in json file: {}\n(was it registered with the @neuralnet decorator?)".format(class_name))
 
 		# create new object
 		new_net = network_class(object_specs['feature_list'], init_network=False)
