@@ -72,8 +72,16 @@ def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown'
 	str_list.append('KM[{}]'.format(komi))
 	str_list.append('PB[{}]'.format(black_player_name))
 	str_list.append('PW[{}]'.format(white_player_name))
+	cycle_string = 'BW'
+	# Handle handicaps
+	if len(gamestate.handicaps) > 0:
+		cycle_string = 'WB'
+		str_list.append('HA[{}]'.format(len(gamestate.handicaps)))
+		str_list.append(';AB')
+		for handicap in gamestate.handicaps:
+			str_list.append('[{}{}]'.format(LETTERS[handicap[0]].lower(), LETTERS[handicap[1]].lower()))
 	# Move list
-	for move, color in zip(gamestate.history, itertools.cycle('BW')):
+	for move, color in zip(gamestate.history, itertools.cycle(cycle_string)):
 		# Move color prefix
 		str_list.append(';{}'.format(color))
 		# Move coordinates

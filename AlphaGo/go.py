@@ -20,12 +20,12 @@ class GameState(object):
 		self.size = size
 		self.current_player = BLACK
 		self.ko = None
-		self.komi = komi
+		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
+		self.handicaps = []
 		self.history = []
 		self.num_black_prisoners = 0
 		self.num_white_prisoners = 0
 		self.is_end_of_game = False
-		self.komi = komi  # Komi is number of extra points WHITE gets for going 2nd
 		# Each pass move by a player subtracts a point
 		self.passes_white = 0
 		self.passes_black = 0
@@ -173,6 +173,7 @@ class GameState(object):
 		other.board = self.board.copy()
 		other.current_player = self.current_player
 		other.ko = self.ko
+		other.handicaps = list(self.handicaps)
 		other.history = list(self.history)
 		other.num_black_prisoners = self.num_black_prisoners
 		other.num_white_prisoners = self.num_white_prisoners
@@ -307,6 +308,14 @@ class GameState(object):
 			# Tie
 			winner = 0
 		return winner
+
+	def place_handicaps(self, actions):
+		if len(self.history) > 0:
+			raise IllegalMove("Cannot place handicap on a started game")
+		self.handicaps.extend(actions)
+		for action in actions:
+			self.do_move(action, BLACK)
+		self.history = []
 
 	def get_current_player(self):
 		"""Returns the color of the player who will make the next move.
