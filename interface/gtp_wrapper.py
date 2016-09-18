@@ -84,11 +84,11 @@ class GTPGameConnector(object):
 	"""
 
 	def __init__(self, player):
-		self._state = go.GameState()
+		self._state = go.GameState(enforce_superko=True)
 		self._player = player
 
 	def clear(self):
-		self._state = go.GameState(self._state.size)
+		self._state = go.GameState(self._state.size, enforce_superko=True)
 
 	def make_move(self, color, vertex):
 		# vertex in GTP language is 1-indexed, whereas GameState's are zero-indexed
@@ -103,7 +103,7 @@ class GTPGameConnector(object):
 			return False
 
 	def set_size(self, n):
-		self._state = go.GameState(n)
+		self._state = go.GameState(n, enforce_superko=True)
 
 	def set_komi(self, k):
 		self._state.komi = k
