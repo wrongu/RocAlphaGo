@@ -40,13 +40,15 @@ class CNNPolicy(NeuralNetBase):
             raise ValueError("all states must have the same size")
         # concatenate together all one-hot encoded states along the 'batch' dimension
         nn_input = np.concatenate([self.preprocessor.state_to_tensor(s) for s in states], axis=0)
-        # pass all input through the network at once (backend makes use of batches if len(states) is large)
+        # pass all input through the network at once (backend makes use of
+        # batches if len(states) is large)
         network_output = self.forward(nn_input)
         # default move lists to all legal moves
         moves_lists = moves_lists or [st.get_legal_moves() for st in states]
         results = [None] * n_states
         for i in range(n_states):
-            results[i] = self._select_moves_and_normalize(network_output[i], moves_lists[i], state_size)
+            results[i] = self._select_moves_and_normalize(network_output[i], moves_lists[i],
+                                                          state_size)
         return results
 
     def eval_state(self, state, moves=None):
@@ -168,10 +170,12 @@ class ResnetPolicy(CNNPolicy):
         O - output
         M - merge
 
-        The input is always passed through a Conv2D layer, the output of which layer is counted as '1'.
-        Each subsequent [R -- C] block is counted as one 'layer'. The 'merge' layer isn't counted; hence
-        if n_skip_1 is 2, the next valid skip parameter is n_skip_3, which will start at the output
-        of the merge
+        The input is always passed through a Conv2D layer, the output of which
+        layer is counted as '1'.  Each subsequent [R -- C] block is counted as
+        one 'layer'. The 'merge' layer isn't counted; hence if n_skip_1 is 2,
+        the next valid skip parameter is n_skip_3, which will start at the
+        output of the merge
+
         """
         defaults = {
             "board": 19,

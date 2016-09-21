@@ -105,7 +105,8 @@ class MCTS(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, value_fn, policy_fn, rollout_policy_fn, lmbda=0.5, c_puct=5, rollout_limit=500, playout_depth=20, n_playout=10000):
+    def __init__(self, value_fn, policy_fn, rollout_policy_fn, lmbda=0.5, c_puct=5,
+                 rollout_limit=500, playout_depth=20, n_playout=10000):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -115,9 +116,9 @@ class MCTS(object):
         lmbda -- controls the relative weight of the value network and fast rollout policy result
             in determining the value of a leaf node. lmbda must be in [0, 1], where 0 means use only
             the value network and 1 means use only the result from the rollout.
-        c_puct -- a number in (0, inf) that controls how quickly exploration converges to the maximum-
-            value policy, where a higher value means relying on the prior more, and should be used only
-            in conjunction with a large value for n_playout.
+        c_puct -- a number in (0, inf) that controls how quickly exploration converges to the
+            maximum-value policy, where a higher value means relying on the prior more, and
+            should be used only in conjunction with a large value for n_playout.
         """
         self._root = TreeNode(None, 1.0)
         self._value = value_fn

@@ -3,7 +3,8 @@ from cProfile import Profile
 
 prof = Profile()
 
-test_features = ["board", "turns_since", "liberties", "capture_size", "self_atari_size", "liberties_after", "sensibleness", "zeros"]
+test_features = ["board", "turns_since", "liberties", "capture_size", "self_atari_size",
+                 "liberties_after", "sensibleness", "zeros"]
 gc = game_converter(test_features)
 args = ('tests/test_data/sgf/Lee-Sedol-vs-AlphaGo-20160309.sgf', 19)
 

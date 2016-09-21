@@ -13,12 +13,16 @@ class TestSGFLoading(unittest.TestCase):
 class TestCmdlineConverter(unittest.TestCase):
 
     def test_directory_conversion(self):
-        args = ['--features', 'board,ones,turns_since', '--outfile', '.tmp.testing.h5', '--directory', 'tests/test_data/sgf/']
+        args = ['--features', 'board,ones,turns_since',
+                '--outfile', '.tmp.testing.h5',
+                '--directory', 'tests/test_data/sgf/']
         run_game_converter(args)
         os.remove('.tmp.testing.h5')
 
     def test_directory_walk(self):
-        args = ['--features', 'board,ones,turns_since', '--outfile', '.tmp.testing.h5', '--directory', 'tests/test_data', '--recurse']
+        args = ['--features', 'board,ones,turns_since',
+                '--outfile', '.tmp.testing.h5',
+                '--directory', 'tests/test_data', '--recurse']
         run_game_converter(args)
         os.remove('.tmp.testing.h5')
 

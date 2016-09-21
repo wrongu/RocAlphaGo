@@ -15,7 +15,8 @@ def one_hot_action(action, size=19):
     return categorical
 
 
-def shuffled_hdf5_batch_generator(state_dataset, action_dataset, indices, batch_size, transforms=[]):
+def shuffled_hdf5_batch_generator(state_dataset, action_dataset,
+                                  indices, batch_size, transforms=[]):
     """A generator of batches of training data for use with the fit_generator function
     of Keras. Data is accessed in the order of the given indices for shuffling.
     """
@@ -29,7 +30,8 @@ def shuffled_hdf5_batch_generator(state_dataset, action_dataset, indices, batch_
             # choose a random transformation of the data (rotations/reflections of the board)
             transform = np.random.choice(transforms)
             # get state from dataset and transform it.
-            # loop comprehension is used so that the transformation acts on the 3rd and 4th dimensions
+            # loop comprehension is used so that the transformation acts on the
+            # 3rd and 4th dimensions
             state = np.array([transform(plane) for plane in state_dataset[data_idx]])
             # must be cast to a tuple so that it is interpreted as (x,y) not [(x,:), (y,:)]
             action_xy = tuple(action_dataset[data_idx])
@@ -115,10 +117,12 @@ def run_training(cmd_line_args=None):
 
     if args.verbose:
         if resume:
-            print "trying to resume from %s with weights %s" % (args.out_directory, os.path.join(args.out_directory, args.weights))
+            print("trying to resume from %s with weights %s" %
+                  (args.out_directory, os.path.join(args.out_directory, args.weights)))
         else:
             if os.path.exists(args.out_directory):
-                print "directory %s exists. any previous data will be overwritten" % args.out_directory
+                print("directory %s exists. any previous data will be overwritten" %
+                      args.out_directory)
             else:
                 print "starting fresh output directory %s" % args.out_directory
 
@@ -127,11 +131,13 @@ def run_training(cmd_line_args=None):
     if resume:
         model.load_weights(os.path.join(args.out_directory, args.weights))
 
-    # TODO - (waiting on game_converter) verify that features of model match features of training data
+    # TODO - (waiting on game_converter) verify that features of model match
+    # features of training data
     dataset = h5.File(args.train_data)
     n_total_data = len(dataset["states"])
     n_train_data = int(args.train_val_test[0] * n_total_data)
-    # Need to make sure training data is divisible by minibatch size or get warning mentioning accuracy from keras
+    # Need to make sure training data is divisible by minibatch size or get
+    # warning mentioning accuracy from keras
     n_train_data = n_train_data - (n_train_data % args.minibatch)
     n_val_data = n_total_data - n_train_data
     # n_test_data = n_total_data - (n_train_data + n_val_data)
@@ -154,15 +160,21 @@ def run_training(cmd_line_args=None):
         with open(meta_file, "r") as f:
             meta_writer.metadata = json.load(f)
         if args.verbose:
-            print "previous metadata loaded: %d epochs. new epochs will be appended." % len(meta_writer.metadata["epochs"])
+            print("previous metadata loaded: %d epochs. new epochs will be appended." %
+                  len(meta_writer.metadata["epochs"]))
     elif args.verbose:
         print "starting with empty metadata"
-    # the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add in anything else we like here
-    # TODO - model and train_data are saved in meta_file; check that they match (and make args optional when restarting?)
+    # the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add
+    # in anything else we like here
+    #
+    # TODO - model and train_data are saved in meta_file; check that they match
+    # (and make args optional when restarting?)
     meta_writer.metadata["training_data"] = args.train_data
     meta_writer.metadata["model_file"] = args.model
-    # Record all command line args in a list so that all args are recorded even when training is stopped and resumed.
-    meta_writer.metadata["cmd_line_args"] = meta_writer.metadata.get("cmd_line_args", []).append(vars(args))
+    # Record all command line args in a list so that all args are recorded even
+    # when training is stopped and resumed.
+    meta_writer.metadata["cmd_line_args"] \
+        = meta_writer.metadata.get("cmd_line_args", []).append(vars(args))
 
     # create ModelCheckpoint to save weights every epoch
     checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:05d}.hdf5")
@@ -184,7 +196,8 @@ def run_training(cmd_line_args=None):
             np.save(f, shuffle_indices)
         if args.verbose:
             print "created new data shuffling indices"
-    # training indices are the first consecutive set of shuffled indices, val next, then test gets the remainder
+    # training indices are the first consecutive set of shuffled indices, val
+    # next, then test gets the remainder
     train_indices = shuffle_indices[0:n_train_data]
     val_indices = shuffle_indices[n_train_data:n_train_data + n_val_data]
     # test_indices = shuffle_indices[n_train_data + n_val_data:]

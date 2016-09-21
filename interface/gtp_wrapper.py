@@ -9,7 +9,8 @@ def run_gnugo(sgf_file_name, command):
     from distutils import spawn
     if spawn.find_executable('gnugo'):
         from subprocess import Popen, PIPE
-        p = Popen(['gnugo', '--chinese-rules', '--mode', 'gtp', '-l', sgf_file_name], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+        p = Popen(['gnugo', '--chinese-rules', '--mode', 'gtp', '-l', sgf_file_name],
+                  stdout=PIPE, stdin=PIPE, stderr=PIPE)
         out_bytes = p.communicate(input=command)[0]
         return out_bytes.decode('utf-8')[2:]
     else:

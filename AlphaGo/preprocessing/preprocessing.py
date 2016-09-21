@@ -43,7 +43,8 @@ def get_liberties(state, maximum=8):
     """
     planes = np.zeros((maximum, state.size, state.size))
     for i in range(maximum):
-        # single liberties in plane zero (groups won't have zero), double liberties in plane one, etc
+        # single liberties in plane zero (groups won't have zero), double
+        # liberties in plane one, etc
         planes[i, state.liberty_counts == i + 1] = 1
     # the "maximum-or-more" case on the backmost plane
     planes[maximum - 1, state.liberty_counts >= maximum] = 1
@@ -51,14 +52,16 @@ def get_liberties(state, maximum=8):
 
 
 def get_capture_size(state, maximum=8):
-    """A feature encoding the number of opponent stones that would be captured by playing at each location,
-    up to 'maximum'
+    """A feature encoding the number of opponent stones that would be captured by
+    playing at each location, up to 'maximum'
 
     Note:
     - we currently *do* treat the 0th plane as "capturing zero stones"
-    - the [maximum-1] plane is used for any capturable group of size greater than or equal to maximum-1
+    - the [maximum-1] plane is used for any capturable group of size
+      greater than or equal to maximum-1
     - the 0th plane is used for legal moves that would not result in capture
     - illegal move locations are all-zero features
+
     """
     planes = np.zeros((maximum, state.size, state.size))
     for (x, y) in state.get_legal_moves():
@@ -71,14 +74,17 @@ def get_capture_size(state, maximum=8):
             # (note suicide and ko are not an issue because they are not
             # legal moves)
             (gx, gy) = next(iter(neighbor_group))
-            if (state.liberty_counts[gx][gy] == 1) and (state.board[gx, gy] != state.current_player):
+            if (state.liberty_counts[gx][gy] == 1) and \
+               (state.board[gx, gy] != state.current_player):
                 n_captured += len(state.group_sets[gx][gy])
         planes[min(n_captured, maximum - 1), x, y] = 1
     return planes
 
 
 def get_self_atari_size(state, maximum=8):
-    """A feature encoding the size of the own-stone group that is put into atari by playing at a location
+    """A feature encoding the size of the own-stone group that is put into atari by
+    playing at a location
+
     """
     planes = np.zeros((maximum, state.size, state.size))
 

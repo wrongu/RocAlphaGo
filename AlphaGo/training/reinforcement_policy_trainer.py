@@ -58,7 +58,8 @@ class BatchedReinforcementLearningSGD(Optimizer):
         grads = self.get_gradients(loss, params)
         # Create a set of accumulated gradients, one for each game.
         shapes = [K.get_variable_shape(p) for p in params]
-        self.cumulative_gradients = [[K.zeros(shape) for shape in shapes] for _ in range(self.num_games)]
+        self.cumulative_gradients = [[K.zeros(shape) for shape in shapes]
+                                     for _ in range(self.num_games)]
 
         def conditional_update(cond, variable, new_value):
             '''Helper function to create updates that only happen when cond is True. Writes to
@@ -123,9 +124,12 @@ def _make_training_pair(st, mv, preprocessor):
 
 
 def run_n_games(optimizer, learner, opponent, num_games):
-    '''Run num_games games to completion, calling train_batch() on each position the learner sees.
+    '''Run num_games games to completion, calling train_batch() on each position
+    the learner sees.
 
-    (Note: optimizer only accumulates gradients in its update function until all games have finished)
+    (Note: optimizer only accumulates gradients in its update function until
+    all games have finished)
+
     '''
     board_size = learner.policy.model.input_shape[-1]
     states = [GameState(size=board_size) for _ in range(num_games)]
@@ -214,11 +218,14 @@ def run_training(cmd_line_args=None):
         # make a copy of weights file, "weights.00000.hdf5" in the output directory
         copyfile(args.initial_weights, os.path.join(args.out_directory, ZEROTH_FILE))
         if args.verbose:
-            print "copied {} to {}".format(args.initial_weights, os.path.join(args.out_directory, ZEROTH_FILE))
+            print "copied {} to {}".format(args.initial_weights,
+                                           os.path.join(args.out_directory, ZEROTH_FILE))
         player_weights = ZEROTH_FILE
     else:
-        # if resuming, we expect initial_weights to be just a "weights.#####.hdf5" file, not a full path
-        args.initial_weights = os.path.join(args.out_directory, os.path.basename(args.initial_weights))
+        # if resuming, we expect initial_weights to be just a
+        # "weights.#####.hdf5" file, not a full path
+        args.initial_weights = os.path.join(args.out_directory,
+                                            os.path.basename(args.initial_weights))
         if not os.path.exists(args.initial_weights):
             raise ValueError("Cannot resume; weights {} do not exist".format(args.initial_weights))
         elif args.verbose:
@@ -228,12 +235,14 @@ def run_training(cmd_line_args=None):
     # Set initial conditions
     policy = CNNPolicy.load_model(args.model_json)
     policy.model.load_weights(args.initial_weights)
-    player = ProbabilisticPolicyPlayer(policy, temperature=args.policy_temp, move_limit=args.move_limit)
+    player = ProbabilisticPolicyPlayer(policy, temperature=args.policy_temp,
+                                       move_limit=args.move_limit)
 
     # different opponents come from simply changing the weights of 'opponent.policy.model'. That
     # is, only 'opp_policy' needs to be changed, and 'opponent' will change.
     opp_policy = CNNPolicy.load_model(args.model_json)
-    opponent = ProbabilisticPolicyPlayer(opp_policy, temperature=args.policy_temp, move_limit=args.move_limit)
+    opponent = ProbabilisticPolicyPlayer(opp_policy, temperature=args.policy_temp,
+                                         move_limit=args.move_limit)
 
     if args.verbose:
         print "created player and opponent with temperature {}".format(args.policy_temp)
@@ -246,7 +255,8 @@ def run_training(cmd_line_args=None):
             "temperature": args.policy_temp,
             "game_batch": args.game_batch,
             "opponents": [ZEROTH_FILE],  # which weights from which to sample an opponent each batch
-            "win_ratio": {}  # map from player to tuple of (opponent, win ratio) Useful for validating in lieu of 'accuracy/loss'
+            "win_ratio": {}  # map from player to tuple of (opponent, win ratio) Useful for
+                             # validating in lieu of 'accuracy/loss'
         }
     else:
         with open(os.path.join(args.out_directory, "metadata.json"), "r") as f:
@@ -262,8 +272,8 @@ def run_training(cmd_line_args=None):
     optimizer = BatchedReinforcementLearningSGD(lr=args.learning_rate, ng=args.game_batch)
     player.policy.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
     for i_iter in xrange(1, args.iterations + 1):
-        # Randomly choose opponent from pool (possibly self), and playing game_batch games against
-        # them.
+        # Randomly choose opponent from pool (possibly self), and playing
+        # game_batch games against them.
         opp_weights = np.random.choice(metadata["opponents"])
         opp_path = os.path.join(args.out_directory, opp_weights)
 
@@ -272,7 +282,8 @@ def run_training(cmd_line_args=None):
         if args.verbose:
             print "Batch {}\tsampled opponent is {}".format(i_iter, opp_weights)
 
-        # Run games (and learn from results). Keep track of the win ratio vs each opponent over time.
+        # Run games (and learn from results). Keep track of the win ratio vs
+        # each opponent over time.
         win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
         metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 

@@ -62,7 +62,8 @@ def sgf_to_gamestate(sgf_string):
     return gs
 
 
-def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown', white_player_name='Unknown', size=19, komi=7.5):
+def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown',
+                          white_player_name='Unknown', size=19, komi=7.5):
     """Creates a simplified sgf for viewing playouts or positions
     """
     str_list = []
@@ -79,7 +80,8 @@ def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown'
         str_list.append('HA[{}]'.format(len(gamestate.handicaps)))
         str_list.append(';AB')
         for handicap in gamestate.handicaps:
-            str_list.append('[{}{}]'.format(LETTERS[handicap[0]].lower(), LETTERS[handicap[1]].lower()))
+            str_list.append('[{}{}]'.format(LETTERS[handicap[0]].lower(),
+                                            LETTERS[handicap[1]].lower()))
     # Move list
     for move, color in zip(gamestate.history, itertools.cycle(cycle_string)):
         # Move color prefix
@@ -97,12 +99,14 @@ def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown'
 def sgf_iter_states(sgf_string, include_end=True):
     """Iterates over (GameState, move, player) tuples in the first game of the given SGF file.
 
-    Ignores variations - only the main line is returned.
-    The state object is modified in-place, so don't try to, for example, keep track of it through time
+    Ignores variations - only the main line is returned.  The state object is
+    modified in-place, so don't try to, for example, keep track of it through
+    time
 
-    If include_end is False, the final tuple yielded is the penultimate state, but the state
-    will still be left in the final position at the end of iteration because 'gs' is modified
-    in-place the state. See sgf_to_gamestate
+    If include_end is False, the final tuple yielded is the penultimate state,
+    but the state will still be left in the final position at the end of
+    iteration because 'gs' is modified in-place the state. See sgf_to_gamestate
+
     """
     collection = sgf.parse(sgf_string)
     game = collection[0]

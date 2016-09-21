@@ -46,18 +46,22 @@ class game_converter:
         - sgf_files : an iterable of relative or absolute paths to SGF files
         - hdf5_file : the name of the HDF5 where features will be saved
         - bd_size : side length of board of games that are loaded
-        - ignore_errors : if True, issues a Warning when there is an unknown exception rather than halting. Note
-            that sgf.ParseException and go.IllegalMove exceptions are always skipped
+
+        - ignore_errors : if True, issues a Warning when there is an unknown
+            exception rather than halting. Note that sgf.ParseException and
+            go.IllegalMove exceptions are always skipped
 
         The resulting file has the following properties:
             states  : dataset with shape (n_data, n_features, board width, board height)
-            actions : dataset with shape (n_data, 2) (actions are stored as x,y tuples of where the move was played)
+            actions : dataset with shape (n_data, 2) (actions are stored as x,y tuples of
+                      where the move was played)
             file_offsets : group mapping from filenames to tuples of (index, length)
 
         For example, to find what positions in the dataset come from 'test.sgf':
             index, length = file_offsets['test.sgf']
             test_states = states[index:index+length]
             test_actions = actions[index:index+length]
+
         """
         # TODO - also save feature list
 
@@ -72,9 +76,9 @@ class game_converter:
                 'states',
                 dtype=np.uint8,
                 shape=(1, self.n_features, bd_size, bd_size),
-                maxshape=(None, self.n_features, bd_size, bd_size),  # 'None' dimension allows it to grow arbitrarily
-                exact=False,                                         # allow non-uint8 datasets to be loaded, coerced to uint8
-                chunks=(64, self.n_features, bd_size, bd_size),      # approximately 1MB chunks
+                maxshape=(None, self.n_features, bd_size, bd_size),  # 'None' == arbitrary size
+                exact=False,  # allow non-uint8 datasets to be loaded, coerced to uint8
+                chunks=(64, self.n_features, bd_size, bd_size),  # approximately 1MB chunks
                 compression="lzf")
             actions = h5f.require_dataset(
                 'actions',
@@ -107,7 +111,8 @@ class game_converter:
                         n_pairs += 1
                         next_idx += 1
                 except go.IllegalMove:
-                    warnings.warn("Illegal Move encountered in %s\n\tdropping the remainder of the game" % file_name)
+                    warnings.warn("Illegal Move encountered in %s\n"
+                                  "\tdropping the remainder of the game" % file_name)
                 except sgf.ParseException:
                     warnings.warn("Could not parse %s\n\tdropping game" % file_name)
                 except SizeMismatchError:
@@ -115,12 +120,14 @@ class game_converter:
                 except Exception as e:
                     # catch everything else
                     if ignore_errors:
-                        warnings.warn("Unkown exception with file %s\n\t%s" % (file_name, e), stacklevel=2)
+                        warnings.warn("Unkown exception with file %s\n\t%s" % (file_name, e),
+                                      stacklevel=2)
                     else:
                         raise e
                 finally:
                     if n_pairs > 0:
-                        # '/' has special meaning in HDF5 key names, so they are replaced with ':' here
+                        # '/' has special meaning in HDF5 key names, so they
+                        # are replaced with ':' here
                         file_name_key = file_name.replace('/', ':')
                         file_offsets[file_name_key] = [file_start_idx, n_pairs]
                         if verbose:

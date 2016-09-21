@@ -54,12 +54,14 @@ class ProbabilisticPolicyPlayer(object):
         sensible_moves = [move for move in state.get_legal_moves(include_eyes=False)]
         if len(sensible_moves) > 0:
             move_probs = self.policy.eval_state(state, sensible_moves)
-            # zip(*list) is like the 'transpose' of zip; zip(*zip([1,2,3], [4,5,6])) is [(1,2,3), (4,5,6)]
+            # zip(*list) is like the 'transpose' of zip;
+            # zip(*zip([1,2,3], [4,5,6])) is [(1,2,3), (4,5,6)]
             moves, probabilities = zip(*move_probs)
             probabilities = np.array(probabilities)
             probabilities = probabilities ** self.beta
             probabilities = probabilities / probabilities.sum()
-            # numpy interprets a list of tuples as 2D, so we must choose an _index_ of moves then apply it in 2 steps
+            # numpy interprets a list of tuples as 2D, so we must choose an
+            # _index_ of moves then apply it in 2 steps
             choice_idx = np.random.choice(len(moves), p=probabilities)
             return moves[choice_idx]
         return go.PASS_MOVE
@@ -67,7 +69,8 @@ class ProbabilisticPolicyPlayer(object):
     def get_moves(self, states):
         """Batch version of get_move. A list of moves is returned (one per state)
         """
-        sensible_move_lists = [[move for move in st.get_legal_moves(include_eyes=False)] for st in states]
+        sensible_move_lists = [[move for move in st.get_legal_moves(include_eyes=False)]
+                               for st in states]
         all_moves_distributions = self.policy.batch_eval_state(states, sensible_move_lists)
         move_list = [None] * len(states)
         for i, move_probs in enumerate(all_moves_distributions):
@@ -85,7 +88,8 @@ class ProbabilisticPolicyPlayer(object):
 
 
 class MCTSPlayer(object):
-    def __init__(self, value_function, policy_function, rollout_function, lmbda=.5, c_puct=5, rollout_limit=500, playout_depth=40, n_playout=100):
+    def __init__(self, value_function, policy_function, rollout_function, lmbda=.5, c_puct=5,
+                 rollout_limit=500, playout_depth=40, n_playout=100):
         self.mcts = mcts.MCTS(value_function, policy_function, rollout_function, lmbda, c_puct,
                               rollout_limit, playout_depth, n_playout)
 

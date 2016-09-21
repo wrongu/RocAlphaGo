@@ -47,7 +47,8 @@ class GameState(object):
         # similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
         # containing all (x',y') pairs in the group connected to (x,y)
         self.group_sets = [[set() for _ in range(size)] for _ in range(size)]
-        # cache of list of legal moves (actually 'sensible' moves, with a separate list for eye-moves on request)
+        # cache of list of legal moves (actually 'sensible' moves, with a
+        # separate list for eye-moves on request)
         self.__legal_move_cache = None
         self.__legal_eyes_cache = None
         # on-the-fly record of 'age' of each stone
@@ -104,7 +105,8 @@ class GameState(object):
             GameState.__NEIGHBORS_CACHE[self.size] = {}
             for x in xrange(self.size):
                 for y in xrange(self.size):
-                    neighbors = [xy for xy in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] if self._on_board(xy)]
+                    neighbors = [xy for xy in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+                                 if self._on_board(xy)]
                     GameState.__NEIGHBORS_CACHE[self.size][(x, y)] = neighbors
 
     def _neighbors(self, position):
@@ -117,7 +119,8 @@ class GameState(object):
         """Like _neighbors but for diagonal positions
         """
         (x, y) = position
-        return filter(self._on_board, [(x - 1, y - 1), (x + 1, y + 1), (x + 1, y - 1), (x - 1, y + 1)])
+        return filter(self._on_board, [(x - 1, y - 1), (x + 1, y + 1),
+                                       (x + 1, y - 1), (x - 1, y + 1)])
 
     def _update_neighbors(self, position):
         """A private helper function to update self.group_sets and self.liberty_sets
@@ -229,8 +232,10 @@ class GameState(object):
         return False
 
     def is_positional_superko(self, action):
-        """Find all actions that the current_player has done in the past, taking into account the fact that
-        history starts with BLACK when there are no handicaps or with WHITE when there are.
+        """Find all actions that the current_player has done in the past, taking into
+        account the fact that history starts with BLACK when there are no
+        handicaps or with WHITE when there are.
+
         """
         if len(self.handicaps) == 0 and self.current_player == BLACK:
             player_history = self.history[0::2]
