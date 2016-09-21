@@ -173,7 +173,7 @@ def run_n_games(optimizer, learner, opponent, num_games):
 		current, other = other, current
 
 	# Return the win ratio.
-	wins = sum(state.get_winner == pc for (state, pc) in zip(states, learner_color))
+	wins = sum(state.get_winner() == pc for (state, pc) in zip(states, learner_color))
 	return float(wins) / num_games
 
 
