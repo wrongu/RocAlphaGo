@@ -427,7 +427,7 @@ class GameState(object):
         # Check for end of game
         if len(self.history) > 1:
             if self.history[-1] is PASS_MOVE and self.history[-2] is PASS_MOVE \
-                and self.current_player == WHITE:
+                    and self.current_player == WHITE:
                 self.is_end_of_game = True
         return self.is_end_of_game
 

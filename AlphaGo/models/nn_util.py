@@ -118,6 +118,7 @@ class Bias(Layer):
     Largely copied from the keras docs:
     http://keras.io/layers/writing-your-own-keras-layers/#writing-your-own-keras-layers
     """
+
     def __init__(self, **kwargs):
         super(Bias, self).__init__(**kwargs)
 

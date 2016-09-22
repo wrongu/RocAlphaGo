@@ -24,6 +24,7 @@ class BatchedReinforcementLearningSGD(Optimizer):
         lr: float >= 0. Learning rate.
         ng: int > 0. Number of games played in parallel. Each one has its own cumulative gradient.
     '''
+
     def __init__(self, lr=0.01, ng=20, **kwargs):
         super(BatchedReinforcementLearningSGD, self).__init__(**kwargs)
         self.__dict__.update(locals())

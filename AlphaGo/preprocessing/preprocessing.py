@@ -2,7 +2,7 @@ import numpy as np
 import AlphaGo.go as go
 
 ##
-## individual feature functions (state --> tensor) begin here
+# individual feature functions (state --> tensor) begin here
 ##
 
 

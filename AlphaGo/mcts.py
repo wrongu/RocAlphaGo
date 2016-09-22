@@ -11,6 +11,7 @@ class TreeNode(object):
     """A node in the MCTS tree. Each node keeps track of its own value Q, prior probability P, and
     its visit-count-adjusted prior score u.
     """
+
     def __init__(self, parent, prior_p):
         self._parent = parent
         self._children = {}  # a map from action to TreeNode
