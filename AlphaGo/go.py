@@ -198,13 +198,21 @@ class GameState(object):
         other.current_hash = self.current_hash.copy()
         other.previous_hashes = self.previous_hashes.copy()
 
-        # update liberty and group sets. Note: calling set(a) on another set
-        # copies the entries (any iterable as an argument would work so
-        # set(list(a)) is unnecessary)
+        # update liberty and group sets.
+        #
+        # group_sets and liberty_sets are shared between stones in the same
+        # group.  We need to make sure this is the case in the copy, as well.
+        #
+        # we store set copies indexed by original id() in set_copies
+        def get_copy(s, set_copies={}):
+            if id(s) not in set_copies:
+                set_copies[id(s)] = set(s)  # makes a copy of s
+            return set_copies[id(s)]
+
         for x in range(self.size):
             for y in range(self.size):
-                other.group_sets[x][y] = set(self.group_sets[x][y])
-                other.liberty_sets[x][y] = set(self.liberty_sets[x][y])
+                other.group_sets[x][y] = get_copy(self.group_sets[x][y])
+                other.liberty_sets[x][y] = get_copy(self.liberty_sets[x][y])
         other.liberty_counts = self.liberty_counts.copy()
         return other
 
