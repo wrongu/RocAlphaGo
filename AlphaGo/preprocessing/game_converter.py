@@ -158,12 +158,12 @@ def run_game_converter(cmd_line_args=None):
         epilog="Available features are: board, ones, turns_since, liberties,\
         capture_size, self_atari_size, liberties_after, sensibleness, and zeros.\
         Ladder features are not currently implemented")
-    parser.add_argument("--features", "-f", help="Comma-separated list of features to compute and store or 'all'", default='all')
-    parser.add_argument("--outfile", "-o", help="Destination to write data (hdf5 file)", required=True)
-    parser.add_argument("--recurse", "-R", help="Set to recurse through directories searching for SGF files", default=False, action="store_true")
-    parser.add_argument("--directory", "-d", help="Directory containing SGF files to process. if not present, expects files from stdin", default=None)
-    parser.add_argument("--size", "-s", help="Size of the game board. SGFs not matching this are discarded with a warning", type=int, default=19)
-    parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
+    parser.add_argument("--features", "-f", help="Comma-separated list of features to compute and store or 'all'", default='all')  # noqa: E501
+    parser.add_argument("--outfile", "-o", help="Destination to write data (hdf5 file)", required=True)  # noqa: E501
+    parser.add_argument("--recurse", "-R", help="Set to recurse through directories searching for SGF files", default=False, action="store_true")  # noqa: E501
+    parser.add_argument("--directory", "-d", help="Directory containing SGF files to process. if not present, expects files from stdin", default=None)  # noqa: E501
+    parser.add_argument("--size", "-s", help="Size of the game board. SGFs not matching this are discarded with a warning", type=int, default=19)  # noqa: E501
+    parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
 
     if cmd_line_args is None:
         args = parser.parse_args()

@@ -184,18 +184,18 @@ def run_n_games(optimizer, learner, opponent, num_games):
 
 def run_training(cmd_line_args=None):
     import argparse
-    parser = argparse.ArgumentParser(description='Perform reinforcement learning to improve given policy network. Second phase of pipeline.')
+    parser = argparse.ArgumentParser(description='Perform reinforcement learning to improve given policy network. Second phase of pipeline.')  # noqa: E501
     parser.add_argument("model_json", help="Path to policy model JSON.")
-    parser.add_argument("initial_weights", help="Path to HDF5 file with inital weights (i.e. result of supervised training).")
-    parser.add_argument("out_directory", help="Path to folder where the model params and metadata will be saved after each epoch.")
-    parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)
-    parser.add_argument("--policy-temp", help="Distribution temperature of players using policies (Default: 0.67)", type=float, default=0.67)
-    parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)
-    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)
-    parser.add_argument("--move-limit", help="Maximum number of moves per game", type=int, default=500)
-    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)
-    parser.add_argument("--resume", help="Load latest weights in out_directory and resume", default=False, action="store_true")
-    parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")
+    parser.add_argument("initial_weights", help="Path to HDF5 file with inital weights (i.e. result of supervised training).")  # noqa: E501
+    parser.add_argument("out_directory", help="Path to folder where the model params and metadata will be saved after each epoch.")  # noqa: E501
+    parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)  # noqa: E501
+    parser.add_argument("--policy-temp", help="Distribution temperature of players using policies (Default: 0.67)", type=float, default=0.67)  # noqa: E501
+    parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)  # noqa: E501
+    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)  # noqa: E501
+    parser.add_argument("--move-limit", help="Maximum number of moves per game", type=int, default=500)  # noqa: E501
+    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)  # noqa: E501
+    parser.add_argument("--resume", help="Load latest weights in out_directory and resume", default=False, action="store_true")  # noqa: E501
+    parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
     # Baseline function (TODO) default lambda state: 0  (receives either file
     # paths to JSON and weights or None, in which case it uses default baseline 0)
     if cmd_line_args is None:

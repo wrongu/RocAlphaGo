@@ -157,10 +157,10 @@ class ResnetPolicy(CNNPolicy):
 
         A diagram may help explain (numbers indicate layer):
 
-            1             2              3                   4              5              6
-        I--C -- B -- R -- C -- B -- R -- C -- M -- B -- R -- C -- B -- R -- C -- B -- R -- C -- M  ...  M  -- R -- F -- O
-            \___________________________/ \____________________________________________________/ \ ... /
-                    [n_skip_1 = 2]                             [n_skip_3 = 3]
+           1        2        3           4        5        6
+        I--C--B--R--C--B--R--C--M--B--R--C--B--R--C--B--R--C--M  ...  M --R--F--O
+            \__________________/ \___________________________/ \ ... /
+                [n_skip_1 = 2]          [n_skip_3 = 3]
 
         I - input
         B - BatchNormalization
@@ -208,7 +208,8 @@ class ResnetPolicy(CNNPolicy):
             Returns new path and next layer index, i.e. K + n_skip_K, in a tuple
             """
             # loosely based on https://github.com/keunwoochoi/residual_block_keras
-            # (see also keras docs here: http://keras.io/getting-started/functional-api-guide/#all-models-are-callable-just-like-layers)
+            # see also # keras docs here:
+            # http://keras.io/getting-started/functional-api-guide/#all-models-are-callable-just-like-layers
 
             block_input = path
             # use n_skip_K if it is there, default to 1
@@ -240,7 +241,8 @@ class ResnetPolicy(CNNPolicy):
         while layer < params['layers']:
             convolution_path, layer = add_resnet_unit(convolution_path, layer, **params)
         if layer > params['layers']:
-            print "Due to skipping, ended with {} layers instead of {}".format(layer, params['layers'])
+            print ("Due to skipping, ended with {} layers instead of {}"
+                   .format(layer, params['layers']))
 
         # since each layer's activation was linear, need one more ReLu
         convolution_path = Activation('relu')(convolution_path)

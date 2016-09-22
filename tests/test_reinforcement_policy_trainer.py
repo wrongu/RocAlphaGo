@@ -1,5 +1,6 @@
 import os
-from AlphaGo.training.reinforcement_policy_trainer import run_training, _make_training_pair, BatchedReinforcementLearningSGD
+from AlphaGo.training.reinforcement_policy_trainer import \
+    run_training, _make_training_pair, BatchedReinforcementLearningSGD
 import unittest
 import numpy as np
 import numpy.testing as npt
