@@ -15,9 +15,9 @@ outdir = os.path.join(datadir, 'rl_output')
 stats_file = os.path.join(datadir, 'reinforcement_policy_trainer.prof')
 
 if not os.path.exists(datadir):
-	os.makedirs(datadir)
+    os.makedirs(datadir)
 if not os.path.exists(weights):
-	policy.model.save_weights(weights)
+    policy.model.save_weights(weights)
 policy.save_model(modelfile)
 
 profile = Profile()
