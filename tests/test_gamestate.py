@@ -132,6 +132,9 @@ class TestEye(unittest.TestCase):
                     gs.do_move((x, y), go.BLACK)
         self.assertTrue(gs.is_eye((0, 0), go.BLACK))
 
+
+class TestCacheSets(unittest.TestCase):
+
     def test_liberties_after_capture(self):
         # creates 3x3 black group in the middle, that is then all captured
         # ...then an assertion is made that the resulting liberties after
@@ -160,6 +163,19 @@ class TestEye(unittest.TestCase):
         # board configuration and liberties of gs_capture and of gs_reference should be identical
         self.assertTrue(np.all(gs_reference.board == gs_capture.board))
         self.assertTrue(np.all(gs_reference.liberty_counts == gs_capture.liberty_counts))
+
+    def test_copy_maintains_shared_sets(self):
+        gs = GameState(7)
+        gs.do_move((4, 4), go.BLACK)
+        gs.do_move((4, 5), go.BLACK)
+
+        # assert that gs has *the same object* referenced by group/liberty sets
+        self.assertTrue(gs.group_sets[4][5] is gs.group_sets[4][4])
+        self.assertTrue(gs.liberty_sets[4][5] is gs.liberty_sets[4][4])
+
+        gs_copy = gs.copy()
+        self.assertTrue(gs_copy.group_sets[4][5] is gs_copy.group_sets[4][4])
+        self.assertTrue(gs_copy.liberty_sets[4][5] is gs_copy.liberty_sets[4][4])
 
 
 if __name__ == '__main__':
