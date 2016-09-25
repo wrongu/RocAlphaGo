@@ -182,6 +182,13 @@ def run_n_games(optimizer, learner, opponent, num_games):
     return float(wins) / num_games
 
 
+def log_loss(y_true, y_pred):
+    '''Keras 'loss' function for the REINFORCE algorithm, where y_true is the action that was
+    taken, and updates with the positive gradient will make that action more likely.
+    '''
+    return y_true * K.log(K.clip(y_pred, K.epsilon(), 1.0 - K.epsilon()))
+
+
 def run_training(cmd_line_args=None):
     import argparse
     parser = argparse.ArgumentParser(description='Perform reinforcement learning to improve given policy network. Second phase of pipeline.')  # noqa: E501
@@ -270,7 +277,7 @@ def run_training(cmd_line_args=None):
             json.dump(metadata, f, sort_keys=True, indent=2)
 
     optimizer = BatchedReinforcementLearningSGD(lr=args.learning_rate, ng=args.game_batch)
-    player.policy.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
+    player.policy.model.compile(loss=log_loss, optimizer=optimizer)
     for i_iter in xrange(1, args.iterations + 1):
         # Randomly choose opponent from pool (possibly self), and playing
         # game_batch games against them.
