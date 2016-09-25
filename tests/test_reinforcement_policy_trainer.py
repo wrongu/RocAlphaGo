@@ -1,6 +1,6 @@
 import os
 from AlphaGo.training.reinforcement_policy_trainer import \
-    run_training, _make_training_pair, BatchedReinforcementLearningSGD
+    run_training, _make_training_pair, BatchedReinforcementLearningSGD, log_loss
 import unittest
 import numpy as np
 import numpy.testing as npt
@@ -30,7 +30,7 @@ class TestOptimizer(unittest.TestCase):
         policy = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel.json'))
         state = GameState(size=19)
         optimizer = BatchedReinforcementLearningSGD(lr=0.01, ng=2)
-        policy.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
+        policy.model.compile(loss=log_loss, optimizer=optimizer)
 
         # Helper to check initial conditions of the optimizer.
         def assertOptimizerInitialConditions():
@@ -89,7 +89,7 @@ class TestOptimizer(unittest.TestCase):
             policy = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel.json'))
             policy.model.set_weights(init_weights)
             optimizer = BatchedReinforcementLearningSGD(lr=0.01, ng=2)
-            policy.model.compile(loss='categorical_crossentropy', optimizer=optimizer)
+            policy.model.compile(loss=log_loss, optimizer=optimizer)
 
             # Make moves on the state and get trainable (state, action) pairs from them.
             moves = [(2, 2), (16, 16), (3, 17), (16, 2), (4, 10), (10, 3)]
