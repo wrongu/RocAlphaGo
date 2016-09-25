@@ -79,5 +79,6 @@ class TestDecorator(unittest.TestCase):
         # key '1' is expired. Value will be recomputed.
         self.assertEqual(fn(-1), 0)
 
+
 if __name__ == '__main__':
     unittest.main()
