@@ -3,7 +3,7 @@ from AlphaGo.go import GameState, BLACK, WHITE
 
 def parse(boardstr):
     '''Parses a board into a gamestate, and returns the location of any moves
-    marked with anything other than 'X', 'O', or '.'
+    marked with anything other than 'B', 'X', '#', 'W', 'O', or '.'
 
     Rows are separated by '|', spaces are ignored.
 
