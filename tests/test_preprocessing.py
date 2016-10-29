@@ -2,6 +2,7 @@ from AlphaGo.preprocessing.preprocessing import Preprocess
 import AlphaGo.go as go
 import numpy as np
 import unittest
+import parseboard
 
 
 def simple_board():
@@ -281,10 +282,36 @@ class TestPreprocessingFeatures(unittest.TestCase):
                 "bad expectation: stones with %d liberties after move" % (i + 1))
 
     def test_get_ladder_capture(self):
-        pass
+        gs, moves = parseboard.parse(". . . . . . .|"
+                                     "B W a . . . .|"
+                                     ". B . . . . .|"
+                                     ". . . . . . .|"
+                                     ". . . . . . .|"
+                                     ". . . . . W .|")
+        pp = Preprocess(["ladder_capture"])
+        feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
+
+        expectation = np.zeros((gs.size, gs.size))
+        expectation[moves['a']] = 1
+
+        self.assertTrue(np.all(expectation == feature))
 
     def test_get_ladder_escape(self):
-        pass
+        # On this board, playing at 'a' is ladder escape because there is a breaker on the right.
+        gs, moves = parseboard.parse(". B B . . . .|"
+                                     "B W a . . . .|"
+                                     ". B . . . . .|"
+                                     ". . . . . W .|"
+                                     ". . . . . . .|"
+                                     ". . . . . . .|")
+        pp = Preprocess(["ladder_escape"])
+        gs.current_player = go.WHITE
+        feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
+
+        expectation = np.zeros((gs.size, gs.size))
+        expectation[moves['a']] = 1
+
+        self.assertTrue(np.all(expectation == feature))
 
     def test_get_sensibleness(self):
         # TODO - there are no legal eyes at the moment

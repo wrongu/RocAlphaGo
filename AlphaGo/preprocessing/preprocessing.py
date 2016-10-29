@@ -165,11 +165,21 @@ def get_liberties_after(state, maximum=8):
 
 
 def get_ladder_capture(state):
-    raise NotImplementedError()
+    """A feature wrapping GameState.is_ladder_capture().
+    """
+    feature = np.zeros((1, state.size, state.size))
+    for (x, y) in state.get_legal_moves():
+        feature[0, x, y] = state.is_ladder_capture((x, y))
+    return feature
 
 
 def get_ladder_escape(state):
-    raise NotImplementedError()
+    """A feature wrapping GameState.is_ladder_escape().
+    """
+    feature = np.zeros((1, state.size, state.size))
+    for (x, y) in state.get_legal_moves():
+        feature[0, x, y] = state.is_ladder_escape((x, y))
+    return feature
 
 
 def get_sensibleness(state):
