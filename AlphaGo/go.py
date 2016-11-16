@@ -326,7 +326,7 @@ class GameState(object):
                 return False
         return True
 
-    def is_ladder_capture(self, action, prey=None):
+    def is_ladder_capture(self, action, prey=None, remaining_attempts=30):
         """Check if moving at action results in a ladder capture, defined as being next
         to an enemy group with two liberties, and with no ladder_escape move afterward
         for the other player.
@@ -335,10 +335,18 @@ class GameState(object):
         group is checked.  In the (prey is None) case, if this move is a ladder
         capture for any adjance group, it's considered a ladder capture.
 
+        Recursion depth between is_ladder_capture() and is_ladder_escape() is
+        controlled by the remaining_attempts argument.  If it reaches 0, the
+        move is assumed not to be a ladder capture.
+
         """
 
         # ignore illegal moves
         if not self.is_legal(action):
+            return False
+
+        # if we haven't found a capture by a certain number of moves, give up.
+        if remaining_attempts <= 0:
             return False
 
         hunter_player = self.current_player
@@ -375,7 +383,8 @@ class GameState(object):
                     if (tmp.board[nx][ny] == hunter_player) and (tmp.liberty_counts[nx][ny] == 1):
                         possible_escapes |= tmp.liberty_sets[nx][ny]
 
-            if not any(tmp.is_ladder_escape((escape_x, escape_y), prey=(prey_x, prey_y))
+            if not any(tmp.is_ladder_escape((escape_x, escape_y), prey=(prey_x, prey_y),
+                                            remaining_attempts=(remaining_attempts - 1))
                        for (escape_x, escape_y) in possible_escapes):
                 # we found at least one group that could be captured in a
                 # ladder, so this move is a ladder capture.
@@ -384,7 +393,7 @@ class GameState(object):
         # no ladder captures were found
         return False
 
-    def is_ladder_escape(self, action, prey=None):
+    def is_ladder_escape(self, action, prey=None, remaining_attempts=30):
         """Check if moving at action results in a ladder escape, defined as being next
         to a current player's group with one liberty, with no ladder captures
         afterward.  Going from 1 to >= 3 liberties is counted as escape, or a
@@ -394,10 +403,18 @@ class GameState(object):
         group is checked.  In the (prey is None) case, if this move is a ladder
         escape for any adjacent group, this move is a ladder escape.
 
+        Recursion depth between is_ladder_capture() and is_ladder_escape() is
+        controlled by the remaining_attempts argument.  If it reaches 0, the
+        move is assumed not to be a ladder capture.
+
         """
 
         # ignore illegal moves
         if not self.is_legal(action):
+            return False
+
+        # if we haven't found an escape by a certain number of moves, give up.
+        if remaining_attempts <= 0:
             return False
 
         prey_player = self.current_player
@@ -433,7 +450,8 @@ class GameState(object):
 
             # The current group has two liberties.  It may still be in a ladder.
             # Check both liberties to see if they are ladder captures
-            if any(tmp.is_ladder_capture(possible_capture, prey=(prey_x, prey_y))
+            if any(tmp.is_ladder_capture(possible_capture, prey=(prey_x, prey_y),
+                                         remaining_attempts=(remaining_attempts - 1))
                    for possible_capture in tmp.liberty_sets[prey_x][prey_y]):
                 # not an escape - check next group
                 continue
