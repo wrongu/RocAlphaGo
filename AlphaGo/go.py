@@ -103,8 +103,8 @@ class GameState(object):
     def _create_neighbors_cache(self):
         if self.size not in GameState.__NEIGHBORS_CACHE:
             GameState.__NEIGHBORS_CACHE[self.size] = {}
-            for x in xrange(self.size):
-                for y in xrange(self.size):
+            for x in range(self.size):
+                for y in range(self.size):
                     neighbors = [xy for xy in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
                                  if self._on_board(xy)]
                     GameState.__NEIGHBORS_CACHE[self.size][(x, y)] = neighbors

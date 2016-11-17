@@ -130,5 +130,6 @@ class TestOptimizer(unittest.TestCase):
             diff2 = p2 - i
             npt.assert_allclose(diff1, -diff2, rtol=1e-3)
 
+
 if __name__ == '__main__':
     unittest.main()

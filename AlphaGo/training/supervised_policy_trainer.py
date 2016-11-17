@@ -124,7 +124,7 @@ def run_training(cmd_line_args=None):
                 print("directory %s exists. any previous data will be overwritten" %
                       args.out_directory)
             else:
-                print "starting fresh output directory %s" % args.out_directory
+                print("starting fresh output directory %s" % args.out_directory)
 
     # load model from json spec
     model = CNNPolicy.load_model(args.model).model
@@ -143,10 +143,10 @@ def run_training(cmd_line_args=None):
     # n_test_data = n_total_data - (n_train_data + n_val_data)
 
     if args.verbose:
-        print "datset loaded"
-        print "\t%d total samples" % n_total_data
-        print "\t%d training samples" % n_train_data
-        print "\t%d validaion samples" % n_val_data
+        print("datset loaded")
+        print("\t%d total samples" % n_total_data)
+        print("\t%d training samples" % n_train_data)
+        print("\t%d validaion samples" % n_val_data)
 
     # ensure output directory is available
     if not os.path.exists(args.out_directory):
@@ -163,7 +163,7 @@ def run_training(cmd_line_args=None):
             print("previous metadata loaded: %d epochs. new epochs will be appended." %
                   len(meta_writer.metadata["epochs"]))
     elif args.verbose:
-        print "starting with empty metadata"
+        print("starting with empty metadata")
     # the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add
     # in anything else we like here
     #
@@ -188,14 +188,14 @@ def run_training(cmd_line_args=None):
         with open(shuffle_file, "r") as f:
             shuffle_indices = np.load(f)
         if args.verbose:
-            print "loading previous data shuffling indices"
+            print("loading previous data shuffling indices")
     else:
         # create shuffled indices
         shuffle_indices = np.random.permutation(n_total_data)
         with open(shuffle_file, "w") as f:
             np.save(f, shuffle_indices)
         if args.verbose:
-            print "created new data shuffling indices"
+            print("created new data shuffling indices")
     # training indices are the first consecutive set of shuffled indices, val
     # next, then test gets the remainder
     train_indices = shuffle_indices[0:n_train_data]
@@ -224,7 +224,7 @@ def run_training(cmd_line_args=None):
     samples_per_epoch = args.epoch_length or n_train_data
 
     if args.verbose:
-        print "STARTING TRAINING"
+        print("STARTING TRAINING")
 
     model.fit_generator(
         generator=train_data_generator,
@@ -233,6 +233,7 @@ def run_training(cmd_line_args=None):
         callbacks=[checkpointer, meta_writer],
         validation_data=val_data_generator,
         nb_val_samples=n_val_data)
+
 
 if __name__ == '__main__':
     run_training()
