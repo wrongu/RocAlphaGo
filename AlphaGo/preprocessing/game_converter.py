@@ -179,8 +179,8 @@ def run_game_converter(cmd_line_args=None):
             "capture_size",
             "self_atari_size",
             "liberties_after",
-            # "ladder_capture",
-            # "ladder_escape",
+            "ladder_capture",
+            "ladder_escape",
             "sensibleness",
             "zeros"]
     else:
