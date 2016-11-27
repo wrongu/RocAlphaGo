@@ -5,6 +5,7 @@ import json
 from keras.optimizers import SGD
 from keras.callbacks import ModelCheckpoint, Callback
 from AlphaGo.models.policy import CNNPolicy
+from AlphaGo.preprocessing.preprocessing import Preprocess
 
 
 def one_hot_action(action, size=19):
@@ -127,13 +128,40 @@ def run_training(cmd_line_args=None):
                 print("starting fresh output directory %s" % args.out_directory)
 
     # load model from json spec
-    model = CNNPolicy.load_model(args.model).model
+    policy = CNNPolicy.load_model(args.model)
+    model_features = policy.preprocessor.feature_list
+    model = policy.model
     if resume:
         model.load_weights(os.path.join(args.out_directory, args.weights))
 
-    # TODO - (waiting on game_converter) verify that features of model match
     # features of training data
     dataset = h5.File(args.train_data)
+
+    # Verify that dataset's features match the model's expected features.
+    if 'features' in dataset:
+        dataset_features = dataset['features'][()]
+        dataset_features = dataset_features.split(",")
+        if len(dataset_features) != len(model_features) or \
+           any(df != mf for (df, mf) in zip(dataset_features, model_features)):
+            raise ValueError("Model JSON file expects features \n\t%s\n"
+                             "But dataset contains \n\t%s" % ("\n\t".join(model_features),
+                                                              "\n\t".join(dataset_features)))
+        elif args.verbose:
+            print("Verified that dataset features and model features exactly match.")
+    else:
+        # Cannot check each feature, but can check number of planes.
+        n_dataset_planes = dataset["states"].shape[1]
+        tmp_preprocess = Preprocess(model_features)
+        n_model_planes = tmp_preprocess.output_dim
+        if n_dataset_planes != n_model_planes:
+            raise ValueError("Model JSON file expects a total of %d planes from features \n\t%s\n"
+                             "But dataset contains %d planes" % (n_model_planes,
+                                                                 "\n\t".join(model_features),
+                                                                 n_dataset_planes))
+        elif args.verbose:
+            print("Verified agreement of number of model and dataset feature planes, but cannot "
+                  "verify exact match using old dataset format.")
+
     n_total_data = len(dataset["states"])
     n_train_data = int(args.train_val_test[0] * n_total_data)
     # Need to make sure training data is divisible by minibatch size or get
