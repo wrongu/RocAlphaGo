@@ -23,4 +23,4 @@ install:
 # run flake8 and unit tests
 script:
     - flake8
-    - THEANO_FLAGS="gcc.cxxflags='-march=core2'" python -m unittest discover
+    - THEANO_FLAGS="gcc.cxxflags='-march=core2'" KERAS_BACKEND=theano python -m unittest discover
