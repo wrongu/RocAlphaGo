@@ -1,5 +1,5 @@
-sudo: required
-dist: trusty
+sudo: required # https://docs.travis-ci.com/user/trusty-ci-environment/
+dist: trusty   # both needed to install tensorflow correctly
 language: python
 # tested python language / keras backends matrix
 matrix:
@@ -16,6 +16,7 @@ install:
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
+  # http://conda.pydata.org/docs/commands.html
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   # Useful for debugging any issues with conda
@@ -50,4 +51,4 @@ script:
     - flake8
     
     # run unit test
-    - KERAS_BACKEND=$KERAS_BACKEND python -m unittest discover
+    - python -m unittest discover
