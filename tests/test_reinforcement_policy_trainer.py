@@ -8,8 +8,7 @@ from keras.optimizers import SGD
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.util import sgf_iter_states
 
-SGF_FOLDER = "tests/test_data/sgf/"
-
+SGF_FOLDER = os.path.join('tests', 'test_data', 'sgf/')
 
 def _is_sgf(fname):
     return fname.strip()[-4:] == ".sgf"
