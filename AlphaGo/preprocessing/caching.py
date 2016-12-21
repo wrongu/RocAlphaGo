@@ -2,6 +2,8 @@ class DLLNode(object):
     '''A single node in a doubly-linked list.
     '''
 
+    __slots__ = ['key', 'value', 'next', 'prev']
+
     def __init__(self, key, value):
         self.key = key
         self.value = value
@@ -40,11 +42,12 @@ class LRUCache(object):
     hash table lookups and DLL operations, all updates are done in constant-time (amortized).
     '''
 
+    __slots__ = ['sentinel', 'lookup', 'max_size']
+
     def __init__(self, max_size=1e5):
         self.sentinel = DLLNode(None, None)
         self.lookup = {}
         self.max_size = max_size
-        self.size = 0
 
     def get(self, key):
         '''If 'key' is in the cache, return a tuple (True, value). Otherwise, return (False, None).
@@ -75,11 +78,10 @@ class LRUCache(object):
             self.sentinel.insert_after(node)
             self.lookup[key] = node
             # Keep size below max_size.
-            if self.size == self.max_size:
+            if len(self.lookup) > self.max_size:
                 # Delete least recently used key/value pair.
                 lru_key = self.sentinel.prev.key
                 self.delete(lru_key)
-            self.size += 1
 
     def delete(self, key):
         '''Remove an item from the cache. No error is raised if key is not in the cache.
@@ -87,7 +89,6 @@ class LRUCache(object):
         if key in self.lookup:
             self.lookup[key].splice()
             del self.lookup[key]
-            self.size -= 1
 
 
 def lru_cache(max_size, key_fn=None):

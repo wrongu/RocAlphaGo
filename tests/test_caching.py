@@ -8,11 +8,11 @@ class TestLRUCache(unittest.TestCase):
         self.cache = LRUCache(max_size=3)
 
     def testGetPutDelete(self):
-        self.assertEqual(self.cache.size, 0)
+        self.assertEqual(len(self.cache.lookup), 0)
         self.cache.put('a', 1)
         self.cache.put('b', 2)
         self.cache.put('c', 3)
-        self.assertEqual(self.cache.size, 3)
+        self.assertEqual(len(self.cache.lookup), 3)
 
         # 'c' should be cached and most-recently-used.
         # Current cache order: a b c
@@ -24,11 +24,11 @@ class TestLRUCache(unittest.TestCase):
         # Current cache order: a b c
         self.cache.put('d', 4)
         # Current cache order: b c d
-        self.assertEqual(self.cache.size, 3)
+        self.assertEqual(len(self.cache.lookup), 3)
         is_cached, value = self.cache.get('a')
         self.assertFalse(is_cached)
         self.assertIsNone(value)
-        self.assertEqual(self.cache.size, 3)
+        self.assertEqual(len(self.cache.lookup), 3)
 
         # 'b' is LRU. After querying it, 'c' should be LRU.
         # Current cache order: b c d
@@ -38,12 +38,12 @@ class TestLRUCache(unittest.TestCase):
         # Current cache order: d b e
         is_cached, value = self.cache.get('c')
         self.assertFalse(is_cached)
-        self.assertEqual(self.cache.size, 3)
+        self.assertEqual(len(self.cache.lookup), 3)
 
         # test deletion.
         self.cache.delete('d')
         # Current cache order: b e
-        self.assertEqual(self.cache.size, 2)
+        self.assertEqual(len(self.cache.lookup), 2)
         is_cached, value = self.cache.get('d')
         self.assertFalse(is_cached)
 
