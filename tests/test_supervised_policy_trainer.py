@@ -1,6 +1,7 @@
 import os
-from AlphaGo.training.policy.supervised import run_training
-from AlphaGo.training.policy.supervised import load_indices_from_file
+from AlphaGo.training.supervised_policy_trainer import handle_arguments
+from AlphaGo.training.supervised_policy_trainer import load_indices_from_file
+from AlphaGo.training.supervised_policy_trainer import create_and_save_shuffle_indices
 import unittest
 import numpy as np
 
@@ -10,49 +11,55 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
         model = 'tests/test_data/minimodel.json'
         data = 'tests/test_data/hdf5/alphago-vs-lee-sedol-features.hdf5'
         output = 'tests/test_data/.tmp.training/'
-        args = [model, data, output, '--epochs', '1', '-l', '160']
-        run_training(args)
+        args = ['train', output, model, data, '--epochs', '1', '-l', '160']
+        handle_arguments(args)
 
         # remove temporary files
-        os.remove(os.path.join(output, 'metadata.json'))
+        os.remove(os.path.join(output, 'metadata_supervised.json'))
         os.remove(os.path.join(output, 'shuffle_train.npz'))
         os.remove(os.path.join(output, 'shuffle_validate.npz'))
         os.remove(os.path.join(output, 'shuffle_test.npz'))
-        os.remove(os.path.join(output, 'weights.00000.hdf5'))
+        os.remove(os.path.join(output, 'supervised_weights/', 'weights.00000.hdf5'))
+        os.rmdir(os.path.join(output, 'supervised_weights/'))
         os.rmdir(output)
 
     def testResumeLearning(self):
         model = 'tests/test_data/minimodel.json'
         data = 'tests/test_data/hdf5/alphago-vs-lee-sedol-features.hdf5'
         output = 'tests/test_data/.tmp.resume-training/'
-        args = [model, data, output, '--epochs', '1', '-l', '160']
-        run_training(args)
+        args = ['train', output, model, data, '--epochs', '1', '-l', '160']
+        handle_arguments(args)
 
         # resume learning
-        args = [model, data, output, '--epochs', '1', '-l', '160',
+        args = ['train', output, model, data, '--epochs', '2', '-l', '160',
                 '--weights', 'weights.00000.hdf5']
-        run_training(args)
+        handle_arguments(args)
 
         # remove temporary files
-        os.remove(os.path.join(output, 'metadata.json'))
+        os.remove(os.path.join(output, 'metadata_supervised.json'))
         os.remove(os.path.join(output, 'shuffle_train.npz'))
         os.remove(os.path.join(output, 'shuffle_validate.npz'))
         os.remove(os.path.join(output, 'shuffle_test.npz'))
-        os.remove(os.path.join(output, 'weights.00000.hdf5'))
-        os.remove(os.path.join(output, 'weights.00001.hdf5'))
+        os.remove(os.path.join(output, 'supervised_weights/', 'weights.00000.hdf5'))
+        os.remove(os.path.join(output, 'supervised_weights/', 'weights.00001.hdf5'))
+        os.rmdir(os.path.join(output, 'supervised_weights/'))
         os.rmdir(output)
 
     def testStateAmount(self):
-        model = 'tests/test_data/minimodel.json'
-        data = 'tests/test_data/hdf5/alphago-vs-lee-sedol-features.hdf5'
         output = 'tests/test_data/.tmp.state-amount/'
-        args = [model, data, output, '--epochs', '0', '--train-val-test', '.9', '.05', '.05']
-        run_training(args)
+        # create folder
+        if not os.path.exists(output):
+            os.makedirs(output)
 
         # shuffle file locations for train/validation/test set
         shuffle_file_train = os.path.join(output, "shuffle_train.npz")
         shuffle_file_val = os.path.join(output, "shuffle_validate.npz")
         shuffle_file_test = os.path.join(output, "shuffle_test.npz")
+
+        # create shuffle files
+        create_and_save_shuffle_indices([.9, .05, .05], 1000000000,
+                                        1033, shuffle_file_train,
+                                        shuffle_file_val, shuffle_file_test)
 
         # load from .npz files
         # load training set

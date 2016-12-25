@@ -16,6 +16,9 @@ DEFAULT_BATCH_SIZE = 16
 DEFAULT_DECAY = .0001
 DEFAULT_EPOCH = 10
 
+FILE_METADATA = 'metadata_supervised.json'
+FOLDER_WEIGHT = 'supervised_weights/'
+
 TRANSFORMATION_INDICES = {
     "noop": 0,
     "rot90": 1,
@@ -166,7 +169,7 @@ class LrStepDecayCallback(Callback):
 
         # print new learning rate if verbose
         if self.verbose:
-            print("Batch: " + str(self.model.optimizer.current_batch) +
+            print("\nBatch: " + str(self.model.optimizer.current_batch) +
                   " New learning rate: " + str(new_lr))
 
     def on_train_begin(self, logs={}):
@@ -193,16 +196,11 @@ class MetadataWriterCallback(Callback):
        Save metadata and Model after every epoch
     """
 
-    def __init__(self, path, root):
+    def __init__(self, path, root, metadata):
         super(Callback, self).__init__()
         self.file = path
         self.root = root
-        self.metadata = {
-            "epoch_logs": [],
-            "current_batch": 0,
-            "current_epoch": 0,
-            "best_epoch": 0
-        }
+        self.metadata = metadata
 
     def on_train_begin(self, logs={}):
         # set current_batch from metadata
@@ -233,7 +231,8 @@ class MetadataWriterCallback(Callback):
             json.dump(self.metadata, f, indent=2)
 
         # save model to file with correct epoch
-        save_file = os.path.join(self.root, "weights.{epoch:05d}.hdf5".format(epoch=epoch))
+        save_file = os.path.join(self.root, FOLDER_WEIGHT,
+                                 "weights.{epoch:05d}.hdf5".format(epoch=epoch))
         self.model.save(save_file)
 
 
@@ -413,48 +412,45 @@ def set_training_settings(resume, args, metadata, dataset_length):
     # determine if new shuffle files have to be created
     save_new_shuffle_indices = not resume
 
+    # save current symmetries to metadata
+    metadata["symmetries"] = args.symmetries
+
     if resume:
         # check if argument model and meta model are the same
         if metadata["model_file"] != args.model:
             # verify if user really wants to use new model file
-            # TODO better explanation why this might be bad
             print("the model file is different from the model file used last run: " +
                   metadata["model_file"] + ". It might be different than the old one.")
             if args.override or not confirm("Are you sure you want to use the new model?", False):  # noqa: E501
                 raise ValueError("User abort after mismatch model files.")
 
         # check if decay_every is the same
-        # TODO better explanation why this might be bad
         if args.decay_every is not None and metadata["decay_every"] != args.decay_every:
             print("Setting a new --decay-every might result in a different learning rate, restarting training might be advisable.")  # noqa: E501
             if args.override or confirm("Are you sure you want to use new decay every setting?", False):  # noqa: E501
                 metadata["decay_every"] = args.decay_every
 
         # check if learning_rate is the same
-        # TODO better explanation why this might be bad
         if args.learning_rate is not None and metadata["learning_rate"] != args.learning_rate:
             print("Setting a new --learning-rate might result in a different learning rate, restarting training might be advisable.")  # noqa: E501
             if args.override or confirm("Are you sure you want to use new learning rate setting?", False):  # noqa: E501
                 metadata["learning_rate"] = args.learning_rate
 
         # check if decay is the same
-        # TODO better explanation why this might be bad
         if args.decay is not None and metadata["decay"] != args.decay:
             print("Setting a new --decay might result in a different learning rate, restarting training might be advisable.")  # noqa: E501
             if args.override or confirm("Are you sure you want to use new decay setting?", False):  # noqa: E501
                 metadata["decay"] = args.decay
 
         # check if batch_size is the same
-        # TODO better explanation why this might be bad
         if args.minibatch is not None and metadata["batch_size"] != args.minibatch:
             print("current_batch will be recalculated, restarting training might be advisable.")
             if args.override or confirm("Are you sure you want to use new minibatch setting?", False):  # noqa: E501
                 metadata["current_batch"] = int((metadata["current_batch"] *
-                                                 metadata["batch_size"]) / args.minibatch)
+                                                metadata["batch_size"]) / args.minibatch)
                 metadata["batch_size"] = args.minibatch
 
         # check if max_validation is the same
-        # TODO better explanation why this might be bad
         if args.max_validation is not None and metadata["max_validation"] != args.max_validation:
             print("Training set and validation set should be stricktly separated, setting a new fraction will generate a new validation set that might include data from the current traing set.")  # noqa: E501
             print("We reccommend you not to use the new max-validation setting.")
@@ -464,7 +460,6 @@ def set_training_settings(resume, args, metadata, dataset_length):
                 save_new_shuffle_indices = True
 
         # check if train_val_test is the same
-        # TODO better explanation why this might be bad
         if args.train_val_test is not None and metadata["train_val_test"] != args.train_val_test:
             print("Training set and validation set should be stricktly separated, setting a new fraction will generate a new validation set that might include data from the current traing set.")  # noqa: E501
             print("We reccommend you not to use the new fraction.")
@@ -487,7 +482,6 @@ def set_training_settings(resume, args, metadata, dataset_length):
            metadata["training_data"] != args.train_data or \
            metadata["available_states"] != dataset_length:
             # shuffle files do not exist or training data file has changed
-            # TODO better explanation why this might be bad
             print("WARNING! shuffle files have to be recreated.")
             save_new_shuffle_indices = True
     else:
@@ -543,9 +537,10 @@ def set_training_settings(resume, args, metadata, dataset_length):
 
     # Record all command line args in a list so that all args are recorded even
     # when training is stopped and resumed.
-    meta_args_data = metadata.get("cmd_line_args", [])
-    meta_args_data.append(vars(args))
-    metadata["cmd_line_args"] = meta_args_data
+    # TODO remove function argument from args... or do not save args to metadata
+    # meta_args_data = metadata.get("cmd_line_args", [])
+    # meta_args_data.append(vars(args))
+    # metadata["cmd_line_args"] = meta_args_data
 
     # create and save new shuffle indices if needed
     if save_new_shuffle_indices:
@@ -564,44 +559,86 @@ def set_training_settings(resume, args, metadata, dataset_length):
             print("created new data shuffling indices")
 
 
-def run_training(cmd_line_args=None):
-    """Run training. command-line args may be passed in as a list
-    """
-    import argparse
-    parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
-    # required args
-    parser.add_argument("model", help="Path to a JSON model file (i.e. from CNNPolicy.save_model())")  # noqa: E501
-    parser.add_argument("train_data", help="A .h5 file of training data")
-    parser.add_argument("out_directory", help="directory where metadata and weights will be saved")
-    # frequently used args
-    parser.add_argument("--minibatch", "-B", help="Size of training data minibatches. Default: " + str(DEFAULT_BATCH_SIZE), type=int, default=None)  # noqa: E501
-    parser.add_argument("--epochs", "-E", help="Total number of iterations on the data. Default: " + str(DEFAULT_EPOCH), type=int, default=None)  # noqa: E501
-    parser.add_argument("--epoch-length", "-l", help="Number of training examples considered 'one epoch'. Default: # training data", type=int, default=None)  # noqa: E501
-    parser.add_argument("--learning-rate", "-r", help="Learning rate - how quickly the model learns at first. Default: " + str(DEFAULT_LEARNING_RATE), type=float, default=None)  # noqa: E501
-    parser.add_argument("--decay", "-d", help="The rate at which learning decreases. Default: " + str(DEFAULT_DECAY), type=float, default=None)  # noqa: E501
-    # TODO better explanation
-    parser.add_argument("--decay-every", "-de", help="Use step-decay: decay --learning-rate with --decay every --decay-every batches. Default: None", type=int, default=None)  # noqa: E501
-    parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
-    parser.add_argument("--override", help="Turn on prompt override mode", default=False, action="store_true")  # noqa: E501
-    # slightly fancier args
-    parser.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)  # noqa: E501
-    parser.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Default: " + str(DEFAULT_TRAIN_VAL_TEST), nargs=3, type=float, default=None)  # noqa: E501
-    parser.add_argument("--max-validation", help="maximum validation set size. default: " + str(DEFAULT_MAX_VALIDATION), type=int, default=None)  # noqa: E501
-    parser.add_argument("--symmetries", help="none, all or comma-separated list of transforms, subset of: noop,rot90,rot180,rot270,fliplr,flipud,diag1,diag2. Default: all", default='all')  # noqa: E501
+def train(metadata, out_directory, verbose, weight_file, meta_file):
+    # set resume
+    resume = weight_file is not None
 
-    # show help or parse arguments
-    if cmd_line_args is None:
-        args = parser.parse_args()
+    # load model from json spec
+    policy = CNNPolicy.load_model(metadata["model_file"])
+    model_features = policy.preprocessor.feature_list
+    model = policy.model
+    # load weights
+    if resume:
+        model.load_weights(os.path.join(out_directory, FOLDER_WEIGHT, weight_file))
+
+    # features of training data
+    dataset = h5.File(metadata["training_data"])
+
+    # Verify that dataset's features match the model's expected features.
+    validate_feature_planes(verbose, dataset, model_features)
+
+    # create metadata file and the callback object that will write to it
+    # and saves model  at the same time
+    # the MetadataWriterCallback only sets 'epoch', 'best_epoch' and 'current_batch'.
+    # We can add in anything else we like here
+    meta_writer = MetadataWriterCallback(meta_file, out_directory, metadata)
+
+    # get train/validation/test indices
+    train_indices, val_indices, test_indices \
+        = load_train_val_test_indices(verbose, metadata['symmetries'], len(dataset["states"]),
+                                      metadata["batch_size"], out_directory)
+
+    # create dataset generators
+    train_data_generator = shuffled_hdf5_batch_generator(
+        dataset["states"],
+        dataset["actions"],
+        train_indices,
+        metadata["batch_size"])
+    val_data_generator = shuffled_hdf5_batch_generator(
+        dataset["states"],
+        dataset["actions"],
+        val_indices,
+        metadata["batch_size"])
+
+    # check if step decay has to be applied
+    if metadata["decay_every"] is None:
+        # use normal decay without momentum
+        lr_scheduler_callback = LrDecayCallback(metadata["learning_rate"],
+                                                metadata["decay"])
     else:
-        args = parser.parse_args(cmd_line_args)
+        # use step decay
+        lr_scheduler_callback = LrStepDecayCallback(metadata["learning_rate"],
+                                                    metadata["decay_every"],
+                                                    metadata["decay"], verbose)
 
+    sgd = SGD(lr=metadata["learning_rate"])
+    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
+
+    if verbose:
+        print("STARTING TRAINING")
+
+    # check that remaining epoch > 0
+    if metadata["epochs"] <= len(metadata["epoch_logs"]):
+        raise ValueError("No more epochs to train!")
+
+    model.fit_generator(
+        generator=train_data_generator,
+        samples_per_epoch=metadata["epoch_length"],
+        nb_epoch=(metadata["epochs"] - len(metadata["epoch_logs"])),
+        callbacks=[meta_writer, lr_scheduler_callback],
+        validation_data=val_data_generator,
+        nb_val_samples=len(val_indices))
+
+
+def start_training(args):
     # set resume
     resume = args.weights is not None
 
     if args.verbose:
         if resume:
             print("trying to resume from %s with weights %s" %
-                  (args.out_directory, os.path.join(args.out_directory, args.weights)))
+                  (args.out_directory,
+                   os.path.join(args.out_directory, FOLDER_WEIGHT, args.weights)))
         else:
             if os.path.exists(args.out_directory):
                 print("directory %s exists. any previous data will be overwritten" %
@@ -609,88 +646,134 @@ def run_training(cmd_line_args=None):
             else:
                 print("starting fresh output directory %s" % args.out_directory)
 
-    # load model from json spec
-    policy = CNNPolicy.load_model(args.model)
-    model_features = policy.preprocessor.feature_list
-    model = policy.model
-    # load weights
-    if resume:
-        model.load_weights(os.path.join(args.out_directory, args.weights))
+    # create all directories
+    # main folder
+    if not os.path.exists(args.out_directory):
+        os.makedirs(args.out_directory)
+
+    # create supervised weight file folder
+    weight_folder = os.path.join(args.out_directory, FOLDER_WEIGHT)
+    if not os.path.exists(weight_folder):
+        os.makedirs(weight_folder)
+
+    # metadata json file location
+    meta_file = os.path.join(args.out_directory, FILE_METADATA)
+
+    # create or load metadata from json file
+    if resume and os.path.exists(meta_file):
+        # load metadata
+        with open(meta_file, "r") as f:
+            metadata = json.load(f)
+
+        if args.verbose:
+            print("previous metadata loaded: %d epochs. new epochs will be appended." %
+                  len(metadata["epoch_logs"]))
+    else:
+        # create new metadata
+        metadata = {
+            "epoch_logs": [],
+            "current_batch": 0,
+            "current_epoch": 0,
+            "best_epoch": 0
+        }
+
+        if args.verbose:
+            print("starting with empty metadata")
 
     # features of training data
     dataset = h5.File(args.train_data)
 
-    # Verify that dataset's features match the model's expected features.
-    validate_feature_planes(args.verbose, dataset, model_features)
-
-    # ensure output directory is available
-    if not os.path.exists(args.out_directory):
-        os.makedirs(args.out_directory)
-
-    # create metadata file and the callback object that will write to it
-    # and saves model  at the same time
-    # the MetadataWriterCallback only sets 'epoch', 'best_epoch' and 'current_batch'.
-    # We can add in anything else we like here
-    meta_file = os.path.join(args.out_directory, "metadata.json")
-    meta_writer = MetadataWriterCallback(meta_file, args.out_directory)
-
-    # load prior data if it already exists
-    if os.path.exists(meta_file) and resume:
-        with open(meta_file, "r") as f:
-            meta_writer.metadata = json.load(f)
-
-        if args.verbose:
-            print("previous metadata loaded: %d epochs. new epochs will be appended." %
-                  len(meta_writer.metadata["epoch_logs"]))
-    elif args.verbose:
-        print("starting with empty metadata")
-
     # set all settings: default, from args or from metadata
     # generate new shuffle files if needed
-    set_training_settings(resume, args, meta_writer.metadata, len(dataset["states"]))
+    set_training_settings(resume, args, metadata, len(dataset["states"]))
 
-    # get train/validation/test indices
-    train_indices, val_indices, test_indices \
-        = load_train_val_test_indices(args.verbose, args.symmetries, len(dataset["states"]),
-                                      meta_writer.metadata["batch_size"], args.out_directory)
+    # start training
+    train(metadata, args.out_directory, args.verbose, None, meta_file)
 
-    # create dataset generators
-    train_data_generator = shuffled_hdf5_batch_generator(
-        dataset["states"],
-        dataset["actions"],
-        train_indices,
-        meta_writer.metadata["batch_size"])
-    val_data_generator = shuffled_hdf5_batch_generator(
-        dataset["states"],
-        dataset["actions"],
-        val_indices,
-        meta_writer.metadata["batch_size"])
 
-    # check if step decay has to be applied
-    if meta_writer.metadata["decay_every"] is None:
-        # use normal decay without momentum
-        lr_scheduler_callback = LrDecayCallback(meta_writer.metadata["learning_rate"],
-                                                meta_writer.metadata["decay"])
+def resume_training(args):
+    # metadata json file location
+    meta_file = os.path.join(args.out_directory, FILE_METADATA)
+
+    # load data from json file
+    if os.path.exists(meta_file):
+        with open(meta_file, "r") as f:
+            metadata = json.load(f)
     else:
-        # use step decay
-        lr_scheduler_callback = LrStepDecayCallback(meta_writer.metadata["learning_rate"],
-                                                    meta_writer.metadata["decay_every"],
-                                                    meta_writer.metadata["decay"], args.verbose)
+        raise ValueError("Metadata file not found!")
 
-    sgd = SGD(lr=meta_writer.metadata["learning_rate"])
-    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
+    # determine what weight file to use
+    if args.weights is None:
+        # newest epoch weight file from json
+        weight_file = "weights.{epoch:05d}.hdf5".format(epoch=metadata["current_epoch"])
+    else:
+        # user weight argument
+        weight_file = args.weights
+
+    # check if training epochs has changed
+    if args.epochs is not None:
+        metadata["epochs"] = args.epochs
 
     if args.verbose:
-        print("STARTING TRAINING")
+        print("trying to resume training from %s with weights %s" %
+              (meta_file, os.path.join(args.out_directory, FOLDER_WEIGHT, weight_file)))
 
-    model.fit_generator(
-        generator=train_data_generator,
-        samples_per_epoch=meta_writer.metadata["epoch_length"],
-        nb_epoch=meta_writer.metadata["epochs"],
-        callbacks=[meta_writer, lr_scheduler_callback],
-        validation_data=val_data_generator,
-        nb_val_samples=len(val_indices))
+    # start training
+    train(metadata, args.out_directory, args.verbose, weight_file, meta_file)
+
+
+def handle_arguments(cmd_line_args=None):
+    """Run training. command-line args may be passed in as a list
+    """
+
+    import argparse
+    parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
+    # subparser is always first argument
+    subparsers = parser.add_subparsers(help='sub-command help')
+
+    # sub parser start training
+    train = subparsers.add_parser('train', help='Start or resume supervised training on a policy network.')  # noqa: E501
+    # required arguments
+    train.add_argument("out_directory", help="directory where metadata and weights will be saved")  # noqa: E501
+    train.add_argument("model", help="Path to a JSON model file (i.e. from CNNPolicy.save_model())")  # noqa: E501
+    train.add_argument("train_data", help="A .h5 file of training data")
+    # frequently used args
+    train.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
+    train.add_argument("--minibatch", "-B", help="Size of training data minibatches. Default: " + str(DEFAULT_BATCH_SIZE), type=int, default=None)  # noqa: E501
+    train.add_argument("--epochs", "-E", help="Total number of iterations on the data. Default: " + str(DEFAULT_EPOCH), type=int, default=None)  # noqa: E501
+    train.add_argument("--epoch-length", "-l", help="Number of training examples considered 'one epoch'. Default: # training data", type=int, default=None)  # noqa: E501
+    train.add_argument("--learning-rate", "-r", help="Learning rate - how quickly the model learns at first. Default: " + str(DEFAULT_LEARNING_RATE), type=float, default=None)  # noqa: E501
+    train.add_argument("--decay", "-d", help=("The rate at which learning decreases. Default: " + str(DEFAULT_DECAY)), type=float, default=None)  # noqa: E501
+    train.add_argument("--decay-every", "-de", help="Use step-decay: decay --learning-rate with --decay every --decay-every batches. Default: None", type=int, default=None)  # noqa: E501
+    train.add_argument("--override", help="Turn on prompt override mode", default=False, action="store_true")  # noqa: E501
+    # slightly fancier args
+    train.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)  # noqa: E501
+    train.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Default: " + str(DEFAULT_TRAIN_VAL_TEST), nargs=3, type=float, default=None)  # noqa: E501
+    train.add_argument("--max-validation", help="maximum validation set size. default: " + str(DEFAULT_MAX_VALIDATION), type=int, default=None)  # noqa: E501
+    train.add_argument("--symmetries", help="none, all or comma-separated list of transforms, subset of: noop,rot90,rot180,rot270,fliplr,flipud,diag1,diag2. Default: all", default='all')  # noqa: E501
+    # function to call when start training
+    train.set_defaults(func=start_training)
+
+    # sub parser resume training
+    resume = subparsers.add_parser('resume', help='Resume supervised training on a policy network. (Settings are loaded from savefile.)')  # noqa: E501
+    # required arguments
+    resume.add_argument("out_directory", help="directory where metadata and weight files where stored during previous session.")  # noqa: E501
+    # optional argument
+    resume.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
+    resume.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training. Default: #Newest weight file.", default=None)  # noqa: E501
+    resume.add_argument("--epochs", "-E", help="Total number of iterations on the data. Defaukt: #Epochs set on previous run", type=int, default=None)  # noqa: E501
+    # function to call when resume training
+    resume.set_defaults(func=resume_training)
+
+    # show help or parse arguments
+    if cmd_line_args is None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(cmd_line_args)
+
+    # execute function (train or resume)
+    args.func(args)
 
 
 if __name__ == '__main__':
-    run_training()
+    handle_arguments()
