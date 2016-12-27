@@ -7,6 +7,7 @@ from keras.optimizers import SGD
 from keras.callbacks import Callback
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.preprocessing.preprocessing import Preprocess
+from AlphaGo.util import confirm
 
 # default settings
 DEFAULT_MAX_VALIDATION = 1000000000
@@ -17,7 +18,7 @@ DEFAULT_DECAY = .0001
 DEFAULT_EPOCH = 10
 
 FILE_METADATA = 'metadata_supervised.json'
-FOLDER_WEIGHT = 'supervised_weights/'
+FOLDER_WEIGHT = os.path.join('supervised_weights')
 
 TRANSFORMATION_INDICES = {
     "noop": 0,
@@ -83,43 +84,13 @@ def shuffled_hdf5_batch_generator(state_dataset, action_dataset,
                 yield (Xbatch, Ybatch)
 
 
-def confirm(prompt=None, resp=False):
-    """prompts for yes or no response from the user. Returns True for yes and
-       False for no.
-       'resp' should be set to the default value assumed by the caller when
-       user simply types ENTER.
-       created by:
-       http://code.activestate.com/recipes/541096-prompt-the-user-for-confirmation/
-    """
-
-    if prompt is None:
-        prompt = 'Confirm'
-
-    if resp:
-        prompt = '%s [%s]|%s: ' % (prompt, 'y', 'n')
-    else:
-        prompt = '%s [%s]|%s: ' % (prompt, 'n', 'y')
-
-    while True:
-        ans = raw_input(prompt)
-        if not ans:
-            return resp
-        if ans not in ['y', 'Y', 'n', 'N']:
-            print 'please enter y or n.'
-            continue
-        if ans == 'y' or ans == 'Y':
-            return True
-        if ans == 'n' or ans == 'N':
-            return False
-
-
 class LrDecayCallback(Callback):
     """Set learning rate every batch according to:
        initial_learning_rate * (1. / (1. + self.decay * curent_batch))
     """
 
     def __init__(self, learning_rate, decay):
-        super(Callback, self).__init__()
+        super(LrDecayCallback, self).__init__()
         self.learning_rate = learning_rate
         self.decay = decay
 
@@ -129,7 +100,7 @@ class LrDecayCallback(Callback):
         new_lr = self.learning_rate * (1. / (1. + self.decay * batch))
 
         # set new learning rate
-        self.model.optimizer.lr = K.variable(value=new_lr)
+        K.set_value(self.model.optimizer.lr, new_lr)
 
     def on_train_begin(self, logs={}):
         # set initial learning rate
@@ -153,7 +124,7 @@ class LrStepDecayCallback(Callback):
     """
 
     def __init__(self, learning_rate, decay_every, decay, verbose):
-        super(Callback, self).__init__()
+        super(LrStepDecayCallback, self).__init__()
         self.learning_rate = learning_rate
         self.decay_every = decay_every
         self.verbose = verbose
@@ -165,7 +136,7 @@ class LrStepDecayCallback(Callback):
         new_lr = self.learning_rate * (self.decay ** n_decay)
 
         # set new learning rate
-        self.model.optimizer.lr = K.variable(value=new_lr)
+        K.set_value(self.model.optimizer.lr, new_lr)
 
         # print new learning rate if verbose
         if self.verbose:
@@ -191,13 +162,13 @@ class LrStepDecayCallback(Callback):
         self.model.optimizer.current_batch += 1
 
 
-class MetadataWriterCallback(Callback):
+class EpochDataSaverCallback(Callback):
     """Set current batch at training start
        Save metadata and Model after every epoch
     """
 
     def __init__(self, path, root, metadata):
-        super(Callback, self).__init__()
+        super(EpochDataSaverCallback, self).__init__()
         self.file = path
         self.root = root
         self.metadata = metadata
@@ -581,7 +552,7 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
     # and saves model  at the same time
     # the MetadataWriterCallback only sets 'epoch', 'best_epoch' and 'current_batch'.
     # We can add in anything else we like here
-    meta_writer = MetadataWriterCallback(meta_file, out_directory, metadata)
+    meta_writer = EpochDataSaverCallback(meta_file, out_directory, metadata)
 
     # get train/validation/test indices
     train_indices, val_indices, test_indices \
