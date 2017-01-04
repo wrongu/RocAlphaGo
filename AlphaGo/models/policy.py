@@ -96,7 +96,7 @@ class CNNPolicy(NeuralNetBase):
         # create first layer
         network.add(convolutional.Convolution2D(
             input_shape=(params["input_dim"], params["board"], params["board"]),
-            nb_filter=params["filters_per_layer"],
+            nb_filter=params.get("filters_per_layer_1", params["filters_per_layer"]),
             nb_row=params["filter_width_1"],
             nb_col=params["filter_width_1"],
             init='uniform',
