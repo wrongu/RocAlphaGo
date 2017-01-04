@@ -1,13 +1,14 @@
-import numpy as np
 import os
-import h5py as h5
 import json
+import threading
+import h5py as h5
+import numpy as np
 from keras import backend as K
+from AlphaGo.util import confirm
 from keras.optimizers import SGD
 from keras.callbacks import Callback
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.preprocessing.preprocessing import Preprocess
-from AlphaGo.util import confirm
 
 # default settings
 DEFAULT_MAX_VALIDATION = 1000000000
@@ -17,8 +18,8 @@ DEFAULT_BATCH_SIZE = 16
 DEFAULT_DECAY = .0001
 DEFAULT_EPOCH = 10
 
-FILE_METADATA = 'metadata_supervised.json'
-FOLDER_WEIGHT = os.path.join('supervised_weights')
+FILE_METADATA = 'metadata_policy_supervised.json'
+FOLDER_WEIGHT = os.path.join('policy_supervised_weights')
 
 TRANSFORMATION_INDICES = {
     "noop": 0,
@@ -50,6 +51,90 @@ def one_hot_action(action, size=19):
     categorical = np.zeros((size, size))
     categorical[action] = 1
     return categorical
+
+class threading_shuffled_hdf5_batch_generator:
+    """A generator of batches of training data for use with the fit_generator function
+       of Keras. Data is accessed in the order of the given indices for shuffling.
+
+       it is threading safe but not multiprocessing therefore only use it with
+       pickle_safe=False when using multiple workers
+    """
+
+    def shuffle_indices(self, seed=None, idx=0):
+        # set generator_sample to idx
+        self.metadata['generator_sample'] = idx
+
+        # check if seed is provided or generate random
+        if seed is None:
+            # create random seed
+            self.metadata['generator_seed'] = np.random.random_integers(4294967295)
+
+        # feed numpy.random with seed in order to continue with certain batch
+        np.random.seed(self.metadata['generator_seed'])
+        # shuffle indices according to seed
+        np.random.shuffle(self.indices)
+        
+    def __init__(self, state_dataset, action_dataset, indices, batch_size, metadata):
+        self.action_dataset = action_dataset
+        self.state_dataset = state_dataset
+        # lock used for multithreaded workers
+        self.data_lock = threading.Lock()
+        self.indices_max = len(indices)
+        self.batch_size = batch_size
+        self.metadata = metadata
+        self.indices = indices
+
+        # shuffle indices
+        # when restarting generator_seed and generator_batch will
+        # reset generator to the same point as before
+        self.shuffle_indices(metadata['generator_seed'], metadata['generator_sample'])
+
+    def __iter__(self):
+        return self
+
+    def next_indice(self):
+        # use lock to prevent double hdf5 acces and incorrect generator_sample increment
+        with self.data_lock:
+
+            # get next training sample
+            training_sample = self.indices[self.metadata['generator_sample'],:]
+            # get state
+            state = self.state_dataset[training_sample[0]]
+            # get action
+            # must be cast to a tuple so that it is interpreted as (x,y) not [(x,:), (y,:)]
+            action = tuple(self.action_dataset[training_sample[0]])
+
+            # increment generator_sample
+            self.metadata['generator_sample'] += 1
+            # shuffle indices when all have been used
+            if self.metadata['generator_sample'] >= self.indices_max:
+                self.shuffle_indices()
+
+            # return state, action and transformation
+            return state, action, training_sample[1]
+
+    def next(self):
+        state_batch_shape = (self.batch_size,) + self.state_dataset.shape[1:]
+        game_size = state_batch_shape[-1]
+        Xbatch = np.zeros(state_batch_shape)
+        Ybatch = np.zeros((self.batch_size, game_size * game_size))
+
+        for batch_idx in xrange(self.batch_size):
+            state,action,transformation = self.next_indice()
+
+            # get rotation symmetry belonging to state
+            transform = BOARD_TRANSFORMATIONS[transformation]
+
+            # get state from dataset and transform it.
+            # loop comprehension is used so that the transformation acts on the
+            # 3rd and 4th dimensions
+            state_transform = np.array([transform(plane) for plane in state])
+            action_transform = transform(one_hot_action(action, game_size))
+
+            Xbatch[batch_idx] = state_transform
+            Ybatch[batch_idx] = action_transform.flatten()
+
+        return (Xbatch, Ybatch)
 
 
 def shuffled_hdf5_batch_generator(state_dataset, action_dataset,
@@ -320,9 +405,9 @@ def load_train_val_test_indices(verbose, arg_symmetries, dataset_length, batch_s
        Return train/val/test set
     """
     # shuffle file locations for train/validation/test set
-    shuffle_file_train = os.path.join(directory, "shuffle_train.npz")
-    shuffle_file_val = os.path.join(directory, "shuffle_validate.npz")
-    shuffle_file_test = os.path.join(directory, "shuffle_test.npz")
+    shuffle_file_train = os.path.join(directory, "shuffle_policy_train.npz")
+    shuffle_file_val = os.path.join(directory, "shuffle_policy_validate.npz")
+    shuffle_file_test = os.path.join(directory, "shuffle_policy_test.npz")
 
     # load from .npz files
     train_indices = load_indices_from_file(shuffle_file_train)
@@ -376,9 +461,9 @@ def set_training_settings(resume, args, metadata, dataset_length):
     """
 
     # shuffle file locations for train/validation/test set
-    shuffle_file_train = os.path.join(args.out_directory, "shuffle_train.npz")
-    shuffle_file_val = os.path.join(args.out_directory, "shuffle_validate.npz")
-    shuffle_file_test = os.path.join(args.out_directory, "shuffle_test.npz")
+    shuffle_file_train = os.path.join(args.out_directory, "shuffle_policy_train.npz")
+    shuffle_file_val = os.path.join(args.out_directory, "shuffle_policy_validate.npz")
+    shuffle_file_test = os.path.join(args.out_directory, "shuffle_policy_test.npz")
 
     # determine if new shuffle files have to be created
     save_new_shuffle_indices = not resume
@@ -559,17 +644,25 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         = load_train_val_test_indices(verbose, metadata['symmetries'], len(dataset["states"]),
                                       metadata["batch_size"], out_directory)
 
+    # validation metadata
+    validation_metadata = {
+            "generator_seed": None,
+            "generator_sample": 0
+        }
+
     # create dataset generators
-    train_data_generator = shuffled_hdf5_batch_generator(
+    train_data_generator = threading_shuffled_hdf5_batch_generator(
         dataset["states"],
         dataset["actions"],
         train_indices,
-        metadata["batch_size"])
-    val_data_generator = shuffled_hdf5_batch_generator(
+        metadata["batch_size"],
+        metadata)
+    val_data_generator = threading_shuffled_hdf5_batch_generator(
         dataset["states"],
         dataset["actions"],
         val_indices,
-        metadata["batch_size"])
+        metadata["batch_size"],
+        validation_metadata)
 
     # check if step decay has to be applied
     if metadata["decay_every"] is None:
@@ -645,7 +738,9 @@ def start_training(args):
             "epoch_logs": [],
             "current_batch": 0,
             "current_epoch": 0,
-            "best_epoch": 0
+            "best_epoch": 0,
+            "generator_seed": None,
+            "generator_sample": 0
         }
 
         if args.verbose:
