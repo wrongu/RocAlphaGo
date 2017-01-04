@@ -2,6 +2,8 @@ import os
 from AlphaGo.training.supervised_policy_trainer import handle_arguments
 from AlphaGo.training.supervised_policy_trainer import load_indices_from_file
 from AlphaGo.training.supervised_policy_trainer import create_and_save_shuffle_indices
+from AlphaGo.training.supervised_policy_trainer import FILE_METADATA
+from AlphaGo.training.supervised_policy_trainer import FOLDER_WEIGHT
 import unittest
 import numpy as np
 
@@ -15,12 +17,12 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
         handle_arguments(args)
 
         # remove temporary files
-        os.remove(os.path.join(output, 'metadata_supervised.json'))
-        os.remove(os.path.join(output, 'shuffle_train.npz'))
-        os.remove(os.path.join(output, 'shuffle_validate.npz'))
-        os.remove(os.path.join(output, 'shuffle_test.npz'))
-        os.remove(os.path.join(output, 'supervised_weights/', 'weights.00000.hdf5'))
-        os.rmdir(os.path.join(output, 'supervised_weights/'))
+        os.remove(os.path.join(output, FILE_METADATA))
+        os.remove(os.path.join(output, 'shuffle_policy_train.npz'))
+        os.remove(os.path.join(output, 'shuffle_policy_validate.npz'))
+        os.remove(os.path.join(output, 'shuffle_policy_test.npz'))
+        os.remove(os.path.join(output, FOLDER_WEIGHT, 'weights.00000.hdf5'))
+        os.rmdir(os.path.join(output, FOLDER_WEIGHT))
         os.rmdir(output)
 
     def testResumeLearning(self):
@@ -36,13 +38,13 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
         handle_arguments(args)
 
         # remove temporary files
-        os.remove(os.path.join(output, 'metadata_supervised.json'))
-        os.remove(os.path.join(output, 'shuffle_train.npz'))
-        os.remove(os.path.join(output, 'shuffle_validate.npz'))
-        os.remove(os.path.join(output, 'shuffle_test.npz'))
-        os.remove(os.path.join(output, 'supervised_weights/', 'weights.00000.hdf5'))
-        os.remove(os.path.join(output, 'supervised_weights/', 'weights.00001.hdf5'))
-        os.rmdir(os.path.join(output, 'supervised_weights/'))
+        os.remove(os.path.join(output, FILE_METADATA))
+        os.remove(os.path.join(output, 'shuffle_policy_train.npz'))
+        os.remove(os.path.join(output, 'shuffle_policy_validate.npz'))
+        os.remove(os.path.join(output, 'shuffle_policy_test.npz'))
+        os.remove(os.path.join(output, FOLDER_WEIGHT, 'weights.00000.hdf5'))
+        os.remove(os.path.join(output, FOLDER_WEIGHT, 'weights.00001.hdf5'))
+        os.rmdir(os.path.join(output, FOLDER_WEIGHT))
         os.rmdir(output)
 
     def testStateAmount(self):
@@ -52,9 +54,9 @@ class TestSupervisedPolicyTrainer(unittest.TestCase):
             os.makedirs(output)
 
         # shuffle file locations for train/validation/test set
-        shuffle_file_train = os.path.join(output, "shuffle_train.npz")
-        shuffle_file_val = os.path.join(output, "shuffle_validate.npz")
-        shuffle_file_test = os.path.join(output, "shuffle_test.npz")
+        shuffle_file_train = os.path.join(output, "shuffle_policy_train.npz")
+        shuffle_file_val = os.path.join(output, "shuffle_policy_validate.npz")
+        shuffle_file_test = os.path.join(output, "shuffle_policy_test.npz")
 
         # create shuffle files
         create_and_save_shuffle_indices([.9, .05, .05], 1000000000,
