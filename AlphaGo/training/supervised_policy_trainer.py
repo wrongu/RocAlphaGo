@@ -52,6 +52,7 @@ def one_hot_action(action, size=19):
     categorical[action] = 1
     return categorical
 
+
 class threading_shuffled_hdf5_batch_generator:
     """A generator of batches of training data for use with the fit_generator function
        of Keras. Data is accessed in the order of the given indices for shuffling.
@@ -73,7 +74,7 @@ class threading_shuffled_hdf5_batch_generator:
         np.random.seed(self.metadata['generator_seed'])
         # shuffle indices according to seed
         np.random.shuffle(self.indices)
-        
+
     def __init__(self, state_dataset, action_dataset, indices, batch_size, metadata):
         self.action_dataset = action_dataset
         self.state_dataset = state_dataset
@@ -97,7 +98,7 @@ class threading_shuffled_hdf5_batch_generator:
         with self.data_lock:
 
             # get next training sample
-            training_sample = self.indices[self.metadata['generator_sample'],:]
+            training_sample = self.indices[self.metadata['generator_sample'], :]
             # get state
             state = self.state_dataset[training_sample[0]]
             # get action
@@ -120,7 +121,7 @@ class threading_shuffled_hdf5_batch_generator:
         Ybatch = np.zeros((self.batch_size, game_size * game_size))
 
         for batch_idx in xrange(self.batch_size):
-            state,action,transformation = self.next_indice()
+            state, action, transformation = self.next_indice()
 
             # get rotation symmetry belonging to state
             transform = BOARD_TRANSFORMATIONS[transformation]
