@@ -106,7 +106,7 @@ class threading_shuffled_hdf5_batch_generator:
         # shuffle indices
         # when restarting generator_seed and generator_batch will
         # reset generator to the same point as before
-        self.shuffle_indices(metadata['generator_seed'], metadata['generator_sample'])
+        self.shuffle_indices(self.metadata['generator_seed'], self.metadata['generator_sample'])
 
     def __iter__(self):
         return self
