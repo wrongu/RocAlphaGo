@@ -73,14 +73,17 @@ class threading_shuffled_hdf5_batch_generator:
         # feed numpy.random with seed in order to continue with certain batch
         np.random.seed(self.metadata['generator_seed'])
         # shuffle indices according to seed
-        np.random.shuffle(self.indices)
+        if not self.validation:
+            np.random.shuffle(self.indices)
 
-    def __init__(self, state_dataset, action_dataset, indices, batch_size, metadata):
+    def __init__(self, state_dataset, action_dataset, indices, batch_size, metadata,
+                 validation=False):
         self.action_dataset = action_dataset
         self.state_dataset = state_dataset
         # lock used for multithreaded workers
         self.data_lock = threading.Lock()
         self.indices_max = len(indices)
+        self.validation = validation
         self.batch_size = batch_size
         self.metadata = metadata
         self.indices = indices
@@ -663,7 +666,8 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         dataset["actions"],
         val_indices,
         metadata["batch_size"],
-        validation_metadata)
+        validation_metadata,
+        validation=True)
 
     # check if step decay has to be applied
     if metadata["decay_every"] is None:
