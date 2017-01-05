@@ -18,8 +18,15 @@ DEFAULT_BATCH_SIZE = 16
 DEFAULT_DECAY = .0001
 DEFAULT_EPOCH = 10
 
+# metdata file
 FILE_METADATA = 'metadata_policy_supervised.json'
+# weight folder
 FOLDER_WEIGHT = os.path.join('policy_supervised_weights')
+
+# shuffle files
+FILE_VALIDATE = 'shuffle_policy_validate.npz'
+FILE_TRAIN = 'shuffle_policy_train.npz'
+FILE_TEST = 'shuffle_policy_test.npz'
 
 TRANSFORMATION_INDICES = {
     "noop": 0,
@@ -76,7 +83,7 @@ class threading_shuffled_hdf5_batch_generator:
         if not self.validation:
             np.random.shuffle(self.indices)
 
-    def __init__(self, state_dataset, action_dataset, indices, batch_size, metadata,
+    def __init__(self, state_dataset, action_dataset, indices, batch_size, metadata=None,
                  validation=False):
         self.action_dataset = action_dataset
         self.state_dataset = state_dataset
@@ -85,8 +92,16 @@ class threading_shuffled_hdf5_batch_generator:
         self.indices_max = len(indices)
         self.validation = validation
         self.batch_size = batch_size
-        self.metadata = metadata
         self.indices = indices
+
+        if metadata is not None:
+            self.metadata = metadata
+        else:
+            # create metadata object
+            self.metadata = {
+                "generator_seed": None,
+                "generator_sample": 0
+            }
 
         # shuffle indices
         # when restarting generator_seed and generator_batch will
@@ -139,38 +154,6 @@ class threading_shuffled_hdf5_batch_generator:
             Ybatch[batch_idx] = action_transform.flatten()
 
         return (Xbatch, Ybatch)
-
-
-def shuffled_hdf5_batch_generator(state_dataset, action_dataset,
-                                  indices, batch_size):
-    """A generator of batches of training data for use with the fit_generator function
-       of Keras. Data is accessed in the order of the given indices for shuffling.
-    """
-
-    state_batch_shape = (batch_size,) + state_dataset.shape[1:]
-    game_size = state_batch_shape[-1]
-    Xbatch = np.zeros(state_batch_shape)
-    Ybatch = np.zeros((batch_size, game_size * game_size))
-    batch_idx = 0
-    while True:
-        for data_idx in indices:
-            # get rotation symmetry belonging to state
-            transform = BOARD_TRANSFORMATIONS[data_idx[1]]
-
-            # get state from dataset and transform it.
-            # loop comprehension is used so that the transformation acts on the
-            # 3rd and 4th dimensions
-            state = np.array([transform(plane) for plane in state_dataset[data_idx[0]]])
-
-            # must be cast to a tuple so that it is interpreted as (x,y) not [(x,:), (y,:)]
-            action_xy = tuple(action_dataset[data_idx[0]])
-            action = transform(one_hot_action(action_xy, game_size))
-            Xbatch[batch_idx] = state
-            Ybatch[batch_idx] = action.flatten()
-            batch_idx += 1
-            if batch_idx == batch_size:
-                batch_idx = 0
-                yield (Xbatch, Ybatch)
 
 
 class LrDecayCallback(Callback):
@@ -409,9 +392,9 @@ def load_train_val_test_indices(verbose, arg_symmetries, dataset_length, batch_s
        Return train/val/test set
     """
     # shuffle file locations for train/validation/test set
-    shuffle_file_train = os.path.join(directory, "shuffle_policy_train.npz")
-    shuffle_file_val = os.path.join(directory, "shuffle_policy_validate.npz")
-    shuffle_file_test = os.path.join(directory, "shuffle_policy_test.npz")
+    shuffle_file_train = os.path.join(directory, FILE_TRAIN)
+    shuffle_file_val = os.path.join(directory, FILE_VALIDATE)
+    shuffle_file_test = os.path.join(directory, FILE_TEST)
 
     # load from .npz files
     train_indices = load_indices_from_file(shuffle_file_train)
@@ -465,9 +448,9 @@ def set_training_settings(resume, args, metadata, dataset_length):
     """
 
     # shuffle file locations for train/validation/test set
-    shuffle_file_train = os.path.join(args.out_directory, "shuffle_policy_train.npz")
-    shuffle_file_val = os.path.join(args.out_directory, "shuffle_policy_validate.npz")
-    shuffle_file_test = os.path.join(args.out_directory, "shuffle_policy_test.npz")
+    shuffle_file_train = os.path.join(args.out_directory, FILE_TRAIN)
+    shuffle_file_val = os.path.join(args.out_directory, FILE_VALIDATE)
+    shuffle_file_test = os.path.join(args.out_directory, FILE_TEST)
 
     # determine if new shuffle files have to be created
     save_new_shuffle_indices = not resume
@@ -648,12 +631,6 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         = load_train_val_test_indices(verbose, metadata['symmetries'], len(dataset["states"]),
                                       metadata["batch_size"], out_directory)
 
-    # validation metadata
-    validation_metadata = {
-            "generator_seed": None,
-            "generator_sample": 0
-        }
-
     # create dataset generators
     train_data_generator = threading_shuffled_hdf5_batch_generator(
         dataset["states"],
@@ -666,7 +643,6 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         dataset["actions"],
         val_indices,
         metadata["batch_size"],
-        validation_metadata,
         validation=True)
 
     # check if step decay has to be applied
