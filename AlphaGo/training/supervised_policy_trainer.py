@@ -13,9 +13,9 @@ from AlphaGo.preprocessing.preprocessing import Preprocess
 # default settings
 DEFAULT_MAX_VALIDATION = 1000000000
 DEFAULT_TRAIN_VAL_TEST = [.95, .05, .0]
-DEFAULT_LEARNING_RATE = 0.03
+DEFAULT_LEARNING_RATE = .003
 DEFAULT_BATCH_SIZE = 16
-DEFAULT_DECAY = .0001
+DEFAULT_DECAY = .0000000125
 DEFAULT_EPOCH = 10
 
 # metdata file
@@ -161,15 +161,15 @@ class LrDecayCallback(Callback):
        initial_learning_rate * (1. / (1. + self.decay * curent_batch))
     """
 
-    def __init__(self, learning_rate, decay):
+    def __init__(self, metadata):
         super(LrDecayCallback, self).__init__()
-        self.learning_rate = learning_rate
-        self.decay = decay
+        self.learning_rate = metadata["learning_rate"]
+        self.decay = metadata["decay"]
+        self.metadata = metadata
 
     def set_lr(self):
         # calculate learning rate
-        batch = self.model.optimizer.current_batch
-        new_lr = self.learning_rate * (1. / (1. + self.decay * batch))
+        new_lr = self.learning_rate * (1. / (1. + self.decay * self.metadata["current_batch"]))
 
         # set new learning rate
         K.set_value(self.model.optimizer.lr, new_lr)
@@ -187,7 +187,7 @@ class LrDecayCallback(Callback):
         # increment current_batch
         # increment current_batch in LrDecayCallback because order of activation
         # can differ and incorrect current_batch would be used
-        self.model.optimizer.current_batch += 1
+        self.metadata["current_batch"] += 1
 
 
 class LrStepDecayCallback(Callback):
@@ -195,16 +195,17 @@ class LrStepDecayCallback(Callback):
        initial_learning_rate * (decay ^ (current_batch / decay every))
     """
 
-    def __init__(self, learning_rate, decay_every, decay, verbose):
+    def __init__(self, metadata, verbose):
         super(LrStepDecayCallback, self).__init__()
-        self.learning_rate = learning_rate
-        self.decay_every = decay_every
+        self.learning_rate = metadata["learning_rate"]
+        self.decay_every = metadata["decay_every"]
+        self.decay = metadata["decay"]
+        self.metadata = metadata
         self.verbose = verbose
-        self.decay = decay
 
     def set_lr(self):
         # calculate learning rate
-        n_decay = int(self.model.optimizer.current_batch / self.decay_every)
+        n_decay = int(self.metadata["current_batch"] / self.decay_every)
         new_lr = self.learning_rate * (self.decay ** n_decay)
 
         # set new learning rate
@@ -212,7 +213,7 @@ class LrStepDecayCallback(Callback):
 
         # print new learning rate if verbose
         if self.verbose:
-            print("\nBatch: " + str(self.model.optimizer.current_batch) +
+            print("\nBatch: " + str(self.metadata["current_batch"]) +
                   " New learning rate: " + str(new_lr))
 
     def on_train_begin(self, logs={}):
@@ -224,14 +225,14 @@ class LrStepDecayCallback(Callback):
 
         # check if learning rate has to change
         # - if we reach a new decay_every batch
-        if self.model.optimizer.current_batch % self.decay_every == 0:
+        if self.metadata["current_batch"] % self.decay_every == 0:
             # change learning rate
             self.set_lr()
 
         # increment current_batch
         # increment current_batch in LrSchedulerCallback because order of activation
         # can differ and incorrect current_batch would be used
-        self.model.optimizer.current_batch += 1
+        self.metadata["current_batch"] += 1
 
 
 class EpochDataSaverCallback(Callback):
@@ -255,8 +256,6 @@ class EpochDataSaverCallback(Callback):
 
         # append log to metadata
         self.metadata["epoch_logs"].append(logs)
-        # save current_batch to metadata
-        self.metadata["current_batch"] = self.model.optimizer.current_batch
         # save current epoch
         self.metadata["current_epoch"] = epoch
 
@@ -648,13 +647,10 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
     # check if step decay has to be applied
     if metadata["decay_every"] is None:
         # use normal decay without momentum
-        lr_scheduler_callback = LrDecayCallback(metadata["learning_rate"],
-                                                metadata["decay"])
+        lr_scheduler_callback = LrDecayCallback(metadata)
     else:
         # use step decay
-        lr_scheduler_callback = LrStepDecayCallback(metadata["learning_rate"],
-                                                    metadata["decay_every"],
-                                                    metadata["decay"], verbose)
+        lr_scheduler_callback = LrStepDecayCallback(metadata, verbose)
 
     sgd = SGD(lr=metadata["learning_rate"])
     model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
