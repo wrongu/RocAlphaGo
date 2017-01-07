@@ -8,6 +8,13 @@ from AlphaGo import go
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 
+# Hack for python 2+3 compatibility:
+try:
+    input = raw_input
+except NameError:
+    pass
+
+
 def confirm(prompt=None, resp=False):
     """prompts for yes or no response from the user. Returns True for yes and
        False for no.
@@ -26,11 +33,11 @@ def confirm(prompt=None, resp=False):
         prompt = '%s [%s]|%s: ' % (prompt, 'n', 'y')
 
     while True:
-        ans = raw_input(prompt)
+        ans = input(prompt)
         if not ans:
             return resp
         if ans not in ['y', 'Y', 'n', 'N']:
-            print 'please enter y or n.'
+            print('please enter y or n.')
             continue
         if ans == 'y' or ans == 'Y':
             return True
