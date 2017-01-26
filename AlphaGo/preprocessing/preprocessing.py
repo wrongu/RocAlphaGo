@@ -45,6 +45,8 @@ def get_board(state):
     return planes
 
 
+# TODO - this is only approximate since history prior to the last n moves may affect whether a given
+# stone is still alive. Need to test whether this causes problems.
 @lru_cache(max_size=_CACHE_SIZE, key_fn=board_and_n_history)
 def get_turns_since(state, maximum=8):
     """A feature encoding the age of the stone at each location up to 'maximum'
