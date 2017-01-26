@@ -41,7 +41,7 @@ class TestLRUCache(unittest.TestCase):
         self.assertEqual(len(self.cache.lookup), 3)
 
         # test deletion.
-        self.cache.delete('d')
+        self.cache._delete('d')
         # Current cache order: b e
         self.assertEqual(len(self.cache.lookup), 2)
         is_cached, value = self.cache.get('d')
