@@ -1,31 +1,30 @@
 import os
 import json
 import numpy as np
+import AlphaGo.go as go
+import keras.backend as K
 from shutil import copyfile
 from keras.optimizers import SGD
-import keras.backend as K
-from AlphaGo.ai import ProbabilisticPolicyPlayer
-import AlphaGo.go as go
-from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.util import flatten_idx
-
+from AlphaGo.go_root import RootState
+from AlphaGo.models.policy import CNNPolicy
+from AlphaGo.ai import ProbabilisticPolicyPlayer
 
 def _make_training_pair(st, mv, preprocessor):
     # Convert move to one-hot
     st_tensor = preprocessor.state_to_tensor(st)
-    mv_tensor = np.zeros((1, st.size * st.size))
-    mv_tensor[(0, flatten_idx(mv, st.size))] = 1
+    mv_tensor = np.zeros((1, st.get_size() * st.get_size()))
+    mv_tensor[(0, flatten_idx(mv, st.get_size()))] = 1
     return (st_tensor, mv_tensor)
 
 
-def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
+def run_n_games(optimizer, root, learner, opponent, num_games, mock_states=[]):
     '''Run num_games games to completion, keeping track of each position and move of the learner.
 
     (Note: learning cannot happen until all games have completed)
     '''
 
-    board_size = learner.policy.model.input_shape[-1]
-    states = [go.GameState(size=board_size) for _ in range(num_games)]
+    states = [root.get_root_game_state() for _ in range(num_games)]
     learner_net = learner.policy.model
 
     # Allowing injection of a mock state object for testing purposes
@@ -57,7 +56,7 @@ def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
         for (idx, state), mv in zip(idxs_to_unfinished_states.iteritems(), moves):
             # Order is important here. We must get the training pair on the unmodified state before
             # updating it with do_move.
-            is_learnable = current is learner and mv is not go.PASS_MOVE
+            is_learnable = current is learner and mv is not go.PASS
             if is_learnable:
                 (st_tensor, mv_tensor) = _make_training_pair(state, mv, learner.policy.preprocessor)
                 state_tensors[idx].append(st_tensor)
@@ -184,6 +183,7 @@ def run_training(cmd_line_args=None):
 
     optimizer = SGD(lr=args.learning_rate)
     player.policy.model.compile(loss=log_loss, optimizer=optimizer)
+    root = RootState( player.policy.model.input_shape[-1] )
     for i_iter in range(1, args.iterations + 1):
         # Randomly choose opponent from pool (possibly self), and playing
         # game_batch games against them.
@@ -197,7 +197,7 @@ def run_training(cmd_line_args=None):
 
         # Run games (and learn from results). Keep track of the win ratio vs each opponent over
         # time.
-        win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
+        win_ratio = run_n_games(optimizer, root, player, opponent, args.game_batch)
         metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 
         # Save all intermediate models.
