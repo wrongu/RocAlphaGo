@@ -201,6 +201,9 @@ cdef class RootState:
            when destoyed all arrays are freed in order to prevent a memory leak
         """
 
+        if size > 19:
+            raise IllegalBoardSize( "board size >19 not yet supported" )
+
         # set size
         self.size = size
         self.board_size = size * size
@@ -358,3 +361,7 @@ cdef class RootState:
         """
 
         return self.get_root_state()
+
+
+class IllegalBoardSize(Exception):
+    pass
