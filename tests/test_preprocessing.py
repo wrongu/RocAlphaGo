@@ -1,11 +1,12 @@
-from AlphaGo.preprocessing.preprocessing import Preprocess
-import AlphaGo.go as go
-import numpy as np
 import unittest
 import parseboard
+import numpy as np
+import AlphaGo.go as go
+from AlphaGo.go_root import RootState
+from AlphaGo.preprocessing.preprocessing import Preprocess
 
 
-def simple_board():
+def simple_board(gs):
     # make a tiny board for the sake of testing and hand-coding expected results
     #
     #         X
@@ -19,8 +20,6 @@ def simple_board():
     #   . . . . . . . 6
     #
     # where k is a ko position (white was just captured)
-
-    gs = go.GameState(size=7)
 
     # ladder-looking thing in the top-left
     gs.do_move((0, 0))  # B
@@ -39,10 +38,8 @@ def simple_board():
     gs.do_move((4, 3))  # W - the ko position
     gs.do_move((4, 4))  # B - does the capture
 
-    return gs
 
-
-def self_atari_board():
+def self_atari_board(gs):
     # another tiny board for testing self-atari specifically.
     # positions marked with 'a' are self-atari for black
     #
@@ -57,7 +54,6 @@ def self_atari_board():
     #   . . . . . . . 6
     #
     # current_player = black
-    gs = go.GameState(size=7)
 
     gs.do_move((2, 4), go.BLACK)
     gs.do_move((4, 4), go.BLACK)
@@ -73,10 +69,8 @@ def self_atari_board():
     gs.do_move((3, 5), go.WHITE)
     gs.do_move((4, 5), go.WHITE)
 
-    return gs
 
-
-def capture_board():
+def capture_board(gs):
     # another small board, this one with imminent captures
     #
     #         X
@@ -90,7 +84,6 @@ def capture_board():
     #   . . . . W B . 6
     #
     # current_player = black
-    gs = go.GameState(size=7)
 
     black = [(2, 0), (3, 0), (1, 1), (4, 1), (1, 2), (2, 3), (5, 4), (6, 5), (5, 6)]
     white = [(2, 1), (3, 1), (2, 2), (4, 4), (3, 5), (5, 5), (4, 6)]
@@ -99,9 +92,7 @@ def capture_board():
         gs.do_move(B, go.BLACK)
     for W in white:
         gs.do_move(W, go.WHITE)
-    gs.current_player = go.BLACK
-
-    return gs
+    gs.set_current_player( go.BLACK )
 
 
 class TestPreprocessingFeatures(unittest.TestCase):
@@ -114,8 +105,12 @@ class TestPreprocessingFeatures(unittest.TestCase):
     """
 
     def test_get_board(self):
-        gs = simple_board()
-        pp = Preprocess(["board"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        simple_board(gs)
+        pp = Preprocess(["board"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
         white_pos = np.asarray([
@@ -134,26 +129,33 @@ class TestPreprocessingFeatures(unittest.TestCase):
             [0, 0, 1, 0, 1, 0, 0],
             [0, 0, 0, 1, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0]])
-        empty_pos = np.ones((gs.size, gs.size)) - (white_pos + black_pos)
+        empty_pos = np.ones((gs.get_size(), gs.get_size())) - (white_pos + black_pos)
 
         # check number of planes
-        self.assertEqual(feature.shape, (gs.size, gs.size, 3))
+        self.assertEqual(feature.shape, (gs.get_size(), gs.get_size(), 3))
         # check return value against hand-coded expectation
         # (given that current_player is white)
         self.assertTrue(np.all(feature == np.dstack((white_pos, black_pos, empty_pos))))
 
     def test_get_turns_since(self):
-        gs = simple_board()
-        pp = Preprocess(["turns_since"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        simple_board(gs)
+        pp = Preprocess(["turns_since"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        one_hot_turns = np.zeros((gs.size, gs.size, 8))
+        one_hot_turns = np.zeros((gs.get_size(), gs.get_size(), 8))
 
-        rev_moves = gs.history[::-1]
+        rev_moves = list(gs.get_history())
+        rev_moves = rev_moves[::-1]
+        
+        board = gs.get_board()
 
-        for x in range(gs.size):
-            for y in range(gs.size):
-                if gs.board[x, y] != go.EMPTY:
+        for x in range(gs.get_size()):
+            for y in range(gs.get_size()):
+                if board[x, y] != go.EMPTY:
                     # find most recent move at x, y
                     age = rev_moves.index((x, y))
                     one_hot_turns[x, y, min(age, 7)] = 1
@@ -161,13 +163,17 @@ class TestPreprocessingFeatures(unittest.TestCase):
         self.assertTrue(np.all(feature == one_hot_turns))
 
     def test_get_liberties(self):
-        gs = simple_board()
-        pp = Preprocess(["liberties"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        simple_board(gs)
+        pp = Preprocess(["liberties"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
         # todo - test liberties when > 8
 
-        one_hot_liberties = np.zeros((gs.size, gs.size, 8))
+        one_hot_liberties = np.zeros((gs.get_size(), gs.get_size(), 8))
         # black piece at (4,4) has a single liberty: (4,3)
         one_hot_liberties[4, 4, 0] = 1
 
@@ -194,17 +200,21 @@ class TestPreprocessingFeatures(unittest.TestCase):
                 "bad expectation: stones with %d liberties" % (i + 1))
 
     def test_get_capture_size(self):
-        gs = capture_board()
-        pp = Preprocess(["capture_size"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        capture_board(gs)
+        pp = Preprocess(["capture_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        score_before = gs.num_white_prisoners
-        one_hot_capture = np.zeros((gs.size, gs.size, 8))
+        score_before = gs.get_captures_white()
+        one_hot_capture = np.zeros((gs.get_size(), gs.get_size(), 8))
         # there is no capture available; all legal moves are zero-capture
         for (x, y) in gs.get_legal_moves():
             copy = gs.copy()
             copy.do_move((x, y))
-            num_captured = copy.num_white_prisoners - score_before
+            num_captured = copy.get_captures_white() - score_before
             one_hot_capture[x, y, min(7, num_captured)] = 1
 
         for i in range(8):
@@ -213,11 +223,15 @@ class TestPreprocessingFeatures(unittest.TestCase):
                 "bad expectation: capturing %d stones" % i)
 
     def test_get_self_atari_size(self):
-        gs = self_atari_board()
-        pp = Preprocess(["self_atari_size"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        self_atari_board(gs)
+        pp = Preprocess(["self_atari_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        one_hot_self_atari = np.zeros((gs.size, gs.size, 8))
+        one_hot_self_atari = np.zeros((gs.get_size(), gs.get_size(), 8))
         # self atari of size 1 at position 0,0
         one_hot_self_atari[0, 0, 0] = 1
         # self atari of size 3 at position 3,4
@@ -226,11 +240,15 @@ class TestPreprocessingFeatures(unittest.TestCase):
         self.assertTrue(np.all(feature == one_hot_self_atari))
 
     def test_get_self_atari_size_cap(self):
-        gs = capture_board()
-        pp = Preprocess(["self_atari_size"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        capture_board(gs)
+        pp = Preprocess(["self_atari_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        one_hot_self_atari = np.zeros((gs.size, gs.size, 8))
+        one_hot_self_atari = np.zeros((gs.get_size(), gs.get_size(), 8))
         # self atari of size 1 at the ko position and just below it
         one_hot_self_atari[4, 5, 0] = 1
         one_hot_self_atari[3, 6, 0] = 1
@@ -240,17 +258,24 @@ class TestPreprocessingFeatures(unittest.TestCase):
         self.assertTrue(np.all(feature == one_hot_self_atari))
 
     def test_get_liberties_after(self):
-        gs = simple_board()
-        pp = Preprocess(["liberties_after"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        simple_board(gs)
+        pp = Preprocess(["liberties_after"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        one_hot_liberties = np.zeros((gs.size, gs.size, 8))
+        one_hot_liberties = np.zeros((gs.get_size(), gs.get_size(), 8))
 
         # TODO (?) hand-code?
         for (x, y) in gs.get_legal_moves():
             copy = gs.copy()
             copy.do_move((x, y))
-            libs = copy.liberty_counts[x, y]
+            
+            liberty = copy.get_liberty()
+            
+            libs = liberty[x, y]
             if libs < 7:
                 one_hot_liberties[x, y, libs - 1] = 1
             else:
@@ -264,16 +289,23 @@ class TestPreprocessingFeatures(unittest.TestCase):
     def test_get_liberties_after_cap(self):
         """A copy of test_get_liberties_after but where captures are imminent
         """
-        gs = capture_board()
-        pp = Preprocess(["liberties_after"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        capture_board(gs)
+        pp = Preprocess(["liberties_after"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        one_hot_liberties = np.zeros((gs.size, gs.size, 8))
+        one_hot_liberties = np.zeros((gs.get_size(), gs.get_size(), 8))
 
         for (x, y) in gs.get_legal_moves():
             copy = gs.copy()
             copy.do_move((x, y))
-            libs = copy.liberty_counts[x, y]
+            
+            liberty = copy.get_liberty()
+            
+            libs = liberty[x, y]
             one_hot_liberties[x, y, min(libs - 1, 7)] = 1
 
         for i in range(8):
@@ -282,71 +314,122 @@ class TestPreprocessingFeatures(unittest.TestCase):
                 "bad expectation: stones with %d liberties after move" % (i + 1))
 
     def test_get_ladder_capture(self):
-        gs, moves = parseboard.parse(". . . . . . .|"
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        moves = parseboard.parse(gs, ". . . . . . .|"
                                      "B W a . . . .|"
                                      ". B . . . . .|"
                                      ". . . . . . .|"
                                      ". . . . . . .|"
                                      ". . . . . W .|")
-        pp = Preprocess(["ladder_capture"])
+        pp = Preprocess(["ladder_capture"], size=7)
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
-        expectation = np.zeros((gs.size, gs.size))
+        expectation = np.zeros((gs.get_size(), gs.get_size()))
         expectation[moves['a']] = 1
 
         self.assertTrue(np.all(expectation == feature))
 
     def test_get_ladder_escape(self):
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
         # On this board, playing at 'a' is ladder escape because there is a breaker on the right.
-        gs, moves = parseboard.parse(". B B . . . .|"
+        moves = parseboard.parse(gs, ". B B . . . .|"
                                      "B W a . . . .|"
                                      ". B . . . . .|"
                                      ". . . . . W .|"
                                      ". . . . . . .|"
                                      ". . . . . . .|")
-        pp = Preprocess(["ladder_escape"])
-        gs.current_player = go.WHITE
+        pp = Preprocess(["ladder_escape"], size=7)
+        gs.set_current_player( go.WHITE )
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
-        expectation = np.zeros((gs.size, gs.size))
+        expectation = np.zeros((gs.get_size(), gs.get_size()))
         expectation[moves['a']] = 1
 
         self.assertTrue(np.all(expectation == feature))
 
-    def test_get_sensibleness(self):
-        # TODO - there are no legal eyes at the moment
+    def test_two_escapes(self):
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        moves = parseboard.parse(gs, ". . X . . .|"
+                                     ". X O a . .|"
+                                     ". X c X . .|"
+                                     ". O X b . .|"
+                                     ". . O . . .|"
+                                     ". . . . . .|")
 
-        gs = simple_board()
-        pp = Preprocess(["sensibleness"])
+        # place a white stone at c, and reset player to white
+        gs.do_move(moves['c'], color=go.WHITE)
+        gs.set_current_player( go.WHITE )
+        
+        pp = Preprocess(["ladder_escape"], size=7)
+        gs.set_current_player( go.WHITE )
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
-        expectation = np.zeros((gs.size, gs.size))
+        # both 'a' and 'b' should be considered escape moves for white after 'O' at c
+
+        expectation = np.zeros((gs.get_size(), gs.get_size()))
+        expectation[moves['a']] = 1
+        expectation[moves['b']] = 1
+
+        self.assertTrue(np.all(expectation == feature))
+        
+        
+    def test_get_sensibleness(self):
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        # TODO - there are no legal eyes at the moment
+
+        simple_board(gs)
+        pp = Preprocess(["sensibleness"], size=7)
+        feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
+
+        expectation = np.zeros((gs.get_size(), gs.get_size()))
         for (x, y) in gs.get_legal_moves():
             if not (gs.is_eye((x, y), go.WHITE)):
                 expectation[x, y] = 1
         self.assertTrue(np.all(expectation == feature))
 
     def test_get_legal(self):
-        gs = simple_board()
-        pp = Preprocess(["legal"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        simple_board(gs)
+        pp = Preprocess(["legal"], size=7)
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
-        expectation = np.zeros((gs.size, gs.size))
+        expectation = np.zeros((gs.get_size(), gs.get_size()))
         for (x, y) in gs.get_legal_moves():
             expectation[x, y] = 1
         self.assertTrue(np.all(expectation == feature))
 
     def test_feature_concatenation(self):
-        gs = simple_board()
-        pp = Preprocess(["board", "sensibleness", "capture_size"])
+        
+        rootState = RootState(size=7)
+        gs = rootState.get_root_game_state()
+        
+        simple_board(gs)
+        pp = Preprocess(["board", "sensibleness", "capture_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
 
-        expectation = np.zeros((gs.size, gs.size, 3 + 1 + 8))
+        expectation = np.zeros((gs.get_size(), gs.get_size(), 3 + 1 + 8))
+
+        board = gs.get_board()
 
         # first three planes: board
-        expectation[:, :, 0] = (gs.board == go.WHITE) * 1
-        expectation[:, :, 1] = (gs.board == go.BLACK) * 1
-        expectation[:, :, 2] = (gs.board == go.EMPTY) * 1
+        expectation[:, :, 0] = (board == go.WHITE) * 1
+        expectation[:, :, 1] = (board == go.BLACK) * 1
+        expectation[:, :, 2] = (board == go.EMPTY) * 1
 
         # 4th plane: sensibleness (as in test_get_sensibleness)
         for (x, y) in gs.get_legal_moves():
@@ -358,6 +441,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
             expectation[x, y, 4] = 1
 
         self.assertTrue(np.all(expectation == feature))
+        
 
 
 if __name__ == '__main__':

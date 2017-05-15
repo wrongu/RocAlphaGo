@@ -21,8 +21,12 @@ class NeuralNetBase(object):
         optional argument: init_network (boolean). If set to False, skips initializing
         self.model and self.forward and the calling function should set them.
         """
-        self.preprocessor = Preprocess(feature_list)
-        kwargs["input_dim"] = self.preprocessor.output_dim
+        defaults = {
+            "board": 19
+        }
+        defaults.update( kwargs )
+        self.preprocessor = Preprocess(feature_list, size=defaults["board"])
+        kwargs["input_dim"] = self.preprocessor.get_output_dimension()
 
         if kwargs.get('init_network', True):
             # self.__class__ refers to the subclass so that subclasses only
@@ -98,7 +102,7 @@ class NeuralNetBase(object):
         object_specs = {
             'class': self.__class__.__name__,
             'keras_model': self.model.to_json(),
-            'feature_list': self.preprocessor.feature_list
+            'feature_list': self.preprocessor.get_feature_list()
         }
         if weights_file is not None:
             self.model.save_weights(weights_file)

@@ -1,35 +1,48 @@
-from AlphaGo.models.policy import CNNPolicy, ResnetPolicy
-from AlphaGo import go
-from AlphaGo.go import GameState
-from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
-import numpy as np
-import unittest
 import os
+import unittest
+import numpy as np
+from AlphaGo import go
+from AlphaGo.go_root import RootState
+from AlphaGo.models.policy import CNNPolicy, ResnetPolicy
+from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
 
 
 class TestCNNPolicy(unittest.TestCase):
 
     def test_default_policy(self):
+        
+        rootState = RootState(size=19)
+        state = rootState.get_root_game_state()
+        
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        policy.eval_state(GameState())
+        policy.eval_state(state)
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
+        
+        rootState = RootState(size=19)
+        
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        results = policy.batch_eval_state([GameState(), GameState()])
+        results = policy.batch_eval_state([rootState.get_root_game_state(), rootState.get_root_game_state()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
     def test_output_size(self):
+        
+        rootState = RootState(size=19)
+        
         policy19 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=19)
-        output = policy19.forward(policy19.preprocessor.state_to_tensor(GameState(19)))
+        output = policy19.forward(policy19.preprocessor.state_to_tensor(rootState.get_root_game_state()))
         self.assertEqual(output.shape, (1, 19 * 19))
 
+        rootState = RootState(size=13)
+        
         policy13 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=13)
-        output = policy13.forward(policy13.preprocessor.state_to_tensor(GameState(13)))
+        output = policy13.forward(policy13.preprocessor.state_to_tensor(rootState.get_root_game_state()))
         self.assertEqual(output.shape, (1, 13 * 13))
 
     def test_save_load(self):
+        
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
 
         model_file = 'TESTPOLICY.json'
@@ -59,19 +72,27 @@ class TestCNNPolicy(unittest.TestCase):
 
 class TestResnetPolicy(unittest.TestCase):
     def test_default_policy(self):
+        
+        rootState = RootState(size=19)
+        
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        policy.eval_state(GameState())
+        policy.eval_state(rootState.get_root_game_state())
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
+        
+        rootState = RootState(size=19)
+        
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        results = policy.batch_eval_state([GameState(), GameState()])
+        results = policy.batch_eval_state([rootState.get_root_game_state(), rootState.get_root_game_state()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
     def test_save_load(self):
-        """Identical to above test_save_load
         """
+           Identical to above test_save_load
+        """
+        
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
 
         model_file = 'TESTPOLICY.json'
@@ -105,25 +126,34 @@ class TestResnetPolicy(unittest.TestCase):
 class TestPlayers(unittest.TestCase):
 
     def test_greedy_player(self):
-        gs = GameState()
+        
+        rootState = RootState(size=19)
+        
+        gs = rootState.get_root_game_state()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = GreedyPolicyPlayer(policy)
-        for i in range(20):
+        for _ in range(20):
             move = player.get_move(gs)
-            self.assertIsNotNone(move)
+            self.assertNotEqual(move, go.PASS)
             gs.do_move(move)
 
     def test_probabilistic_player(self):
-        gs = GameState()
+        
+        rootState = RootState(size=19)
+        
+        gs = rootState.get_root_game_state()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = ProbabilisticPolicyPlayer(policy)
-        for i in range(20):
+        for _ in range(20):
             move = player.get_move(gs)
-            self.assertIsNotNone(move)
+            self.assertNotEqual(move, go.PASS)
             gs.do_move(move)
 
     def test_sensible_probabilistic(self):
-        gs = GameState()
+        
+        rootState = RootState(size=19)
+        
+        gs = rootState.get_root_game_state()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = ProbabilisticPolicyPlayer(policy)
         empty = (10, 10)
@@ -131,11 +161,14 @@ class TestPlayers(unittest.TestCase):
             for y in range(19):
                 if (x, y) != empty:
                     gs.do_move((x, y), go.BLACK)
-        gs.current_player = go.BLACK
-        self.assertIsNone(player.get_move(gs))
+        gs.set_current_player( go.BLACK )
+        self.assertEqual(player.get_move(gs), go.PASS)
 
     def test_sensible_greedy(self):
-        gs = GameState()
+        
+        rootState = RootState(size=19)
+        
+        gs = rootState.get_root_game_state()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = GreedyPolicyPlayer(policy)
         empty = (10, 10)
@@ -143,8 +176,9 @@ class TestPlayers(unittest.TestCase):
             for y in range(19):
                 if (x, y) != empty:
                     gs.do_move((x, y), go.BLACK)
-        gs.current_player = go.BLACK
-        self.assertIsNone(player.get_move(gs))
+                    
+        gs.set_current_player( go.BLACK )
+        self.assertEqual(player.get_move(gs), go.PASS)
 
 
 if __name__ == '__main__':

@@ -1,12 +1,12 @@
-from interface.gtp_wrapper import run_gtp
-from multiprocessing import Process
-from AlphaGo import go
 import unittest
+from AlphaGo import go
+from multiprocessing import Process
+from interface.gtp_wrapper import run_gtp
 
 
 class PassPlayer(object):
     def get_move(self, state):
-        return go.PASS_MOVE
+        return go.PASS
 
 
 class TestGTPProcess(unittest.TestCase):

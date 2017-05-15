@@ -1,5 +1,5 @@
 import numpy as np
-import AlphaGo.go as go
+import AlphaGo.go_python as go
 import keras.backend as K
 
 # This file is used anywhere that neural net features are used; setting the keras dimension ordering
@@ -254,6 +254,11 @@ FEATURES = {
     "legal": {
         "size": 1,
         "function": get_legal
+    },
+    "color": {
+        "size": 1,
+        "function": lambda state: np.ones((1, state.size, state.size)) *
+        (state.current_player == go.BLACK)
     }
 }
 
@@ -291,4 +296,8 @@ class Preprocess(object):
 
         # concatenate along feature dimension then add in a singleton 'batch' dimension
         f, s = self.output_dim, state.size
-        return np.concatenate(feat_tensors).reshape((1, f, s, s))
+        
+        tensor = np.concatenate(feat_tensors).reshape((1, f, s, s))
+        tensor = tensor.astype(np.int8)
+        
+        return tensor

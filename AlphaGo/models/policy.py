@@ -35,8 +35,8 @@ class CNNPolicy(NeuralNetBase):
         n_states = len(states)
         if n_states == 0:
             return []
-        state_size = states[0].size
-        if not all([st.size == state_size for st in states]):
+        state_size = states[0].get_size()
+        if not all([st.get_size() == state_size for st in states]):
             raise ValueError("all states must have the same size")
         # concatenate together all one-hot encoded states along the 'batch' dimension
         nn_input = np.concatenate([self.preprocessor.state_to_tensor(s) for s in states], axis=0)
@@ -61,7 +61,7 @@ class CNNPolicy(NeuralNetBase):
         # run the tensor through the network
         network_output = self.forward(tensor)
         moves = moves or state.get_legal_moves()
-        return self._select_moves_and_normalize(network_output[0], moves, state.size)
+        return self._select_moves_and_normalize(network_output[0], moves, state.get_size())
 
     @staticmethod
     def create_network(**kwargs):

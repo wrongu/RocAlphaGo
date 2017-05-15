@@ -5,28 +5,28 @@ import h5py as h5
 import numpy as np
 from keras import backend as K
 from AlphaGo.util import confirm
-from keras.optimizers import SGD
+from keras.optimizers import Adam
 from keras.callbacks import Callback
-from AlphaGo.models.value import CNNValue
+from AlphaGo.models.rollout import CNNRollout
 from AlphaGo.preprocessing.preprocessing import Preprocess
 
 # default settings
 DEFAULT_MAX_VALIDATION = 1000000000
 DEFAULT_TRAIN_VAL_TEST = [.95, .05, .0]
 DEFAULT_LEARNING_RATE = .003
-DEFAULT_BATCH_SIZE = 32
+DEFAULT_BATCH_SIZE = 16
 DEFAULT_DECAY = .0000000125
 DEFAULT_EPOCH = 10
 
 # metdata file
-FILE_METADATA = 'metadata_value_reinforce.json'
+FILE_METADATA = 'metadata_policy_supervised.json'
 # weight folder
-FOLDER_WEIGHT = os.path.join('value_reinforce_weights')
+FOLDER_WEIGHT = os.path.join('policy_supervised_weights')
 
 # shuffle files
-FILE_VALIDATE = 'shuffle_value_validate.npz'
-FILE_TRAIN = 'shuffle_value_train.npz'
-FILE_TEST = 'shuffle_value_test.npz'
+FILE_VALIDATE = 'shuffle_policy_validate.npz'
+FILE_TRAIN = 'shuffle_policy_train.npz'
+FILE_TEST = 'shuffle_policy_test.npz'
 
 TRANSFORMATION_INDICES = {
     "noop": 0,
@@ -51,10 +51,18 @@ BOARD_TRANSFORMATIONS = {
 }
 
 
+def one_hot_action(action, size=19):
+    """Convert an (x,y) action into a size x size array of zeros with a 1 at x,y
+    """
+
+    categorical = np.zeros((size, size))
+    categorical[action] = 1
+    return categorical
+
+
 class threading_shuffled_hdf5_batch_generator:
     """A generator of batches of training data for use with the fit_generator function
        of Keras. Data is accessed in the order of the given indices for shuffling.
-
        it is threading safe but not multiprocessing therefore only use it with
        pickle_safe=False when using multiple workers
     """
@@ -68,6 +76,8 @@ class threading_shuffled_hdf5_batch_generator:
             # create random seed
             self.metadata['generator_seed'] = np.random.random_integers(4294967295)
 
+        #print( )
+        #print("shuffle " + str(self.validation))
         # feed numpy.random with seed in order to continue with certain batch
         np.random.seed(self.metadata['generator_seed'])
         # shuffle indices according to seed
@@ -111,7 +121,8 @@ class threading_shuffled_hdf5_batch_generator:
             # get state
             state = self.state_dataset[training_sample[0]]
             # get action
-            action = self.action_dataset[training_sample[0]]
+            # must be cast to a tuple so that it is interpreted as (x,y) not [(x,:), (y,:)]
+            action = tuple(self.action_dataset[training_sample[0]])
 
             # increment generator_sample
             self.metadata['generator_sample'] += 1
@@ -124,8 +135,9 @@ class threading_shuffled_hdf5_batch_generator:
 
     def next(self):
         state_batch_shape = (self.batch_size,) + self.state_dataset.shape[1:]
+        game_size = state_batch_shape[-1]
         Xbatch = np.zeros(state_batch_shape)
-        Ybatch = np.zeros(self.batch_size)
+        Ybatch = np.zeros((self.batch_size, game_size * game_size))
 
         for batch_idx in xrange(self.batch_size):
             state, action, transformation = self.next_indice()
@@ -137,9 +149,10 @@ class threading_shuffled_hdf5_batch_generator:
             # loop comprehension is used so that the transformation acts on the
             # 3rd and 4th dimensions
             state_transform = np.array([transform(plane) for plane in state])
+            action_transform = transform(one_hot_action(action, game_size))
 
             Xbatch[batch_idx] = state_transform
-            Ybatch[batch_idx] = action
+            Ybatch[batch_idx] = action_transform.flatten()
 
         return (Xbatch, Ybatch)
 
@@ -149,15 +162,15 @@ class LrDecayCallback(Callback):
        initial_learning_rate * (1. / (1. + self.decay * curent_batch))
     """
 
-    def __init__(self, learning_rate, decay):
+    def __init__(self, metadata):
         super(LrDecayCallback, self).__init__()
-        self.learning_rate = learning_rate
-        self.decay = decay
+        self.learning_rate = metadata["learning_rate"]
+        self.decay = metadata["decay"]
+        self.metadata = metadata
 
     def set_lr(self):
         # calculate learning rate
-        batch = self.model.optimizer.current_batch
-        new_lr = self.learning_rate * (1. / (1. + self.decay * batch))
+        new_lr = self.learning_rate * (1. / (1. + self.decay * self.metadata["current_batch"]))
 
         # set new learning rate
         K.set_value(self.model.optimizer.lr, new_lr)
@@ -175,7 +188,7 @@ class LrDecayCallback(Callback):
         # increment current_batch
         # increment current_batch in LrDecayCallback because order of activation
         # can differ and incorrect current_batch would be used
-        self.model.optimizer.current_batch += 1
+        self.metadata["current_batch"] += 1
 
 
 class LrStepDecayCallback(Callback):
@@ -183,16 +196,17 @@ class LrStepDecayCallback(Callback):
        initial_learning_rate * (decay ^ (current_batch / decay every))
     """
 
-    def __init__(self, learning_rate, decay_every, decay, verbose):
+    def __init__(self, metadata, verbose):
         super(LrStepDecayCallback, self).__init__()
-        self.learning_rate = learning_rate
-        self.decay_every = decay_every
+        self.learning_rate = metadata["learning_rate"]
+        self.decay_every = metadata["decay_every"]
+        self.decay = metadata["decay"]
+        self.metadata = metadata
         self.verbose = verbose
-        self.decay = decay
 
     def set_lr(self):
         # calculate learning rate
-        n_decay = int(self.model.optimizer.current_batch / self.decay_every)
+        n_decay = int(self.metadata["current_batch"] / self.decay_every)
         new_lr = self.learning_rate * (self.decay ** n_decay)
 
         # set new learning rate
@@ -200,7 +214,7 @@ class LrStepDecayCallback(Callback):
 
         # print new learning rate if verbose
         if self.verbose:
-            print("\nBatch: " + str(self.model.optimizer.current_batch) +
+            print("\nBatch: " + str(self.metadata["current_batch"]) +
                   " New learning rate: " + str(new_lr))
 
     def on_train_begin(self, logs={}):
@@ -212,14 +226,14 @@ class LrStepDecayCallback(Callback):
 
         # check if learning rate has to change
         # - if we reach a new decay_every batch
-        if self.model.optimizer.current_batch % self.decay_every == 0:
+        if self.metadata["current_batch"] % self.decay_every == 0:
             # change learning rate
             self.set_lr()
 
         # increment current_batch
         # increment current_batch in LrSchedulerCallback because order of activation
         # can differ and incorrect current_batch would be used
-        self.model.optimizer.current_batch += 1
+        self.metadata["current_batch"] += 1
 
 
 class EpochDataSaverCallback(Callback):
@@ -243,8 +257,6 @@ class EpochDataSaverCallback(Callback):
 
         # append log to metadata
         self.metadata["epoch_logs"].append(logs)
-        # save current_batch to metadata
-        self.metadata["current_batch"] = self.model.optimizer.current_batch
         # save current epoch
         self.metadata["current_epoch"] = epoch
 
@@ -285,7 +297,7 @@ def validate_feature_planes(verbose, dataset, model_features):
         # Cannot check each feature, but can check number of planes.
         n_dataset_planes = dataset["states"].shape[1]
         tmp_preprocess = Preprocess(model_features)
-        n_model_planes = tmp_preprocess.get_output_dimension()
+        n_model_planes = tmp_preprocess.output_dim
         if n_dataset_planes != n_model_planes:
             raise ValueError("Model JSON file expects a total of %d planes from features \n\t%s\n"
                              "But dataset contains %d planes" % (n_model_planes,
@@ -595,8 +607,8 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
     resume = weight_file is not None
 
     # load model from json spec
-    policy = CNNValue.load_model(metadata["model_file"])
-    model_features = policy.preprocessor.get_feature_list()
+    policy = CNNRollout.load_model(metadata["model_file"])
+    model_features = policy.preprocessor.feature_list
     model = policy.model
     # load weights
     if resume:
@@ -622,13 +634,13 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
     # create dataset generators
     train_data_generator = threading_shuffled_hdf5_batch_generator(
         dataset["states"],
-        dataset["winners"],
+        dataset["actions"],
         train_indices,
         metadata["batch_size"],
         metadata)
     val_data_generator = threading_shuffled_hdf5_batch_generator(
         dataset["states"],
-        dataset["winners"],
+        dataset["actions"],
         val_indices,
         metadata["batch_size"],
         validation=True)
@@ -636,16 +648,14 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
     # check if step decay has to be applied
     if metadata["decay_every"] is None:
         # use normal decay without momentum
-        lr_scheduler_callback = LrDecayCallback(metadata["learning_rate"],
-                                                metadata["decay"])
+        lr_scheduler_callback = LrDecayCallback(metadata)
     else:
         # use step decay
-        lr_scheduler_callback = LrStepDecayCallback(metadata["learning_rate"],
-                                                    metadata["decay_every"],
-                                                    metadata["decay"], verbose)
+        lr_scheduler_callback = LrStepDecayCallback(metadata, verbose)
 
-    sgd = SGD(lr=metadata["learning_rate"])
-    model.compile(loss='mean_squared_error', optimizer=sgd, metrics=["accuracy"])
+    #sgd = SGD(lr=metadata["learning_rate"])
+    sgd = Adam(lr=0.001, beta_1=0.99, beta_2=0.999, epsilon=1e-08, decay=0.0)
+    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
 
     if verbose:
         print("STARTING TRAINING")
@@ -658,9 +668,10 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         generator=train_data_generator,
         samples_per_epoch=metadata["epoch_length"],
         nb_epoch=(metadata["epochs"] - len(metadata["epoch_logs"])),
-        callbacks=[meta_writer, lr_scheduler_callback],
+        callbacks=[meta_writer],
         validation_data=val_data_generator,
-        nb_val_samples=len(val_indices))
+        nb_val_samples=len(val_indices),
+        max_q_size = 5)
 
 
 def start_training(args):
@@ -709,7 +720,10 @@ def start_training(args):
             "current_epoch": 0,
             "best_epoch": 0,
             "generator_seed": None,
-            "generator_sample": 0
+            "generator_sample": 0,
+            "dict_3x3": args.dict_3x3,
+            "dict_12d": args.dict_12d,
+            "dict_nakade": args.dict_nakade
         }
 
         if args.verbose:
@@ -762,15 +776,15 @@ def handle_arguments(cmd_line_args=None):
     """
 
     import argparse
-    parser = argparse.ArgumentParser(description='Perform reinforcement training on a value network.')  # noqa: E501
+    parser = argparse.ArgumentParser(description='Perform supervised training on a policy network.')
     # subparser is always first argument
     subparsers = parser.add_subparsers(help='sub-command help')
 
     # sub parser start training
-    train = subparsers.add_parser('train', help='Start or resume reinforcement training on a value network.')  # noqa: E501
+    train = subparsers.add_parser('train', help='Start or resume supervised training on a policy network.')  # noqa: E501
     # required arguments
     train.add_argument("out_directory", help="directory where metadata and weights will be saved")  # noqa: E501
-    train.add_argument("model", help="Path to a JSON model file (i.e. from CNNValue.save_model())")  # noqa: E501
+    train.add_argument("model", help="Path to a JSON model file (i.e. from CNNPolicy.save_model())")  # noqa: E501
     train.add_argument("train_data", help="A .h5 file of training data")
     # frequently used args
     train.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
@@ -786,11 +800,16 @@ def handle_arguments(cmd_line_args=None):
     train.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Default: " + str(DEFAULT_TRAIN_VAL_TEST), nargs=3, type=float, default=None)  # noqa: E501
     train.add_argument("--max-validation", help="maximum validation set size. default: " + str(DEFAULT_MAX_VALIDATION), type=int, default=None)  # noqa: E501
     train.add_argument("--symmetries", help="none, all or comma-separated list of transforms, subset of: noop,rot90,rot180,rot270,fliplr,flipud,diag1,diag2. Default: all", default='all')  # noqa: E501
+    # dictionary args
+    train.add_argument("--dict-3x3", help="Path to 3x3 pattern dictionary. Default: None", default=None)  # noqa: E501
+    train.add_argument("--dict-12d", help="Path to 12d pattern dictionary. Default: None", default='all')  # noqa: E501
+    train.add_argument("--dict-nakade", help="Path to nakade pattern dictionary. Default: None", default='all')  # noqa: E501
+
     # function to call when start training
     train.set_defaults(func=start_training)
 
     # sub parser resume training
-    resume = subparsers.add_parser('resume', help='Resume reinforcement training on a value network. (Settings are loaded from savefile.)')  # noqa: E501
+    resume = subparsers.add_parser('resume', help='Resume supervised training on a policy network. (Settings are loaded from savefile.)')  # noqa: E501
     # required arguments
     resume.add_argument("out_directory", help="directory where metadata and weight files where stored during previous session.")  # noqa: E501
     # optional argument

@@ -1,6 +1,6 @@
-from AlphaGo.ai import ProbabilisticPolicyPlayer
-import numpy as np
 import unittest
+import numpy as np
+from AlphaGo.ai import ProbabilisticPolicyPlayer
 
 
 class TestProbabilisticPolicyPlayer(unittest.TestCase):

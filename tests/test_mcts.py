@@ -1,14 +1,15 @@
-from AlphaGo.go import GameState
-from AlphaGo.mcts import MCTS, TreeNode
-from operator import itemgetter
-import numpy as np
 import unittest
+import numpy as np
+from operator import itemgetter
+from AlphaGo.go_root import RootState
+from AlphaGo.mcts import MCTS, TreeNode
 
 
 class TestTreeNode(unittest.TestCase):
 
     def setUp(self):
-        self.gs = GameState()
+        self.root = RootState()
+        self.gs   = self.root.get_root_game_state()
         self.node = TreeNode(None, 1.0)
 
     def test_selection(self):
@@ -55,7 +56,8 @@ class TestTreeNode(unittest.TestCase):
 class TestMCTS(unittest.TestCase):
 
     def setUp(self):
-        self.gs = GameState()
+        self.root = RootState()
+        self.gs   = self.root.get_root_game_state()
         self.mcts = MCTS(dummy_value, dummy_policy, dummy_rollout, n_playout=2)
 
     def _count_expansions(self):
@@ -83,7 +85,7 @@ class TestMCTS(unittest.TestCase):
         # Test that playout handles the end of the game (i.e. passing/no moves). Mock this by
         # creating a policy that returns nothing after 4 moves.
         def stop_early_policy(state):
-            if len(state.history) <= 4:
+            if len(state.get_history()) <= 4:
                 return dummy_policy(state)
             else:
                 return []
