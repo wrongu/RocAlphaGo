@@ -13,7 +13,7 @@ See the [project wiki](https://github.com/Rochester-NRT/RocAlphaGo/wiki).
 
 # Current project status
 
-_This is not yet a full implementation of AlphaGo_. Development is being carried out on the `develop` branch.
+_This is not yet a full implementation of AlphaGo_. Development is being carried out on the `develop` branch. The current emphasis is on speed optimizations, which are necessary to complete training of the value-network and to create feasible tree-search. See the `cython-optimization` branch for more.
 
 Selected data (i.e. trained models) are released in our [data repository](http://github.com/Rochester-NRT/RocAlphaGo.data).
 
