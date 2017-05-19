@@ -2,7 +2,7 @@ import sys
 import gtp
 from AlphaGo import go
 import multiprocessing
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 from AlphaGo.util import save_gamestate_to_sgf
 
 
@@ -86,13 +86,12 @@ class GTPGameConnector(object):
     """
 
     def __init__(self, player):
-        self._root    = RootState()#enforce_superko=True
-        self._state   = self._root.get_root_game_state()
+        self._state   = GameState()#enforce_superko=True
         self._player  = player
         self._komi    = 0
 
     def clear(self):
-        self._state = self._root.get_root_game_state()
+        self._state = GameState()
 
     def make_move(self, color, vertex):
         # vertex in GTP language is 1-indexed, whereas GameState's are zero-indexed
@@ -107,8 +106,7 @@ class GTPGameConnector(object):
             return False
 
     def set_size(self, n):
-        self._root    = RootState(size=n)#enforce_superko=True
-        self._state   = self._root.get_root_game_state()
+        self._state   = GameState(size=n)#enforce_superko=True
 
     def set_komi(self, k):
         self._komi = k

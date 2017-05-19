@@ -1,8 +1,9 @@
 import os
+import sgf
 import itertools
 import numpy as np
-import sgf
 from AlphaGo import go
+from AlphaGo.go import GameState
 
 # for board location indexing
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -71,17 +72,17 @@ def _parse_sgf_move(node_value):
         return (col, row)
 
 
-def _sgf_init_gamestate(root, sgf_root):
+def _sgf_init_gamestate(sgf_root):
     """
        Helper function to set up a GameState object from the root node
        of an SGF file
     """
     
     props = sgf_root.properties
-    s_size = props.get('SZ', ['19'])[0]
+    s_size = int( props.get('SZ', ['19'])[0] )
     s_player = props.get('PL', ['B'])[0]
     # init board with specified size
-    gs = root.get_root_game_state()
+    gs = GameState( size=s_size )
     # handle 'add black' property
     if 'AB' in props:
         for stone in props['AB']:
@@ -95,13 +96,13 @@ def _sgf_init_gamestate(root, sgf_root):
     return gs
 
 
-def sgf_to_gamestate(root, sgf_string):
+def sgf_to_gamestate(sgf_string):
     """
        Creates a GameState object from the first game in the given collection
     """
     
     # Don't Repeat Yourself; parsing handled by sgf_iter_states
-    for (gs, move, player) in sgf_iter_states(root, sgf_string, True):
+    for (gs, move, player) in sgf_iter_states(sgf_string, True):
         pass
     # gs has been updated in-place to the final state by the time
     # sgf_iter_states returns
@@ -139,7 +140,7 @@ def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown'
         # Move color prefix
         str_list.append(';{}'.format(color))
         # Move coordinates
-        if move is None:
+        if move is go.PASS:
             str_list.append('[tt]')
         else:
             str_list.append('[{}{}]'.format(LETTERS[move[0]].lower(), LETTERS[move[1]].lower()))
@@ -148,7 +149,7 @@ def save_gamestate_to_sgf(gamestate, path, filename, black_player_name='Unknown'
         f.write(''.join(str_list))
 
 
-def sgf_iter_states(root, sgf_string, include_end=True):
+def sgf_iter_states(sgf_string, include_end=True):
     """
        Iterates over (GameState, move, player) tuples in the first game of the given SGF file.
 
@@ -163,7 +164,7 @@ def sgf_iter_states(root, sgf_string, include_end=True):
     
     collection = sgf.parse(sgf_string)
     game = collection[0]
-    gs = _sgf_init_gamestate(root, game.root)
+    gs = _sgf_init_gamestate(game.root)
     if game.rest is not None:
         for node in game.rest:
             props = node.properties
@@ -177,7 +178,7 @@ def sgf_iter_states(root, sgf_string, include_end=True):
             # update state to n+1
             gs.do_move(move, player)
     if include_end:
-        yield (gs, None, None)
+        yield (gs, go.PASS, None)
 
 
 def plot_network_output(scores, board, history, out_directory, output_file,

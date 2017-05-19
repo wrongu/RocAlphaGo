@@ -1,7 +1,7 @@
-from AlphaGo.go import BLACK, WHITE
+from AlphaGo.go import BLACK, WHITE, GameState
 
 
-def parse(state, boardstr):
+def parse(boardstr):
     '''Parses a board into a gamestate, and returns the location of any moves
     marked with anything other than 'B', 'X', '#', 'W', 'O', or '.'
 
@@ -9,8 +9,9 @@ def parse(state, boardstr):
 
     '''
 
-    boardstr = boardstr.replace(' ', '')
-    # board_size = max(boardstr.index('|'), boardstr.count('|'))
+    boardstr   = boardstr.replace(' ', '')
+    board_size = max(boardstr.index('|'), boardstr.count('|'))
+    state      = GameState( size = board_size )
 
     moves = {}
 
@@ -27,4 +28,4 @@ def parse(state, boardstr):
                 assert c not in moves, "{} already used as a move marker".format(c)
                 moves[c] = (row, col)
 
-    return moves
+    return state, moves

@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from AlphaGo import go
 from AlphaGo.ai import ValuePlayer
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 from AlphaGo.models.value import CNNValue
 
 
@@ -11,34 +11,29 @@ class TestCNNValue(unittest.TestCase):
 
     def test_default_value(self):
         
-        rootState = RootState(size=19)
-        state = rootState.get_root_game_state()
+        state = GameState()
         
         value = CNNValue(["board", "liberties", "sensibleness", "capture_size"])
         value.eval_state(state)
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
-        
-        rootState = RootState(size=19)
-        
+                
         value = CNNValue(["board", "liberties", "sensibleness", "capture_size"])
-        results = value.batch_eval_state([rootState.get_root_game_state(), rootState.get_root_game_state()])
+        results = value.batch_eval_state([GameState(), GameState()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertTrue(isinstance(results[0], np.float64))
         self.assertTrue(isinstance(results[1], np.float64))
 
     def test_output_size(self):
         
-        rootState = RootState(size=19)
-        state = rootState.get_root_game_state()
+        state = GameState()
         
         value19 = CNNValue(["board", "liberties", "sensibleness", "capture_size"], board=19)
         output = value19.forward(value19.preprocessor.state_to_tensor(state))
         self.assertEqual(output.shape, (1, 1))
 
-        rootState = RootState(size=13)
-        state = rootState.get_root_game_state()
+        state = GameState( size=13 )
         
         value13 = CNNValue(["board", "liberties", "sensibleness", "capture_size"], board=13)
         output = value13.forward(value13.preprocessor.state_to_tensor(state))
@@ -76,8 +71,7 @@ class TestValuePlayers(unittest.TestCase):
 
     def test_greedy_player(self):
 
-        rootState = RootState(size=9)
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 9 )
         
         value = CNNValue(["board", "ones", "turns_since"], board=9)
         player = ValuePlayer(value, greedy_start=0)
@@ -88,8 +82,7 @@ class TestValuePlayers(unittest.TestCase):
 
     def test_probabilistic_player(self):
 
-        rootState = RootState(size=9)
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 9 )
         
         value = CNNValue(["board", "ones", "turns_since"], board=9)
         player = ValuePlayer(value)
@@ -100,8 +93,7 @@ class TestValuePlayers(unittest.TestCase):
 
     def test_sensible_probabilistic(self):
 
-        rootState = RootState(size=19)
-        gs = rootState.get_root_game_state()
+        gs = GameState()
         
         value = CNNValue(["board", "ones", "turns_since"])
         player = ValuePlayer(value)
@@ -115,8 +107,7 @@ class TestValuePlayers(unittest.TestCase):
 
     def test_sensible_greedy(self):
 
-        rootState = RootState(size=19)
-        gs = rootState.get_root_game_state()
+        gs = GameState()
         
         value = CNNValue(["board", "ones", "turns_since"])
         player = ValuePlayer(value, greedy_start=0)

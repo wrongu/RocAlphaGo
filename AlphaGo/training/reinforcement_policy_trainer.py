@@ -6,7 +6,6 @@ import keras.backend as K
 from shutil import copyfile
 from keras.optimizers import SGD
 from AlphaGo.util import flatten_idx
-from AlphaGo.go_root import RootState
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.ai import ProbabilisticPolicyPlayer
 
@@ -18,13 +17,15 @@ def _make_training_pair(st, mv, preprocessor):
     return (st_tensor, mv_tensor)
 
 
-def run_n_games(optimizer, root, learner, opponent, num_games, mock_states=[]):
-    '''Run num_games games to completion, keeping track of each position and move of the learner.
+def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
+    '''
+       Run num_games games to completion, keeping track of each position and move of the learner.
 
-    (Note: learning cannot happen until all games have completed)
+       (Note: learning cannot happen until all games have completed)
     '''
 
-    states = [root.get_root_game_state() for _ in range(num_games)]
+    board_size = learner.policy.model.input_shape[-1]
+    states = [go.GameState(size=board_size) for _ in range(num_games)]
     learner_net = learner.policy.model
 
     # Allowing injection of a mock state object for testing purposes
@@ -61,8 +62,9 @@ def run_n_games(optimizer, root, learner, opponent, num_games, mock_states=[]):
                 (st_tensor, mv_tensor) = _make_training_pair(state, mv, learner.policy.preprocessor)
                 state_tensors[idx].append(st_tensor)
                 move_tensors[idx].append(mv_tensor)
+
             state.do_move(mv)
-            if state.is_end_of_game:
+            if state.is_end_of_game():
                 learner_won[idx] = state.get_winner() == learner_color[idx]
                 just_finished.append(idx)
 
@@ -86,10 +88,12 @@ def run_n_games(optimizer, root, learner, opponent, num_games, mock_states=[]):
 
 
 def log_loss(y_true, y_pred):
-    '''Keras 'loss' function for the REINFORCE algorithm, where y_true is the action that was
-    taken, and updates with the negative gradient will make that action more likely. We use the
-    negative gradient because keras expects training data to minimize a loss function.
     '''
+       Keras 'loss' function for the REINFORCE algorithm, where y_true is the action that was
+       taken, and updates with the negative gradient will make that action more likely. We use the
+       negative gradient because keras expects training data to minimize a loss function.
+    '''
+    
     return -y_true * K.log(K.clip(y_pred, K.epsilon(), 1.0 - K.epsilon()))
 
 
@@ -183,7 +187,6 @@ def run_training(cmd_line_args=None):
 
     optimizer = SGD(lr=args.learning_rate)
     player.policy.model.compile(loss=log_loss, optimizer=optimizer)
-    root = RootState( player.policy.model.input_shape[-1] )
     for i_iter in range(1, args.iterations + 1):
         # Randomly choose opponent from pool (possibly self), and playing
         # game_batch games against them.
@@ -197,7 +200,7 @@ def run_training(cmd_line_args=None):
 
         # Run games (and learn from results). Keep track of the win ratio vs each opponent over
         # time.
-        win_ratio = run_n_games(optimizer, root, player, opponent, args.game_batch)
+        win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
         metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 
         # Save all intermediate models.
