@@ -1,15 +1,14 @@
 import unittest
 import numpy as np
 from operator import itemgetter
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 from AlphaGo.mcts import MCTS, TreeNode
 
 
 class TestTreeNode(unittest.TestCase):
 
     def setUp(self):
-        self.root = RootState()
-        self.gs   = self.root.get_root_game_state()
+        self.gs   = GameState()
         self.node = TreeNode(None, 1.0)
 
     def test_selection(self):
@@ -56,8 +55,7 @@ class TestTreeNode(unittest.TestCase):
 class TestMCTS(unittest.TestCase):
 
     def setUp(self):
-        self.root = RootState()
-        self.gs   = self.root.get_root_game_state()
+        self.gs   = GameState()
         self.mcts = MCTS(dummy_value, dummy_policy, dummy_rollout, n_playout=2)
 
     def _count_expansions(self):

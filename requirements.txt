@@ -1,4 +1,4 @@
-Cython==0.24
+Cython==0.25.2
 h5py==2.6.0
 Keras==1.2.0
 numpy==1.11.2

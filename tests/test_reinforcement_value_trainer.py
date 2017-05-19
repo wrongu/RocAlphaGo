@@ -1,7 +1,7 @@
 import os
 import unittest
 import numpy as np
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 from AlphaGo.models.value import CNNValue
 from AlphaGo.training.reinforcement_value_trainer import FILE_TEST
 from AlphaGo.training.reinforcement_value_trainer import FILE_TRAIN
@@ -29,8 +29,7 @@ class TestCNNValue(unittest.TestCase):
     # test shape
     def test_ouput_shape(self):
         
-        rootState = RootState(size=19)
-        gs = rootState.get_root_game_state()
+        gs = GameState()
 
         val = self.value.eval_state(gs)
         self.assertTrue(isinstance(val, np.float64))

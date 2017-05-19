@@ -1,17 +1,14 @@
 import os
 import unittest
-from AlphaGo.go_root import RootState
 from AlphaGo.util import sgf_to_gamestate
 from AlphaGo.preprocessing.game_converter import run_game_converter
 
 
 class TestSGFLoading(unittest.TestCase):
     def test_ab_aw(self):
-        
-        rootState = RootState(size=19)
-        
+                
         with open('tests/test_data/sgf_with_handicap/ab_aw.sgf', 'r') as f:
-            sgf_to_gamestate(rootState, f.read())
+            sgf_to_gamestate(f.read())
 
 
 class TestCmdlineConverter(unittest.TestCase):

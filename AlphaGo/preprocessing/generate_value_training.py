@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from AlphaGo.go import WHITE
 from AlphaGo.go import BLACK
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.util import save_gamestate_to_sgf
 from AlphaGo.ai import ProbabilisticPolicyPlayer
@@ -55,7 +55,7 @@ def init_hdf5(h5f, n_features, bd_size):
     return states, winners
 
 
-def play_batch(root, player_RL, player_SL, batch_size, features, i_rand_move, next_idx, sgf_path):
+def play_batch(player_RL, player_SL, batch_size, features, i_rand_move, next_idx, sgf_path):
     """Play a batch of games in parallel and return one training pair from each game.
 
     As described in Silver et al, the method for generating value net training data is as follows:
@@ -70,7 +70,7 @@ def play_batch(root, player_RL, player_SL, batch_size, features, i_rand_move, ne
 
     def do_move(states, moves):
         for st, mv in zip(states, moves):
-            if not st.is_end_of_game:
+            if not st.is_end_of_game():
                 # Only do more moves if not end of game already
                 st.do_move(mv)
         return states
@@ -99,7 +99,7 @@ def play_batch(root, player_RL, player_SL, batch_size, features, i_rand_move, ne
 
     # Lists of game training pairs (1-hot)
     preprocessor = Preprocess(features)
-    states = [root.get_root_game_state() for _ in xrange(batch_size)]
+    states = [GameState() for _ in xrange(batch_size)]
 
     # play player_SL moves
     for _ in xrange(i_rand_move - 1):
@@ -167,10 +167,10 @@ def play_batch(root, player_RL, player_SL, batch_size, features, i_rand_move, ne
     return training_states, winners
 
 
-def generate_data(root, player_RL, player_SL, hdf5_file, n_training_pairs,
+def generate_data(player_RL, player_SL, hdf5_file, n_training_pairs,
                   batch_size, bd_size, features, verbose, sgf_path):
     # used features
-    n_features = Preprocess(features).output_dim
+    n_features = Preprocess(features).get_output_dimension()
     # temporary hdf5 file
     tmp_file = os.path.join(os.path.dirname(hdf5_file), ".tmp." + os.path.basename(hdf5_file))
     # open hdf5 file
@@ -192,7 +192,7 @@ def generate_data(root, player_RL, player_SL, hdf5_file, n_training_pairs,
         i_rand_move = np.random.choice(range(DEAULT_RANDOM_MOVE))
 
         # play games
-        states, winners = play_batch(root, player_RL, player_SL, batch_size, features,
+        states, winners = play_batch(player_RL, player_SL, batch_size, features,
                                      i_rand_move, next_idx, sgf_path)
 
         if states is not None:
@@ -268,8 +268,6 @@ def handle_arguments(cmd_line_args=None):
     parser.add_argument("--sl-temperature", help="Distribution temperature of players using SL policies. Default: " + str(DEFAULT_TEMPERATURE_SL), type=float, default=DEFAULT_TEMPERATURE_SL)  # noqa: E501
     parser.add_argument("--rl-temperature", help="Distribution temperature of players using RL policies. Default: " + str(DEFAULT_TEMPERATURE_RL), type=float, default=DEFAULT_TEMPERATURE_RL)  # noqa: E501
 
-    root = RootState()
-
     # show help or parse arguments
     if cmd_line_args is None:
         args = parser.parse_args()
@@ -318,7 +316,7 @@ def handle_arguments(cmd_line_args=None):
         os.makedirs(args.sgf_path)
 
     # generate data
-    generate_data(root, player_RL, player_SL, args.outfile, args.n_training_pairs, args.batch_size,
+    generate_data(player_RL, player_SL, args.outfile, args.n_training_pairs, args.batch_size,
                   policy_SL.model.input_shape[-1], features, args.verbose, args.sgf_path)
 
 

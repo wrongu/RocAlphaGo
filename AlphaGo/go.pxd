@@ -30,15 +30,19 @@ cdef class GameState:
     cdef char player_current
     cdef char player_opponent
 
+    # amount of black stones captured
     cdef short capture_black
+    # amount of white stones captured
     cdef short capture_white
 
+    # amount of passes by black
     cdef short passes_black
+    # amount of passes by white
     cdef short passes_white
 
-    # TODO replace list with struct
-    cdef list history
+    # list with move history
     cdef Locations_List *moves_history
+
     # list with legal moves
     cdef Locations_List *moves_legal
 
@@ -60,81 +64,271 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
-    cdef void   initialize_duplicate( self, GameState copyState )
+    cdef void initialize_new( self, char size )
+    """
+       initialize this state as empty state
+    """
+
+    cdef void initialize_duplicate( self, GameState copyState )
+    """
+       Initialize all variables as a copy of copy_state
+    """
+
 
     ############################################################################
     #   private cdef functions used for game-play                              #
     #                                                                          #
     ############################################################################
 
-    cdef bint   is_legal_move( self, short location, Group **board, short ko )
-    cdef bint   has_liberty_after( self, short location, Group **board )
-    cdef short  calculate_board_location( self, char x, char y )
-    cdef tuple  calculate_tuple_location( self, short location )
-    cdef void   set_moves_legal_list( self, Locations_List *moves_legal )
+    cdef bint is_legal_move( self, short location, Group **board, short ko )
+    """
+       check if playing at location is a legal move to make
+    """
 
-    cdef void   combine_groups( self, Group* group_keep, Group* group_remove, Group **board )
-    cdef void   remove_group( self, Group* group_remove, Group **board, short* ko )
-    cdef void   update_hashes( self, Group* group )
-    cdef void   add_to_group( self, short location, Group **board, short* ko, short* count_captures )
+    cdef bint has_liberty_after( self, short location, Group **board )
+    """
+       check if a play at location results in an alive group
+       - has liberty
+       - conects to group with >= 2 liberty
+       - captures enemy group
+    """
+
+    cdef short calculate_board_location( self, char x, char y )
+    """
+       return location on board
+       no checks on outside board
+       x = columns
+       y = rows
+    """
+
+    cdef tuple calculate_tuple_location( self, short location )
+    """
+       return location on board as a tupple
+       no checks on outside board
+    """
+
+    cdef void   set_moves_legal_list( self, Locations_List *moves_legal )
+    """
+       generate moves_legal list
+    """
+
+    cdef void combine_groups( self, Group* group_keep, Group* group_remove, Group **board )
+    """
+       combine group_keep and group_remove and replace group_remove on the board 
+    """
+
+    cdef void remove_group( self, Group* group_remove, Group **board, short* ko )
+    """
+       remove group from board -> set all locations to group_empty
+    """
+
+    cdef void update_hashes( self, Group* group )
+    """
+       update all locations affected by removal of group
+    """
+
+    cdef void add_to_group( self, short location, Group **board, short* ko, short* count_captures )
+    """
+       check if a stone on location is connected to a group, kills a group 
+       or is a new group on the board
+    """
 
     ############################################################################
     #   private cdef functions used for feature generation                     #
     #                                                                          #
     ############################################################################
 
-    cdef long   generate_12d_hash( self, short centre )
-    cdef long   generate_3x3_hash( self, short centre )
-    cdef void   get_group_after( self, short* groups_after, char* locations, char* captures, short location )
-    cdef bint   is_true_eye( self, short location, Locations_List* eyes, char owner )
+    cdef long generate_12d_hash( self, short centre )
+    """
+       generate 12d hash around centre location
+    """
+
+    cdef long generate_3x3_hash( self, short centre )
+    """
+       generate 3x3 hash around centre location
+    """
+
+    cdef void get_group_after( self, char* groups_after, char* locations, char* captures, short location )
+    """
+       groups_after is a board_size * 3 array representing STONES, LIBERTY, CAPTURE for every location
+
+       calculate group after a play on location and set
+       groups_after[ location * 3 +   ] to stone   count
+       groups_after[ location * 3 + 1 ] to liberty count
+       groups_after[ location * 3 + 2 ] to capture count
+    """
+
+    cdef bint is_true_eye( self, short location, Locations_List* eyes, char owner )
+    """
+       check if location is a real eye
+    """
 
     ############################################################################
     #   private cdef Ladder functions                                          #
     #                                                                          #
     ############################################################################
 
-    cdef Groups_List* add_ladder_move(    self, short location, Group **board, short* ko )
-    cdef void         unremove_group(     self, Group* group_remove, Group **board )
-    cdef dict         get_capture_moves(  self, Group* group, char color, Group **board )
-    cdef void         get_removed_groups( self, short location, Groups_List* removed_groups, Group **board, short* ko )
-    cdef void         undo_ladder_move(   self, short location, Groups_List* removed_groups, short ko, Group **board, short* ko )
-    cdef bint         is_ladder_escape_move(  self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase )
-    cdef bint         is_ladder_capture_move( self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase )
+    """
+       Ladder evaluation consumes a lot of time duplicating data, the original
+       version (still can be found in go_python.py) made a copy of the whole
+       GameState for every move played.
+
+       This version only duplicates self.board_groups ( so the list with pointers to groups )
+       the add_ladder_move playes a move like the add_to_group function but it
+       does not change the original groups and creates a list with groups removed
+
+       with this groups removed list undo_ladder_move will return the board state to 
+       be the same as before add_ladder_move was called
+
+       get_removed_groups and unremove_group are being used my add/undo_ladder_move
+
+       nb.
+       duplicating self.board_groups is not neccisary stricktly speaking but
+       it is safer to do so in a threaded environment. as soon as mcts is
+       implemented this duplication could be removed if the mcts ensures a
+       GameState is not accesed while preforming a ladder evaluation
+
+       TODO validate no changes are being made!
+
+       TODO self.player colour is used, should become a pointer
+    """
+
+    cdef Groups_List* add_ladder_move( self, short location, Group **board, short* ko )
+    """
+       create a new group for location move and add all connected groups to it
+
+       similar to add_to_group except no groups are changed or killed and a list
+       with groups removed is returned so the board can be restored to original
+       position
+    """
+
+    cdef void undo_ladder_move(   self, short location, Groups_List* removed_groups, short ko, Group **board, short* ko )
+    """
+       Use removed_groups list to return board state to be the same as before
+       add_ladder_move was used
+    """
+
+    cdef void unremove_group(     self, Group* group_remove, Group **board )
+    """
+       unremove group from board
+       loop over all stones in this group and set board to group_unremove
+       remove liberty from neigbor locations
+    """
+
+    cdef dict get_capture_moves(  self, Group* group, char color, Group **board )
+    """
+       create a dict with al moves that capture a group surrounding group
+    """
+
+    cdef void get_removed_groups( self, short location, Groups_List* removed_groups, Group **board, short* ko )
+    """
+       create a new group for location move and add all connected groups to it
+
+       similar to add_to_group except no groups are changed or killed 
+       all changes to the board are stored in removed_groups
+    """
+
+    cdef bint is_ladder_escape_move(  self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase )
+    """
+       play a ladder move on location, check if group has escaped,
+       if the group has 2 liberty it is undetermined ->
+       try to capture it by playing at both liberty
+    """
+
+    cdef bint is_ladder_capture_move( self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase )
+    """
+       play a ladder move on location, try capture and escape moves
+       and see if the group is able to escape ladder
+    """
 
     ############################################################################
     #   public cdef functions used by preprocessing                            #
     #                                                                          #
     ############################################################################
 
-    cdef short*          get_groups_after(       self )
-    cdef Locations_List* get_sensible_moves(     self )
-    cdef list            get_neighbor_locations( self )
-    cdef long            get_hash_12d(           self, short centre   )
-    cdef long            get_hash_3x3(           self, short location )
-    cdef char*           get_ladder_escapes(     self, int maxDepth   )
-    cdef char*           get_ladder_captures(    self, int maxDepth   )
-    cdef char            get_board_feature(      self, short location )
+    cdef char* get_groups_after( self )
+    """
+       return a short array of size board_size * 3 representing 
+       STONES, LIBERTY, CAPTURE for every board location
+
+       max count values are 100
+
+       loop over all legal moves and determine stone count, liberty count and
+       capture count of a play on that location
+    """
+
+    cdef list get_neighbor_locations( self )
+    """
+       generate list with 3x3 neighbor locations
+       0,1,2,3 are direct neighbor
+       4,5,6,7 are diagonal neighbor
+       where -1 if it is a border location or non empty location
+    """
+
+    cdef long get_hash_12d( self, short centre )
+    """
+       return hash for 12d star pattern around location
+    """
+
+    cdef long get_hash_3x3( self, short location )
+    """
+       return 3x3 pattern hash + current player
+    """
+
+    cdef char* get_ladder_escapes( self, int maxDepth )
+    """
+       return char array with size board_size
+       every location represents a location on the board where:
+       _FREE  = no ladder escape
+       _STONE = ladder escape           
+    """
+
+    cdef char* get_ladder_captures( self, int maxDepth )
+    """
+       return char array with size board_size
+       every location represents a location on the board where:
+       _FREE  = no ladder capture
+       _STONE = ladder capture
+    """
 
     ############################################################################
     #   public cdef functions used for game play                               #
     #                                                                          #
     ############################################################################
 
-    cdef void         add_move(           self, short location )
-    cdef GameState    new_state_add_move( self, short location )
-    cdef char         get_winner_colour(  self, int komi )
+    cdef void add_move( self, short location )
+    """
+       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                  Move should be legal!
+       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+       play move on location, move should be legal!
+
+       update player_current, history and moves_legal
+    """
+
+    cdef GameState new_state_add_move( self, short location )
+    """
+       copy this gamestate and play move at location
+    """
+
+    cdef char get_winner_colour( self, int komi )
+    """
+       Calculate score of board state and return player ID (1, -1, or 0 for tie)
+       corresponding to winner. Uses 'Area scoring'.
+
+       http://senseis.xmp.net/?Passing#1
+    """
 
     ############################################################################
     #   public def functions used for game play (Python)                       #
     #                                                                          #
     ############################################################################
 
-    #def do_move( self, action )
-    #def get_next_state( self, action )
-    #def place_handicap( self, handicap )
-    #def get_winner( self, char komi )
-    #def get_legal_moves( self, include_eyes = True )
-    #def is_legal( self, action )
+    cdef Locations_List* get_sensible_moves( self )
+    """
+       only used for def get_legal_moves
+    """
 
     ############################################################################
     #   tests                                                                  #
@@ -142,4 +336,11 @@ cdef class GameState:
     ############################################################################
 
     cdef test( self )
+    """
+       test function
+    """
+
     cdef test_cpp_fast( self )
+    """
+       test function
+    """

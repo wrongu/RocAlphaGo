@@ -4,7 +4,6 @@ import numpy as np
 import AlphaGo.go as go
 import numpy.testing as npt
 from keras.optimizers import SGD
-from AlphaGo.go_root import RootState
 from AlphaGo.util import sgf_iter_states
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.training.reinforcement_policy_trainer import run_training, log_loss, run_n_games
@@ -24,9 +23,7 @@ def _list_mock_games(path):
 
 
 def get_sgf_move_probs(sgf_game, policy, player):
-    
-    root = RootState()
-    
+        
     with open(sgf_game, "r") as f:
         sgf_game = f.read()
 
@@ -37,18 +34,16 @@ def get_sgf_move_probs(sgf_game, policy, player):
         return 0
 
     return [(move, get_single_prob(move, policy.eval_state(state)))
-            for (state, move, pl) in sgf_iter_states(root, sgf_game) if pl == player]
+            for (state, move, pl) in sgf_iter_states(sgf_game) if pl == player]
 
 
 class MockPlayer(object):
 
     def __init__(self, policy, sgf_game):
-    
-        self.root = RootState()
-    
+        
         with open(sgf_game, "r") as f:
             sgf_game = f.read()
-        self.moves = [move for (_, move, _) in sgf_iter_states(self.root, sgf_game)]
+        self.moves = [move for (_, move, _) in sgf_iter_states(sgf_game)]
         self.policy = policy
 
     def get_moves(self, states):
@@ -62,22 +57,15 @@ class MockState(go.GameState):
         super(MockState, self).__init__(*args, **kwargs)
         self.predetermined_winner = predetermined_winner
         self.length = length
-        self.count  = 0
-        self.should_end = False
         
-
-    def do_move(self, *args, **kwargs):
-        super(MockState, self).do_move(*args, **kwargs)
-        self.count += 1
-        if self.count > self.length:
-            self.is_end_of_game = True
-
     def get_winner(self):
         return self.predetermined_winner
-    
+                
     def is_end_of_game(self):
-        return self.should_end
-
+        if len(self.get_history()) > self.length:
+            return True
+        return False
+    
 
 class TestReinforcementPolicyTrainer(unittest.TestCase):
 
@@ -96,9 +84,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
     def testGradientDirectionChangesWithGameResult(self):
 
         def run_and_get_new_weights(init_weights, winners, game):
-            
-            root = RootState()
-            
+                        
             # Create "mock" states that end after 2 moves with a predetermined winner.
             states = [MockState(winner, 2, size=19) for winner in winners]
 
@@ -112,14 +98,12 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             opponent = MockPlayer(policy2, game)
 
             # Run RL training
-            run_n_games(optimizer, root, learner, opponent, 2, mock_states=states)
+            run_n_games(optimizer, learner, opponent, 2, mock_states=states)
 
             return policy1.model.get_weights()
 
         def test_game_gradient(game):
-            
-            root = RootState()
-            
+                        
             policy = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel_policy.json'))
             initial_parameters = policy.model.get_weights()
             # Cases 1 and 2 have identical starting models and identical (state, action) pairs,
@@ -148,8 +132,6 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
     def testRunNGamesUpdatesWeights(self):
         def test_game_run_N(game):
             
-            root = RootState()
-            
             policy1 = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel_policy.json'))
             policy2 = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel_policy.json'))
             learner = MockPlayer(policy1, game)
@@ -159,7 +141,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             policy1.model.compile(loss=log_loss, optimizer=optimizer)
 
             # Run RL training
-            run_n_games(optimizer, root, learner, opponent, 2)
+            run_n_games(optimizer, learner, opponent, 2)
 
             # Get new weights for comparison
             trained_weights = policy1.model.get_weights()
@@ -175,8 +157,6 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
     def testWinIncreasesMoveProbability(self):
         def test_game_increase(game):
             
-            root = RootState()
-            
             # Create "mock" state that ends after 20 moves with the learner winnning
             win_state = [MockState(go.BLACK, 20, size=19)]
             policy1 = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel_policy.json'))
@@ -191,7 +171,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             init_probs = [prob for (mv, prob) in init_move_probs]
 
             # Run RL training
-            run_n_games(optimizer, root, learner, opponent, 1, mock_states=win_state)
+            run_n_games(optimizer, learner, opponent, 1, mock_states=win_state)
 
             # Get new move probabilities for black's moves having finished 1 round of training
             new_move_probs = get_sgf_move_probs(game, policy1, go.BLACK)
@@ -205,9 +185,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
 
     def testLoseDecreasesMoveProbability(self):
         def test_game_decrease(game):
-            
-            root = RootState()
-            
+                        
             # Create "mock" state that ends after 20 moves with the learner losing
             lose_state = [MockState(go.WHITE, 20, size=19)]
             policy1 = CNNPolicy.load_model(os.path.join('tests', 'test_data', 'minimodel_policy.json'))
@@ -222,7 +200,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             init_probs = [prob for (mv, prob) in init_move_probs]
 
             # Run RL training
-            run_n_games(optimizer, root, learner, opponent, 1, mock_states=lose_state)
+            run_n_games(optimizer, learner, opponent, 1, mock_states=lose_state)
 
             # Get new move probabilities for black's moves having finished 1 round of training
             new_move_probs = get_sgf_move_probs(game, policy1, go.BLACK)

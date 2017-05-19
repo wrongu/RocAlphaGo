@@ -2,7 +2,7 @@ import os
 import unittest
 import numpy as np
 from AlphaGo import go
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 from AlphaGo.models.policy import CNNPolicy, ResnetPolicy
 from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
 
@@ -10,35 +10,26 @@ from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
 class TestCNNPolicy(unittest.TestCase):
 
     def test_default_policy(self):
-        
-        rootState = RootState(size=19)
-        state = rootState.get_root_game_state()
-        
+                
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        policy.eval_state(state)
+        policy.eval_state(GameState())
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
-        
-        rootState = RootState(size=19)
-        
+                
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        results = policy.batch_eval_state([rootState.get_root_game_state(), rootState.get_root_game_state()])
+        results = policy.batch_eval_state([GameState(), GameState()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
     def test_output_size(self):
-        
-        rootState = RootState(size=19)
-        
+                
         policy19 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=19)
-        output = policy19.forward(policy19.preprocessor.state_to_tensor(rootState.get_root_game_state()))
+        output = policy19.forward(policy19.preprocessor.state_to_tensor(GameState()))
         self.assertEqual(output.shape, (1, 19 * 19))
 
-        rootState = RootState(size=13)
-        
         policy13 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=13)
-        output = policy13.forward(policy13.preprocessor.state_to_tensor(rootState.get_root_game_state()))
+        output = policy13.forward(policy13.preprocessor.state_to_tensor(GameState( size = 13 )))
         self.assertEqual(output.shape, (1, 13 * 13))
 
     def test_save_load(self):
@@ -72,19 +63,15 @@ class TestCNNPolicy(unittest.TestCase):
 
 class TestResnetPolicy(unittest.TestCase):
     def test_default_policy(self):
-        
-        rootState = RootState(size=19)
-        
+                
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        policy.eval_state(rootState.get_root_game_state())
+        policy.eval_state(GameState())
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
-        
-        rootState = RootState(size=19)
-        
+                
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
-        results = policy.batch_eval_state([rootState.get_root_game_state(), rootState.get_root_game_state()])
+        results = policy.batch_eval_state([GameState(), GameState()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
@@ -126,10 +113,8 @@ class TestResnetPolicy(unittest.TestCase):
 class TestPlayers(unittest.TestCase):
 
     def test_greedy_player(self):
-        
-        rootState = RootState(size=19)
-        
-        gs = rootState.get_root_game_state()
+                
+        gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = GreedyPolicyPlayer(policy)
         for _ in range(20):
@@ -138,10 +123,8 @@ class TestPlayers(unittest.TestCase):
             gs.do_move(move)
 
     def test_probabilistic_player(self):
-        
-        rootState = RootState(size=19)
-        
-        gs = rootState.get_root_game_state()
+                
+        gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = ProbabilisticPolicyPlayer(policy)
         for _ in range(20):
@@ -150,10 +133,8 @@ class TestPlayers(unittest.TestCase):
             gs.do_move(move)
 
     def test_sensible_probabilistic(self):
-        
-        rootState = RootState(size=19)
-        
-        gs = rootState.get_root_game_state()
+                
+        gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = ProbabilisticPolicyPlayer(policy)
         empty = (10, 10)
@@ -166,9 +147,7 @@ class TestPlayers(unittest.TestCase):
 
     def test_sensible_greedy(self):
         
-        rootState = RootState(size=19)
-        
-        gs = rootState.get_root_game_state()
+        gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = GreedyPolicyPlayer(policy)
         empty = (10, 10)

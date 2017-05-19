@@ -1,15 +1,14 @@
 import unittest
 import numpy as np
 import AlphaGo.go as go
-from AlphaGo.go_root import RootState
+from AlphaGo.go import GameState
 
 
 class TestKo(unittest.TestCase):
 
     def test_standard_ko(self):
         
-        rootState = RootState(size=9)
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 9 )
         
         gs.do_move((1, 0))  # B
         gs.do_move((2, 0))  # W
@@ -33,8 +32,7 @@ class TestKo(unittest.TestCase):
 
     def test_snapback_is_not_ko(self):
         
-        rootState = RootState(size=5)
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 5 )
         
         # B o W B .
         # W W B . .
@@ -65,8 +63,7 @@ class TestKo(unittest.TestCase):
 
     def test_positional_superko(self):
         
-        rootState = RootState(size=9)
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 9 )
         
         move_list = [(0, 3), (0, 4), (1, 3), (1, 4), (2, 3), (2, 4), (2, 2), (3, 4), (2, 1), (3, 3),
                      (3, 1), (3, 2), (3, 0), (4, 2), (1, 1), (4, 1), (8, 0), (4, 0), (8, 1), (0, 2),
@@ -77,7 +74,7 @@ class TestKo(unittest.TestCase):
         self.assertTrue(gs.is_legal((1, 0)))
 
         # gs = GameState(size=9, enforce_superko=True) super ko is not handled yet
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 9 )
         for move in move_list:
             gs.do_move(move)
         self.assertFalse(gs.is_legal((1, 0)))
@@ -87,8 +84,7 @@ class TestEye(unittest.TestCase):
 
     def test_true_eye(self):
         
-        rootState = RootState(size=7)
-        gs = rootState.get_root_game_state()
+        gs = GameState( size = 7 )
         
         gs.do_move((1, 0), go.BLACK)
         gs.do_move((0, 1), go.BLACK)
@@ -110,9 +106,8 @@ class TestEye(unittest.TestCase):
         # a checkerboard pattern of black is 'technically' all true eyes
         # mutually supporting each other
         
-        rootState = RootState(size=7)
+        gs = GameState( size = 7 )
         
-        gs = rootState.get_root_game_state()
         for x in range(gs.get_size()):
             for y in range(gs.get_size()):
                 if (x + y) % 2 == 1:
@@ -126,11 +121,9 @@ class TestCacheSets(unittest.TestCase):
         # creates 3x3 black group in the middle, that is then all captured
         # ...then an assertion is made that the resulting liberties after
         # capture are the same as if the group had never been there
-        
-        rootState = RootState(size=7)
-        
-        gs_capture = rootState.get_root_game_state()
-        gs_reference = rootState.get_root_game_state()
+                
+        gs_capture = GameState( size = 7 )
+        gs_reference = GameState( size = 7 )
         # add in 3x3 black stones
         for x in range(2, 5):
             for y in range(2, 5):

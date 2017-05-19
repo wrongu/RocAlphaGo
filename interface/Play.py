@@ -1,6 +1,5 @@
 """Interface for AlphaGo self-play"""
-from AlphaGo.go_root import RootState
-from AlphaGo.go import PASS
+from AlphaGo.go import PASS, WHITE, GameState
 
 class play_match(object):
     """Interface to handle play between two players."""
@@ -9,8 +8,7 @@ class play_match(object):
         # super(ClassName, self).__init__()
         self.player1 = player1
         self.player2 = player2
-        self.root    = RootState(size=size)
-        self.state   = self.root.get_root_game_state()
+        self.state   = GameState(size=size)
         # I Propose that GameState should take a top-level save directory,
         # then automatically generate the specific file name
 
@@ -21,7 +19,7 @@ class play_match(object):
         # self.state.write_to_disk()
         if len(self.state.get_history()) > 1:
             if self.state.get_history()[-1] is PASS and self.state.get_history()[-2] is PASS \
-                    and self.state.current_player == -1:
+                    and self.state.get_current_player() == WHITE:
                 end_of_game = True
             else:
                 end_of_game = False

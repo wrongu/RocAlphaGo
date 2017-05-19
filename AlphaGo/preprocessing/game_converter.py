@@ -5,7 +5,6 @@ import warnings
 import h5py as h5
 import numpy as np
 import AlphaGo.go as go
-from AlphaGo.go_root import RootState
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import sgf_iter_states
 
@@ -20,7 +19,7 @@ class GameConverter:
         self.feature_processor = Preprocess(features)
         self.n_features = self.feature_processor.get_output_dimension()
 
-    def convert_game(self, root, file_name, bd_size):
+    def convert_game(self, file_name, bd_size):
         """Read the given SGF file into an iterable of (input,output) pairs
         for neural network training
 
@@ -31,7 +30,7 @@ class GameConverter:
         """
 
         with open(file_name, 'r') as file_object:
-            state_action_iterator = sgf_iter_states(root, file_object.read(), include_end=False)
+            state_action_iterator = sgf_iter_states(file_object.read(), include_end=False)
 
         for (state, move, player) in state_action_iterator:
             if state.get_size() != bd_size:
@@ -40,7 +39,7 @@ class GameConverter:
                 nn_input = self.feature_processor.state_to_tensor(state)
                 yield (nn_input, move)
 
-    def sgfs_to_hdf5(self, root, sgf_files, hdf5_file, bd_size=19, ignore_errors=True, verbose=False):
+    def sgfs_to_hdf5(self, sgf_files, hdf5_file, bd_size=19, ignore_errors=True, verbose=False):
         """Convert all files in the iterable sgf_files into an hdf5 group to be stored in hdf5_file
 
         Arguments:
@@ -107,7 +106,7 @@ class GameConverter:
                 n_pairs = 0
                 file_start_idx = next_idx
                 try:
-                    for state, move in self.convert_game(root, file_name, bd_size):
+                    for state, move in self.convert_game(file_name, bd_size):
                         if next_idx >= len(states):
                             states.resize((next_idx + 1, self.n_features, bd_size, bd_size))
                             actions.resize((next_idx + 1, 2))
@@ -194,8 +193,6 @@ def run_game_converter(cmd_line_args=None):
     if args.verbose:
         print("using features", feature_list)
 
-    root = RootState()
-
     converter = GameConverter(feature_list)
 
     def _is_sgf(fname):
@@ -225,7 +222,7 @@ def run_game_converter(cmd_line_args=None):
     else:
         files = (f.strip() for f in sys.stdin if _is_sgf(f))
 
-    converter.sgfs_to_hdf5(root, files, args.outfile, bd_size=args.size, verbose=args.verbose)
+    converter.sgfs_to_hdf5(files, args.outfile, bd_size=args.size, verbose=args.verbose)
 
 
 if __name__ == '__main__':

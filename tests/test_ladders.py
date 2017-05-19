@@ -1,16 +1,12 @@
 import unittest
 import parseboard
 from AlphaGo.go import BLACK, WHITE
-from AlphaGo.go_root import RootState
 
 
 class TestLadder(unittest.TestCase):
     def test_captured_1(self):
-        
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, "d b c . . . .|"
+                
+        st, moves = parseboard.parse("d b c . . . .|"
                                      "B W a . . . .|"
                                      ". B . . . . .|"
                                      ". . . . . . .|"
@@ -33,10 +29,7 @@ class TestLadder(unittest.TestCase):
 
     def test_breaker_1(self):
         
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, ". B . . . . .|"
+        st, moves = parseboard.parse(". B . . . . .|"
                                      "B W a . . W .|"
                                      "B b . . . . .|"
                                      ". c . . . . .|"
@@ -59,10 +52,7 @@ class TestLadder(unittest.TestCase):
 
     def test_missing_ladder_breaker_1(self):
         
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, ". B . . . . .|"
+        st, moves = parseboard.parse(". B . . . . .|"
                                      "B W B . . W .|"
                                      "B a c . . . .|"
                                      ". b . . . . .|"
@@ -82,10 +72,7 @@ class TestLadder(unittest.TestCase):
 
     def test_capture_to_escape_1(self):
         
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, ". O X . . .|"
+        st, moves = parseboard.parse(". O X . . .|"
                                      ". X O X . .|"
                                      ". . O X . .|"
                                      ". . a . . .|"
@@ -98,10 +85,7 @@ class TestLadder(unittest.TestCase):
 
     def test_throw_in_1(self):
         
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, "X a O X . .|"
+        st, moves = parseboard.parse("X a O X . .|"
                                      "b O O X . .|"
                                      "O O X X . .|"
                                      "X X . . . .|"
@@ -119,10 +103,7 @@ class TestLadder(unittest.TestCase):
 
     def test_snapback_1(self):
         
-        rootState = RootState(size=9)
-        st = rootState.get_root_game_state()
-
-        moves = parseboard.parse(st, ". . . . . . . . .|"
+        st, moves = parseboard.parse(". . . . . . . . .|"
                                      ". . . . . . . . .|"
                                      ". . X X X . . . .|"
                                      ". . O . . . . . .|"
@@ -140,10 +121,7 @@ class TestLadder(unittest.TestCase):
 
     def test_two_captures(self):
         
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, ". . . . . .|"
+        st, moves = parseboard.parse(". . . . . .|"
                                      ". . . . . .|"
                                      ". . a b . .|"
                                      ". X O O X .|"
@@ -157,10 +135,7 @@ class TestLadder(unittest.TestCase):
 
     def test_two_escapes(self):
         
-        rootState = RootState(size=7)
-        st = rootState.get_root_game_state()
-        
-        moves = parseboard.parse(st, ". . X . . .|"
+        st, moves = parseboard.parse(". . X . . .|"
                                      ". X O a . .|"
                                      ". X c X . .|"
                                      ". O X b . .|"
