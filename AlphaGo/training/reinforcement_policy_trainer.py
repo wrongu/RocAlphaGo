@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import numpy as np
 from shutil import copyfile
 from keras.optimizers import SGD
@@ -133,9 +134,12 @@ def run_training(cmd_line_args=None):
             print("copied {} to {}".format(args.initial_weights,
                                            os.path.join(args.out_directory, ZEROTH_FILE)))
         player_weights = ZEROTH_FILE
+        iter_start = 1
     else:
         # if resuming, we expect initial_weights to be just a
         # "weights.#####.hdf5" file, not a full path
+        if not re.match(r"weights\.\d{5}\.hdf5", args.initial_weights):
+            raise ValueError("Expected to resume from weights file with name 'weights.#####.hdf5'")
         args.initial_weights = os.path.join(args.out_directory,
                                             os.path.basename(args.initial_weights))
         if not os.path.exists(args.initial_weights):
@@ -143,6 +147,7 @@ def run_training(cmd_line_args=None):
         elif args.verbose:
             print("Resuming with weights {}".format(args.initial_weights))
         player_weights = os.path.basename(args.initial_weights)
+        iter_start = 1 + int(player_weights[8:13])
 
     # Set initial conditions
     policy = CNNPolicy.load_model(args.model_json)
@@ -184,7 +189,7 @@ def run_training(cmd_line_args=None):
 
     optimizer = SGD(lr=args.learning_rate)
     player.policy.model.compile(loss=log_loss, optimizer=optimizer)
-    for i_iter in range(1, args.iterations + 1):
+    for i_iter in range(iter_start, args.iterations + 1):
         # Randomly choose opponent from pool (possibly self), and playing
         # game_batch games against them.
         opp_weights = np.random.choice(metadata["opponents"])
