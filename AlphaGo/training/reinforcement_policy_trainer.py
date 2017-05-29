@@ -104,6 +104,7 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)  # noqa: E501
     parser.add_argument("--policy-temp", help="Distribution temperature of players using policies (Default: 0.67)", type=float, default=0.67)  # noqa: E501
     parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)  # noqa: E501
+    parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 1)", type=int, default=1)  # noqa: E501
     parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)  # noqa: E501
     parser.add_argument("--move-limit", help="Maximum number of moves per game", type=int, default=500)  # noqa: E501
     parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)  # noqa: E501
@@ -205,9 +206,10 @@ def run_training(cmd_line_args=None):
         win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
         metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 
-        # Save all intermediate models.
-        player_weights = "weights.%05d.hdf5" % i_iter
-        player.policy.model.save_weights(os.path.join(args.out_directory, player_weights))
+        # Save intermediate models.
+        if i_iter % args.record_every == 0:
+            player_weights = "weights.%05d.hdf5" % i_iter
+            player.policy.model.save_weights(os.path.join(args.out_directory, player_weights))
 
         # Add player to batch of oppenents once in a while.
         if i_iter % args.save_every == 0:
