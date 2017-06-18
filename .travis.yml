@@ -31,10 +31,13 @@ install:
   - sudo ln -s /run/shm /dev/shm
 
   # install requirements
-  - conda install --yes Cython=0.24 h5py=2.6.0 numpy=1.11.2 scipy=0.18.1 PyYAML=3.12 matplotlib pandas pytest
+  - conda install --yes Cython=0.25.2 h5py=2.6.0 numpy=1.11.2 scipy=0.18.1 PyYAML=3.12 matplotlib pandas pytest
   - pip install --user --no-deps Theano==0.8.2 sgf==0.5 keras==1.2.0 pygtp==0.3
   - pip install --user flake8
 
+  # compile cython code
+  - python setup.py build_ext --inplace
+  
   # install TensorFlow if needed
   # tensorflow does not have a python3.3 wheel
   - if [[ "$KERAS_BACKEND" == "tensorflow" ]]; then
