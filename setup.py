@@ -4,7 +4,7 @@ from distutils.core import setup
 from Cython.Build import cythonize
 
 setup(
-    
+
     name = 'RocAlphaGo',
     # list with files to be cythonized
     ext_modules = cythonize( [ "AlphaGo/go.pyx", "AlphaGo/go_data.pyx", "AlphaGo/preprocessing/preprocessing.pyx" ] ),
@@ -24,7 +24,7 @@ setup(
 
    you can run all unittests to verify everything works as it should:
    python -m unittest discover
-   
+
    nb. right now one test will fail: Super-ko
 
 """

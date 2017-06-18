@@ -2,7 +2,7 @@ import numpy as np
 from keras.models import Sequential
 from keras.layers.core import Flatten
 from nn_util import NeuralNetBase, neuralnet
-from keras.layers import convolutional, Dense
+from keras.layers import Dense, convolutional
 
 
 @neuralnet
@@ -80,14 +80,23 @@ class CNNValue(NeuralNetBase):
         network = Sequential()
 
         # create first layer
-        network.add(convolutional.Convolution2D(
+        network.add(convolutional.Conv2D(
             input_shape=(params["input_dim"], params["board"], params["board"]),
-            nb_filter=params.get("filters_per_layer_1", params["filters_per_layer"]),
-            nb_row=params["filter_width_1"],
-            nb_col=params["filter_width_1"],
-            init='uniform',
+            filters=params.get("filters_per_layer_1", params["filters_per_layer"]),
+            kernel_size=(params["filter_width_1"], params["filter_width_1"]),
+            kernel_initializer='uniform',
             activation='relu',
-            border_mode='same'))
+            padding='same',
+            kernel_constraint=None,
+            activity_regularizer=None, 
+            trainable=True,
+            strides=[1, 1],
+            use_bias=True,
+            bias_regularizer=None, 
+            bias_constraint=None, 
+            data_format="channels_first",
+            kernel_regularizer=None,
+            name="con_first"))
 
         for i in range(2, params["layers"] + 1):
             # use filter_width_K if it is there, otherwise use 3
@@ -98,24 +107,67 @@ class CNNValue(NeuralNetBase):
             filter_count_key = "filters_per_layer_%d" % i
             filter_nb = params.get(filter_count_key, params["filters_per_layer"])
 
-            network.add(convolutional.Convolution2D(
-                nb_filter=filter_nb,
-                nb_row=filter_width,
-                nb_col=filter_width,
-                init='uniform',
+            network.add(convolutional.Conv2D(
+                filters=filter_nb,
+                kernel_size=(filter_width, filter_width),
+                kernel_initializer='uniform',
                 activation='relu',
-                border_mode='same'))
+                padding='same',
+                kernel_constraint=None,
+                activity_regularizer=None, 
+                trainable=True,
+                strides=[1, 1],
+                use_bias=True,
+                bias_regularizer=None, 
+                bias_constraint=None, 
+                data_format="channels_first",
+                kernel_regularizer=None,
+                name="con_" + str( i )))
 
         # the last layer maps each <filters_per_layer> feature to a number
-        network.add(convolutional.Convolution2D(
-            nb_filter=1,
-            nb_row=1,
-            nb_col=1,
-            init='uniform',
+        network.add(convolutional.Conv2D(
+            filters=1,
+            kernel_size=(1, 1),
+            kernel_initializer='uniform',
             activation='relu',
-            border_mode='same'))
-
+            padding='same',
+            kernel_constraint=None,
+            activity_regularizer=None, 
+            trainable=True,
+            strides=[1, 1],
+            use_bias=True,
+            bias_regularizer=None, 
+            bias_constraint=None, 
+            data_format="channels_first",
+            kernel_regularizer=None,
+            name="con_last"))
+                    
         network.add(Flatten())
-        network.add(Dense(params["dense"], init='uniform', activation='relu'))
-        network.add(Dense(1, init='uniform', activation="tanh"))
+                      
+        network.add(Dense(input_dim=params["board"] * params["board"], 
+                          units=params["dense"], 
+                          kernel_initializer='uniform', 
+                          activation='relu', 
+                          bias_regularizer=None, 
+                          bias_constraint=None, 
+                          activity_regularizer=None, 
+                          trainable=True,
+                          kernel_constraint=None, 
+                          kernel_regularizer=None, 
+                          use_bias=True,
+                          name="dense_1"))
+                                               
+        network.add(Dense(input_dim=params["dense"], 
+                          units=1, 
+                          kernel_initializer='uniform', 
+                          activation="tanh", 
+                          bias_regularizer=None, 
+                          bias_constraint=None, 
+                          activity_regularizer=None, 
+                          trainable=True,
+                          kernel_constraint=None, 
+                          kernel_regularizer=None, 
+                          use_bias=True,
+                          name="dense_2"))
+                     
         return network

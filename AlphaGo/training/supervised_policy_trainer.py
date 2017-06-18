@@ -666,11 +666,11 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
 
     model.fit_generator(
         generator=train_data_generator,
-        samples_per_epoch=metadata["epoch_length"],
-        nb_epoch=(metadata["epochs"] - len(metadata["epoch_logs"])),
+        steps_per_epoch=( metadata["epoch_length"] / metadata["batch_size"] ),
+        epochs=(metadata["epochs"] - len(metadata["epoch_logs"])),
         callbacks=[meta_writer, lr_scheduler_callback],
         validation_data=val_data_generator,
-        nb_val_samples=len(val_indices))
+        validation_steps=( len(val_indices) / metadata["batch_size"] ) )
 
 
 def start_training(args):

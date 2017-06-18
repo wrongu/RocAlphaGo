@@ -42,18 +42,18 @@ def confirm(prompt=None, resp=False):
 
 def flatten_idx(position, size):
     """
-       
+
     """
-    
+
     (x, y) = position
     return x * size + y
 
 
 def unflatten_idx(idx, size):
     """
-       
+
     """
-    
+
     x, y = divmod(idx, size)
     return (x, y)
 
@@ -62,7 +62,7 @@ def _parse_sgf_move(node_value):
     """
        Given a well-formed move string, return either PASS_MOVE or the (x, y) position
     """
-    
+
     if node_value == '' or node_value == 'tt':
         return go.PASS
     else:
@@ -77,7 +77,7 @@ def _sgf_init_gamestate(sgf_root):
        Helper function to set up a GameState object from the root node
        of an SGF file
     """
-    
+
     props = sgf_root.properties
     s_size = int( props.get('SZ', ['19'])[0] )
     s_player = props.get('PL', ['B'])[0]
@@ -100,7 +100,7 @@ def sgf_to_gamestate(sgf_string):
     """
        Creates a GameState object from the first game in the given collection
     """
-    
+
     # Don't Repeat Yourself; parsing handled by sgf_iter_states
     for (gs, move, player) in sgf_iter_states(sgf_string, True):
         pass
@@ -161,7 +161,7 @@ def sgf_iter_states(sgf_string, include_end=True):
        but the state will still be left in the final position at the end of
        iteration because 'gs' is modified in-place the state. See sgf_to_gamestate
     """
-    
+
     collection = sgf.parse(sgf_string)
     game = collection[0]
     gs = _sgf_init_gamestate(game.root)
@@ -269,7 +269,7 @@ def plot_network_output(scores, board, history, out_directory, output_file,
     # Place red marker on last move if it exists
     if len(history) != 0:
         # If last move was not pass
-        if history[-1] != go.PASS_MOVE:
+        if history[-1] != go.PASS:
             last_move = history[-1]
             x_coord = last_move[0] + 1
             y_coord = last_move[1] + 1

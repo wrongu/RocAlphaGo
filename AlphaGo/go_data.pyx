@@ -67,7 +67,7 @@ cdef struct Groups_List:
     Group **board_groups
     short   count_groups
 
-# struct to store a list of short ( board locations )
+# struct to store a list of short (board locations)
 cdef struct Locations_List:
     short  *locations
     short   count
@@ -79,9 +79,9 @@ cdef struct Locations_List:
 ############################################################################
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef Group* group_new( char colour, short size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef Group* group_new(char colour, short size):
     """
        create new struct Group
        with locations #size char long initialized to FREE
@@ -90,12 +90,12 @@ cdef Group* group_new( char colour, short size ):
     cdef int i
 
     # allocate memory for Group
-    cdef Group *group = <Group *>malloc( sizeof( Group ) )
+    cdef Group *group = <Group *>malloc(sizeof(Group))
     if not group:
         raise MemoryError()
 
     # allocate memory for array locations
-    group.locations = <char  *>malloc( size )
+    group.locations = <char  *>malloc(size)
     if not group.locations:
         raise MemoryError()
 
@@ -105,14 +105,14 @@ cdef Group* group_new( char colour, short size ):
     group.colour        = colour
 
     # initialize locations with FREE
-    memset( group.locations, _FREE, size )
+    memset(group.locations, _FREE, size)
 
     return group
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef Group* group_duplicate( Group* group, short size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef Group* group_duplicate(Group* group, short size):
     """
        create new struct Group initialized as a duplicate of group
     """
@@ -120,12 +120,12 @@ cdef Group* group_duplicate( Group* group, short size ):
     cdef int i
 
     # allocate memory for Group
-    cdef Group *duplicate = <Group *>malloc( sizeof( Group ) )
+    cdef Group *duplicate = <Group *>malloc(sizeof(Group))
     if not duplicate:
         raise MemoryError()
 
     # allocate memory for array locations
-    duplicate.locations = <char  *>malloc( size )
+    duplicate.locations = <char  *>malloc(size)
     if not duplicate.locations:
         raise MemoryError()
 
@@ -136,14 +136,14 @@ cdef Group* group_duplicate( Group* group, short size ):
 
     # duplicate locations array in memory
     # memcpy is optimized to do this quickly
-    memcpy( duplicate.locations, group.locations, size )
+    memcpy(duplicate.locations, group.locations, size)
 
     return duplicate
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void group_destroy( Group* group ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void group_destroy(Group* group):
     """
        free memory location of group and locations
     """
@@ -155,15 +155,15 @@ cdef void group_destroy( Group* group ):
         if group.locations is not NULL:
 
             # free locations
-            free( group.locations  )
+            free(group.locations)
 
         # free group
-        free( group )
+        free(group)
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void group_add_stone( Group* group, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void group_add_stone(Group* group, short location):
     """
        update location as STONE
        update liberty count if it was a liberty location
@@ -186,9 +186,9 @@ cdef void group_add_stone( Group* group, short location ):
     group.locations[ location ] = _STONE
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void group_remove_stone( Group* group, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void group_remove_stone(Group* group, short location):
     """
        update location as FREE
        update stone count if it was a stone location
@@ -202,24 +202,24 @@ cdef void group_remove_stone( Group* group, short location ):
         group.locations[ location ] = _FREE
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef short group_location_stone( Group* group, short size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef short group_location_stone(Group* group, short size):
     """
        return first location where a STONE is located
     """
 
-    # memchr is a in memory search function, it starts searching at 
+    # memchr is a in memory search function, it starts searching at
     # pointer location #group.locations for a max of size continous bytes untill
     # a location with value _STONE is found -> returns a pointer to this location
     # when this pointer location is substracted with pointer #group.locations
     # the location is calculated where a stone is
-    return <short>( <long>memchr( group.locations, _STONE, size ) - <long>group.locations )
+    return <short>(<long>memchr(group.locations, _STONE, size) - <long>group.locations)
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void group_add_liberty( Group* group, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void group_add_liberty(Group* group, short location):
     """
        update location as LIBERTY
        update liberty count if it was a FREE location
@@ -235,9 +235,9 @@ cdef void group_add_liberty( Group* group, short location ):
         group.locations[ location ] = _LIBERTY
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void group_remove_liberty( Group* group, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void group_remove_liberty(Group* group, short location):
     """
        update location as FREE
        update liberty count if it was a LIBERTY location
@@ -253,19 +253,19 @@ cdef void group_remove_liberty( Group* group, short location ):
         group.locations[ location ] = _FREE
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef short group_location_liberty( Group* group, short size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef short group_location_liberty(Group* group, short size):
     """
        return location where a LIBERTY is located
     """
 
-    # memchr is a in memory search function, it starts searching at 
+    # memchr is a in memory search function, it starts searching at
     # pointer location #group.locations for a max of size continous bytes untill
     # a location with value _LIBERTY is found -> returns a pointer to this location
     # when this pointer location is substracted with pointer #group.locations
     # the location is calculated where a liberty is
-    return <short>( <long>memchr(group.locations, _LIBERTY, size ) - <long>group.locations )
+    return <short>(<long>memchr(group.locations, _LIBERTY, size) - <long>group.locations)
 
 
 ############################################################################
@@ -274,9 +274,9 @@ cdef short group_location_liberty( Group* group, short size ):
 ############################################################################
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef Groups_List* groups_list_new( short size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef Groups_List* groups_list_new(short size):
     """
        create new struct Groups_List
        with locations #size Group* long and count_groups set to 0
@@ -284,11 +284,11 @@ cdef Groups_List* groups_list_new( short size ):
 
     cdef Groups_List* list_new
 
-    list_new              = <Groups_List *>malloc( sizeof( Groups_List ) )
+    list_new              = <Groups_List *>malloc(sizeof(Groups_List))
     if not list_new:
         raise MemoryError()
 
-    list_new.board_groups = <Group **>malloc( size * sizeof( Group* ) )
+    list_new.board_groups = <Group **>malloc(size * sizeof(Group*))
     if not list_new.board_groups:
         raise MemoryError()
 
@@ -297,9 +297,9 @@ cdef Groups_List* groups_list_new( short size ):
     return list_new
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void groups_list_add( Group* group, Groups_List* groups_list ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void groups_list_add(Group* group, Groups_List* groups_list):
     """
        add group to list and increment groups count
     """
@@ -308,9 +308,9 @@ cdef void groups_list_add( Group* group, Groups_List* groups_list ):
     groups_list.count_groups += 1
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void groups_list_add_unique( Group* group, Groups_List* groups_list ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void groups_list_add_unique(Group* group, Groups_List* groups_list):
     """
        check if a group is already in the list, return if so
        add group to list if not
@@ -319,7 +319,7 @@ cdef void groups_list_add_unique( Group* group, Groups_List* groups_list ):
     cdef int i
 
     # loop over array
-    for i in range( groups_list.count_groups ):
+    for i in range(groups_list.count_groups):
 
         # check if group is present
         if group == groups_list.board_groups[ i ]:
@@ -332,9 +332,9 @@ cdef void groups_list_add_unique( Group* group, Groups_List* groups_list ):
     groups_list.count_groups += 1
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void groups_list_remove( Group* group, Groups_List* groups_list ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void groups_list_remove(Group* group, Groups_List* groups_list):
     """
        remove group from list and decrement groups count
     """
@@ -342,7 +342,7 @@ cdef void groups_list_remove( Group* group, Groups_List* groups_list ):
     cdef int i
 
     # loop over array
-    for i in range( groups_list.count_groups ):
+    for i in range(groups_list.count_groups):
 
         # check if group is present
         if groups_list.board_groups[ i ] == group:
@@ -354,7 +354,7 @@ cdef void groups_list_remove( Group* group, Groups_List* groups_list ):
             return
 
     # TODO this should not happen, create error for this??
-    print( "Group not found!!!!!!!!!!!!!!" )
+    print("Group not found!!!!!!!!!!!!!!")
 
 
 ############################################################################
@@ -363,9 +363,9 @@ cdef void groups_list_remove( Group* group, Groups_List* groups_list ):
 ############################################################################
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef Locations_List* locations_list_new( short size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef Locations_List* locations_list_new(short size):
     """
        create new struct Locations_List
        with locations #size short long and count set to 0
@@ -374,12 +374,12 @@ cdef Locations_List* locations_list_new( short size ):
     cdef Locations_List* list_new
 
     # allocate memory for Group
-    list_new           = <Locations_List *>malloc( sizeof( Locations_List ) )
+    list_new           = <Locations_List *>malloc(sizeof(Locations_List))
     if not list_new:
         raise MemoryError()
 
     # allocate memory for locations
-    list_new.locations = <short *>malloc( size * sizeof( short ) )
+    list_new.locations = <short *>malloc(size * sizeof(short))
     if not list_new.locations:
         raise MemoryError()
 
@@ -391,9 +391,9 @@ cdef Locations_List* locations_list_new( short size ):
 
     return list_new
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void locations_list_destroy( Locations_List* locations_list ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void locations_list_destroy(Locations_List* locations_list):
     """
        free memory location of locations_list and locations
     """
@@ -405,14 +405,14 @@ cdef void locations_list_destroy( Locations_List* locations_list ):
         if locations_list.locations is not NULL:
 
             # free locations
-            free( locations_list.locations )
+            free(locations_list.locations)
 
         # free locations_list
-        free( locations_list )
+        free(locations_list)
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void locations_list_remove_location( Locations_List* locations_list, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void locations_list_remove_location(Locations_List* locations_list, short location):
     """
        remove location from list
     """
@@ -420,7 +420,7 @@ cdef void locations_list_remove_location( Locations_List* locations_list, short 
     cdef int i
 
     # loop over array
-    for i in range( locations_list.count ):
+    for i in range(locations_list.count):
 
         # check if [ i ] == location
         if locations_list.locations[ i ] == location:
@@ -432,12 +432,12 @@ cdef void locations_list_remove_location( Locations_List* locations_list, short 
             return
 
     # TODO this should not happen, create error for this??
-    print( "location not found!!!!!!!!!!!!!!" )
+    print("location not found!!!!!!!!!!!!!!")
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void locations_list_add_location( Locations_List* locations_list, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void locations_list_add_location(Locations_List* locations_list, short location):
     """
        add location to list and increment count
     """
@@ -446,9 +446,9 @@ cdef void locations_list_add_location( Locations_List* locations_list, short loc
     locations_list.count += 1
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef void locations_list_add_location_increment( Locations_List* locations_list, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef void locations_list_add_location_increment(Locations_List* locations_list, short location):
     """
        check if list can hold one more location, resize list if not
        add location to list and increment count
@@ -457,7 +457,7 @@ cdef void locations_list_add_location_increment( Locations_List* locations_list,
     if locations_list.count == locations_list.size:
 
         locations_list.size += 10
-        locations_list.locations = <short *>realloc( locations_list.locations, locations_list.size * sizeof( short ) )
+        locations_list.locations = <short *>realloc(locations_list.locations, locations_list.size * sizeof(short))
         if not locations_list.locations:
             print("MEM ERROR")
             raise MemoryError()
@@ -467,10 +467,10 @@ cdef void locations_list_add_location_increment( Locations_List* locations_list,
     locations_list.count += 1
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-@cython.nonecheck(   False )
-cdef void locations_list_add_location_unique( Locations_List* locations_list, short location ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+cdef void locations_list_add_location_unique(Locations_List* locations_list, short location):
     """
        check if location is present in list, return if so
        add location to list if not
@@ -479,7 +479,7 @@ cdef void locations_list_add_location_unique( Locations_List* locations_list, sh
     cdef int i
 
     # loop over array
-    for i in range( locations_list.count ):
+    for i in range(locations_list.count):
 
         # check if location is present
         if location == locations_list.locations[ i ]:
@@ -498,26 +498,26 @@ cdef void locations_list_add_location_unique( Locations_List* locations_list, sh
 ############################################################################
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef short calculate_board_location( char x, char y, char size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef short calculate_board_location(char x, char y, char size):
     """
        return location on board
        no checks on outside board
        x = columns
-       y = rows           
+       y = rows
     """
 
     # return board location
-    return x + ( y * size )
+    return x + (y * size)
 
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef short calculate_board_location_or_border( char x, char y, char size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef short calculate_board_location_or_border(char x, char y, char size):
     """
        return location on board or borderlocation
-       board locations = [ 0, size * size )
+       board locations = [ 0, size * size)
        border location = size * size
        x = columns
        y = rows
@@ -530,28 +530,28 @@ cdef short calculate_board_location_or_border( char x, char y, char size ):
         return size * size
 
     # return board location
-    return calculate_board_location( x, y, size )
+    return calculate_board_location(x, y, size)
 
 
-cdef short* get_neighbors( char size ):
+cdef short* get_neighbors(char size):
     """
        create array for every board location with all 4 direct neighbor locations
        neighbor order: left - right - above - below
 
-                -1     x 
+                -1     x
                       x x
-                +1     x 
+                +1     x
 
                 order:
-                -1     2 
+                -1     2
                       0 1
-                +1     3 
+                +1     3
 
-       TODO neighbors is obsolete as neighbor3x3 contains the same values 
+       TODO neighbors is obsolete as neighbor3x3 contains the same values
     """
 
     # create array
-    cdef short* neighbor = <short *>malloc( size * size * 4 * sizeof( short ) )
+    cdef short* neighbor = <short *>malloc(size * size * 4 * sizeof(short))
     if not neighbor:
         raise MemoryError()
 
@@ -559,21 +559,21 @@ cdef short* get_neighbors( char size ):
     cdef char x, y
 
     # add all direct neighbors to every board location
-    for y in range( size ):
+    for y in range(size):
 
-        for x in range( size ):
+        for x in range(size):
 
-            location = ( x + ( y * size ) ) * 4
-            neighbor[ location + 0 ] = calculate_board_location_or_border( x - 1, y    , size )
-            neighbor[ location + 1 ] = calculate_board_location_or_border( x + 1, y    , size )
-            neighbor[ location + 2 ] = calculate_board_location_or_border( x    , y - 1, size )
-            neighbor[ location + 3 ] = calculate_board_location_or_border( x    , y + 1, size )
+            location = (x + (y * size)) * 4
+            neighbor[ location + 0 ] = calculate_board_location_or_border(x - 1, y    , size)
+            neighbor[ location + 1 ] = calculate_board_location_or_border(x + 1, y    , size)
+            neighbor[ location + 2 ] = calculate_board_location_or_border(x    , y - 1, size)
+            neighbor[ location + 3 ] = calculate_board_location_or_border(x    , y + 1, size)
 
     return neighbor
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef short* get_3x3_neighbors( char size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef short* get_3x3_neighbors(char size):
     """
        create for every board location array with all 8 surrounding neighbor locations
        neighbor order: above middle - middle left - middle right - below middle
@@ -581,19 +581,19 @@ cdef short* get_3x3_neighbors( char size ):
                        this order is more useful as it separates neighbors and then diagonals
                 -1    xxx
                       x x
-                +1    xxx           
+                +1    xxx
 
                 order:
                 -1    405
                       1 2
-                +1    637           
+                +1    637
 
         0-3 contains neighbors
         4-7 contains diagonals
     """
 
     # create array
-    cdef short* neighbor3x3 = <short *>malloc( size * size * 8 * sizeof( short ) )
+    cdef short* neighbor3x3 = <short *>malloc(size * size * 8 * sizeof(short))
     if not neighbor3x3:
         raise MemoryError()
 
@@ -601,26 +601,26 @@ cdef short* get_3x3_neighbors( char size ):
     cdef char x, y
 
     # add all surrounding neighbors to every board location
-    for x in range( size ):
+    for x in range(size):
 
-        for y in range( size ):
+        for y in range(size):
 
-            location = ( x + ( y * size ) ) * 8
-            neighbor3x3[ location + 0 ] = calculate_board_location_or_border( x    , y - 1, size )
-            neighbor3x3[ location + 1 ] = calculate_board_location_or_border( x - 1, y    , size )
-            neighbor3x3[ location + 2 ] = calculate_board_location_or_border( x + 1, y    , size )
-            neighbor3x3[ location + 3 ] = calculate_board_location_or_border( x    , y + 1, size )
+            location = (x + (y * size)) * 8
+            neighbor3x3[ location + 0 ] = calculate_board_location_or_border(x    , y - 1, size)
+            neighbor3x3[ location + 1 ] = calculate_board_location_or_border(x - 1, y    , size)
+            neighbor3x3[ location + 2 ] = calculate_board_location_or_border(x + 1, y    , size)
+            neighbor3x3[ location + 3 ] = calculate_board_location_or_border(x    , y + 1, size)
 
-            neighbor3x3[ location + 4 ] = calculate_board_location_or_border( x - 1, y - 1, size )
-            neighbor3x3[ location + 5 ] = calculate_board_location_or_border( x + 1, y - 1, size )
-            neighbor3x3[ location + 6 ] = calculate_board_location_or_border( x - 1, y + 1, size )
-            neighbor3x3[ location + 7 ] = calculate_board_location_or_border( x + 1, y + 1, size )
+            neighbor3x3[ location + 4 ] = calculate_board_location_or_border(x - 1, y - 1, size)
+            neighbor3x3[ location + 5 ] = calculate_board_location_or_border(x + 1, y - 1, size)
+            neighbor3x3[ location + 6 ] = calculate_board_location_or_border(x - 1, y + 1, size)
+            neighbor3x3[ location + 7 ] = calculate_board_location_or_border(x + 1, y + 1, size)
 
     return neighbor3x3
 
-@cython.boundscheck( False )
-@cython.wraparound(  False )
-cdef short* get_12d_neighbors( char size ):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef short* get_12d_neighbors(char size):
     """
        create array for every board location with 12d star neighbor locations
        neighbor order: top star tip
@@ -629,22 +629,22 @@ cdef short* get_12d_neighbors( char size ):
                        below left - below middle - below right
                        below star tip
 
-                -2     x 
+                -2     x
                 -1    xxx
                      xx xx
                 +1    xxx
-                +2     x        
+                +2     x
 
                 order:
-                -2     0 
+                -2     0
                 -1    123
                      45 67
                 +1    89a
-                +2     b    
+                +2     b
     """
 
     # create array
-    cdef short* neighbor12d = <short *>malloc( size * size * 12 * sizeof( short ) )
+    cdef short* neighbor12d = <short *>malloc(size * size * 12 * sizeof(short))
     if not neighbor12d:
         raise MemoryError()
 
@@ -652,26 +652,26 @@ cdef short* get_12d_neighbors( char size ):
     cdef char x, y
 
     # add all 12d neighbors to every board location
-    for x in range( size ):
+    for x in range(size):
 
-        for y in range( size ):
+        for y in range(size):
 
-            location = ( x + ( y * size ) ) * 12
-            neighbor12d[ location +  4 ] = calculate_board_location_or_border( x    , y - 2, size )
+            location = (x + (y * size)) * 12
+            neighbor12d[ location +  4 ] = calculate_board_location_or_border(x    , y - 2, size)
 
-            neighbor12d[ location +  1 ] = calculate_board_location_or_border( x - 1, y - 1, size )
-            neighbor12d[ location +  5 ] = calculate_board_location_or_border( x    , y - 1, size )
-            neighbor12d[ location +  8 ] = calculate_board_location_or_border( x + 1, y - 1, size )
+            neighbor12d[ location +  1 ] = calculate_board_location_or_border(x - 1, y - 1, size)
+            neighbor12d[ location +  5 ] = calculate_board_location_or_border(x    , y - 1, size)
+            neighbor12d[ location +  8 ] = calculate_board_location_or_border(x + 1, y - 1, size)
 
-            neighbor12d[ location +  0 ] = calculate_board_location_or_border( x - 2, y    , size )
-            neighbor12d[ location +  2 ] = calculate_board_location_or_border( x - 1, y    , size )
-            neighbor12d[ location +  9 ] = calculate_board_location_or_border( x + 1, y    , size )
-            neighbor12d[ location + 11 ] = calculate_board_location_or_border( x + 2, y    , size )
+            neighbor12d[ location +  0 ] = calculate_board_location_or_border(x - 2, y    , size)
+            neighbor12d[ location +  2 ] = calculate_board_location_or_border(x - 1, y    , size)
+            neighbor12d[ location +  9 ] = calculate_board_location_or_border(x + 1, y    , size)
+            neighbor12d[ location + 11 ] = calculate_board_location_or_border(x + 2, y    , size)
 
-            neighbor12d[ location +  3 ] = calculate_board_location_or_border( x - 1, y + 1, size )
-            neighbor12d[ location +  6 ] = calculate_board_location_or_border( x    , y + 1, size )
-            neighbor12d[ location + 10 ] = calculate_board_location_or_border( x + 1, y + 1, size )
+            neighbor12d[ location +  3 ] = calculate_board_location_or_border(x - 1, y + 1, size)
+            neighbor12d[ location +  6 ] = calculate_board_location_or_border(x    , y + 1, size)
+            neighbor12d[ location + 10 ] = calculate_board_location_or_border(x + 1, y + 1, size)
 
-            neighbor12d[ location +  7 ] = calculate_board_location_or_border( x    , y + 2, size )
+            neighbor12d[ location +  7 ] = calculate_board_location_or_border(x    , y + 2, size)
 
     return neighbor12d
