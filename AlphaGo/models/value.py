@@ -88,12 +88,12 @@ class CNNValue(NeuralNetBase):
             activation='relu',
             padding='same',
             kernel_constraint=None,
-            activity_regularizer=None, 
+            activity_regularizer=None,
             trainable=True,
             strides=[1, 1],
             use_bias=True,
-            bias_regularizer=None, 
-            bias_constraint=None, 
+            bias_regularizer=None,
+            bias_constraint=None,
             data_format="channels_first",
             kernel_regularizer=None,
             name="con_first"))
@@ -114,15 +114,15 @@ class CNNValue(NeuralNetBase):
                 activation='relu',
                 padding='same',
                 kernel_constraint=None,
-                activity_regularizer=None, 
+                activity_regularizer=None,
                 trainable=True,
                 strides=[1, 1],
                 use_bias=True,
-                bias_regularizer=None, 
-                bias_constraint=None, 
+                bias_regularizer=None,
+                bias_constraint=None,
                 data_format="channels_first",
                 kernel_regularizer=None,
-                name="con_" + str( i )))
+                name="con_" + str(i)))
 
         # the last layer maps each <filters_per_layer> feature to a number
         network.add(convolutional.Conv2D(
@@ -132,42 +132,42 @@ class CNNValue(NeuralNetBase):
             activation='relu',
             padding='same',
             kernel_constraint=None,
-            activity_regularizer=None, 
+            activity_regularizer=None,
             trainable=True,
             strides=[1, 1],
             use_bias=True,
-            bias_regularizer=None, 
-            bias_constraint=None, 
+            bias_regularizer=None,
+            bias_constraint=None,
             data_format="channels_first",
             kernel_regularizer=None,
             name="con_last"))
-                    
+
         network.add(Flatten())
-                      
-        network.add(Dense(input_dim=params["board"] * params["board"], 
-                          units=params["dense"], 
-                          kernel_initializer='uniform', 
-                          activation='relu', 
-                          bias_regularizer=None, 
-                          bias_constraint=None, 
-                          activity_regularizer=None, 
+
+        network.add(Dense(input_dim=params["board"] * params["board"],
+                          units=params["dense"],
+                          kernel_initializer='uniform',
+                          activation='relu',
+                          bias_regularizer=None,
+                          bias_constraint=None,
+                          activity_regularizer=None,
                           trainable=True,
-                          kernel_constraint=None, 
-                          kernel_regularizer=None, 
+                          kernel_constraint=None,
+                          kernel_regularizer=None,
                           use_bias=True,
                           name="dense_1"))
-                                               
-        network.add(Dense(input_dim=params["dense"], 
-                          units=1, 
-                          kernel_initializer='uniform', 
-                          activation="tanh", 
-                          bias_regularizer=None, 
-                          bias_constraint=None, 
-                          activity_regularizer=None, 
+
+        network.add(Dense(input_dim=params["dense"],
+                          units=1,
+                          kernel_initializer='uniform',
+                          activation="tanh",
+                          bias_regularizer=None,
+                          bias_constraint=None,
+                          activity_regularizer=None,
                           trainable=True,
-                          kernel_constraint=None, 
-                          kernel_regularizer=None, 
+                          kernel_constraint=None,
+                          kernel_regularizer=None,
                           use_bias=True,
                           name="dense_2"))
-                     
+
         return network

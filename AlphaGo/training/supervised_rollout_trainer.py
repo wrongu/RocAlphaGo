@@ -76,8 +76,8 @@ class threading_shuffled_hdf5_batch_generator:
             # create random seed
             self.metadata['generator_seed'] = np.random.random_integers(4294967295)
 
-        #print( )
-        #print("shuffle " + str(self.validation))
+        # print()
+        # print("shuffle " + str(self.validation))
         # feed numpy.random with seed in order to continue with certain batch
         np.random.seed(self.metadata['generator_seed'])
         # shuffle indices according to seed
@@ -646,14 +646,14 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         validation=True)
 
     # check if step decay has to be applied
-    if metadata["decay_every"] is None:
-        # use normal decay without momentum
-        lr_scheduler_callback = LrDecayCallback(metadata)
-    else:
-        # use step decay
-        lr_scheduler_callback = LrStepDecayCallback(metadata, verbose)
+    # if metadata["decay_every"] is None:
+    # use normal decay without momentum
+    # lr_scheduler_callback = LrDecayCallback(metadata)
+    # else:
+    # use step decay
+    # lr_scheduler_callback = LrStepDecayCallback(metadata, verbose)
 
-    #sgd = SGD(lr=metadata["learning_rate"])
+    # sgd = SGD(lr=metadata["learning_rate"])
     sgd = Adam(lr=0.001, beta_1=0.99, beta_2=0.999, epsilon=1e-08, decay=0.0)
     model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
 
@@ -671,7 +671,7 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         callbacks=[meta_writer],
         validation_data=val_data_generator,
         nb_val_samples=len(val_indices),
-        max_q_size = 5)
+        max_q_size=5)
 
 
 def start_training(args):

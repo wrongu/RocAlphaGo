@@ -24,7 +24,7 @@ class NeuralNetBase(object):
         defaults = {
             "board": 19
         }
-        defaults.update( kwargs )
+        defaults.update(kwargs)
         self.preprocessor = Preprocess(feature_list, size=defaults["board"])
         kwargs["input_dim"] = self.preprocessor.get_output_dimension()
 

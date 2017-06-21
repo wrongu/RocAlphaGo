@@ -79,10 +79,10 @@ def _sgf_init_gamestate(sgf_root):
     """
 
     props = sgf_root.properties
-    s_size = int( props.get('SZ', ['19'])[0] )
+    s_size = int(props.get('SZ', ['19'])[0])
     s_player = props.get('PL', ['B'])[0]
     # init board with specified size
-    gs = GameState( size=s_size )
+    gs = GameState(size=s_size)
     # handle 'add black' property
     if 'AB' in props:
         for stone in props['AB']:
@@ -92,7 +92,7 @@ def _sgf_init_gamestate(sgf_root):
         for stone in props['AW']:
             gs.place_handicap_stone(_parse_sgf_move(stone), go.WHITE)
     # setup done; set player according to 'PL' property
-    gs.set_current_player( go.BLACK if s_player == 'B' else go.WHITE )
+    gs.set_current_player(go.BLACK if s_player == 'B' else go.WHITE)
     return gs
 
 

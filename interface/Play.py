@@ -1,6 +1,7 @@
 """Interface for AlphaGo self-play"""
 from AlphaGo.go import PASS, WHITE, GameState
 
+
 class play_match(object):
     """Interface to handle play between two players."""
 
@@ -8,7 +9,7 @@ class play_match(object):
         # super(ClassName, self).__init__()
         self.player1 = player1
         self.player2 = player2
-        self.state   = GameState(size=size)
+        self.state = GameState(size=size)
         # I Propose that GameState should take a top-level save directory,
         # then automatically generate the specific file name
 

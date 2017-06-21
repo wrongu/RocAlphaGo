@@ -8,11 +8,11 @@ from AlphaGo.preprocessing.preprocessing import Preprocess
 
 def simple_board():
     """
-       
+
     """
-    
-    gs = GameState( size = 7 )
-    
+
+    gs = GameState(size=7)
+
     # make a tiny board for the sake of testing and hand-coding expected results
     #
     #         X
@@ -43,17 +43,17 @@ def simple_board():
     gs.do_move((5, 3))  # B
     gs.do_move((4, 3))  # W - the ko position
     gs.do_move((4, 4))  # B - does the capture
-    
+
     return gs
 
 
 def self_atari_board():
     """
-       
+
     """
-    
-    gs = GameState( size = 7 )
-    
+
+    gs = GameState(size=7)
+
     # another tiny board for testing self-atari specifically.
     # positions marked with 'a' are self-atari for black
     #
@@ -85,13 +85,14 @@ def self_atari_board():
 
     return gs
 
+
 def capture_board():
     """
-       
+
     """
-    
-    gs = GameState( size = 7 )
-    
+
+    gs = GameState(size=7)
+
     # another small board, this one with imminent captures
     #
     #         X
@@ -113,8 +114,8 @@ def capture_board():
         gs.do_move(B, go.BLACK)
     for W in white:
         gs.do_move(W, go.WHITE)
-    gs.set_current_player( go.BLACK )
-    
+    gs.set_current_player(go.BLACK)
+
     return gs
 
 
@@ -128,7 +129,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
     """
 
     def test_get_board(self):
-                
+
         gs = simple_board()
         pp = Preprocess(["board"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -159,9 +160,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_turns_since(self):
         """
-           
+
         """
-                
+
         gs = simple_board()
         pp = Preprocess(["turns_since"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -170,7 +171,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
         rev_moves = list(gs.get_history())
         rev_moves = rev_moves[::-1]
-        
+
         board = gs.get_board()
 
         for x in range(gs.get_size()):
@@ -184,9 +185,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_liberties(self):
         """
-           
+
         """
-                
+
         gs = simple_board()
         pp = Preprocess(["liberties"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -221,9 +222,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_capture_size(self):
         """
-           
+
         """
-                
+
         gs = capture_board()
         pp = Preprocess(["capture_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -244,9 +245,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_self_atari_size(self):
         """
-           
+
         """
-                
+
         gs = self_atari_board()
         pp = Preprocess(["self_atari_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -261,9 +262,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_self_atari_size_cap(self):
         """
-           
+
         """
-                
+
         gs = capture_board()
         pp = Preprocess(["self_atari_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -279,9 +280,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_liberties_after(self):
         """
-           
+
         """
-                
+
         gs = simple_board()
         pp = Preprocess(["liberties_after"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -292,9 +293,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
         for (x, y) in gs.get_legal_moves():
             copy = gs.copy()
             copy.do_move((x, y))
-            
+
             liberty = copy.get_liberty()
-            
+
             libs = liberty[x, y]
             if libs < 7:
                 one_hot_liberties[x, y, libs - 1] = 1
@@ -310,7 +311,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
         """
            A copy of test_get_liberties_after but where captures are imminent
         """
-                
+
         gs = capture_board()
         pp = Preprocess(["liberties_after"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -320,9 +321,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
         for (x, y) in gs.get_legal_moves():
             copy = gs.copy()
             copy.do_move((x, y))
-            
+
             liberty = copy.get_liberty()
-            
+
             libs = liberty[x, y]
             one_hot_liberties[x, y, min(libs - 1, 7)] = 1
 
@@ -333,9 +334,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_ladder_capture(self):
         """
-           
+
         """
-                
+
         gs, moves = parseboard.parse(". . . . . . .|"
                                      "B W a . . . .|"
                                      ". B . . . . .|"
@@ -352,9 +353,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_ladder_escape(self):
         """
-           
+
         """
-        
+
         # On this board, playing at 'a' is ladder escape because there is a breaker on the right.
         gs, moves = parseboard.parse(". B B . . . .|"
                                      "B W a . . . .|"
@@ -363,7 +364,7 @@ class TestPreprocessingFeatures(unittest.TestCase):
                                      ". . . . . . .|"
                                      ". . . . . . .|")
         pp = Preprocess(["ladder_escape"], size=7)
-        gs.set_current_player( go.WHITE )
+        gs.set_current_player(go.WHITE)
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
         expectation = np.zeros((gs.get_size(), gs.get_size()))
@@ -373,9 +374,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_two_escapes(self):
         """
-           
+
         """
-        
+
         gs, moves = parseboard.parse(". . X . . .|"
                                      ". X O a . .|"
                                      ". X c X . .|"
@@ -385,10 +386,10 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
         # place a white stone at c, and reset player to white
         gs.do_move(moves['c'], color=go.WHITE)
-        gs.set_current_player( go.WHITE )
-        
+        gs.set_current_player(go.WHITE)
+
         pp = Preprocess(["ladder_escape"], size=6)
-        gs.set_current_player( go.WHITE )
+        gs.set_current_player(go.WHITE)
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
 
         # both 'a' and 'b' should be considered escape moves for white after 'O' at c
@@ -398,13 +399,12 @@ class TestPreprocessingFeatures(unittest.TestCase):
         expectation[moves['b']] = 1
 
         self.assertTrue(np.all(expectation == feature))
-        
-        
+
     def test_get_sensibleness(self):
         """
-           
+
         """
-        
+
         # TODO - there are no legal eyes at the moment
 
         gs = simple_board()
@@ -419,9 +419,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_get_legal(self):
         """
-           
+
         """
-        
+
         gs = simple_board()
         pp = Preprocess(["legal"], size=7)
         feature = pp.state_to_tensor(gs)[0, 0]  # 1D tensor; no need to transpose
@@ -433,9 +433,9 @@ class TestPreprocessingFeatures(unittest.TestCase):
 
     def test_feature_concatenation(self):
         """
-           
+
         """
-        
+
         gs = simple_board()
         pp = Preprocess(["board", "sensibleness", "capture_size"], size=7)
         feature = pp.state_to_tensor(gs)[0].transpose((1, 2, 0))
@@ -459,7 +459,6 @@ class TestPreprocessingFeatures(unittest.TestCase):
             expectation[x, y, 4] = 1
 
         self.assertTrue(np.all(expectation == feature))
-        
 
 
 if __name__ == '__main__':

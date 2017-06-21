@@ -64,12 +64,12 @@ class CNNRollout(NeuralNetBase):
             activation='relu',
             padding='same',
             kernel_constraint=None,
-            activity_regularizer=None, 
+            activity_regularizer=None,
             trainable=True,
             strides=[1, 1],
             use_bias=True,
-            bias_regularizer=None, 
-            bias_constraint=None, 
+            bias_regularizer=None,
+            bias_constraint=None,
             data_format="channels_first",
             kernel_regularizer=None))
 
