@@ -73,6 +73,7 @@ class TestKo(unittest.TestCase):
         self.assertTrue(gs.is_legal((1, 0)))
 
         # gs = GameState(size=9, enforce_superko=True) super ko is not handled yet
+        gs = GameState(size=9)
         for move in move_list:
             gs.do_move(move)
         self.assertFalse(gs.is_legal((1, 0)))

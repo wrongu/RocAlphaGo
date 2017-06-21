@@ -4,11 +4,11 @@ import numpy as np
 import AlphaGo.go as go
 import keras.backend as K
 from shutil import copyfile
-from AlphaGo.go import GameState
 from keras.optimizers import SGD
 from AlphaGo.util import flatten_idx
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.ai import ProbabilisticPolicyPlayer
+
 
 def _make_training_pair(st, mv, preprocessor):
     # Convert move to one-hot

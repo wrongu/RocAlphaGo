@@ -5,9 +5,10 @@ from Cython.Build import cythonize
 
 setup(
 
-    name = 'RocAlphaGo',
+    name='RocAlphaGo',
     # list with files to be cythonized
-    ext_modules = cythonize( [ "AlphaGo/go.pyx", "AlphaGo/go_data.pyx", "AlphaGo/preprocessing/preprocessing.pyx" ] ),
+    ext_modules=cythonize(["AlphaGo/go.pyx", "AlphaGo/go_data.pyx",
+                           "AlphaGo/preprocessing/preprocessing.pyx"]),
     # include numpy
     include_dirs=[numpy.get_include(),
                   os.path.join(numpy.get_include(), 'numpy')]
