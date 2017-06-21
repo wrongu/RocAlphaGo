@@ -2,16 +2,17 @@ from AlphaGo.go import BLACK, WHITE, GameState
 
 
 def parse(boardstr):
-    '''Parses a board into a gamestate, and returns the location of any moves
-    marked with anything other than 'B', 'X', '#', 'W', 'O', or '.'
+    '''
+       Parses a board into a gamestate, and returns the location of any moves
+       marked with anything other than 'B', 'X', '#', 'W', 'O', or '.'
 
-    Rows are separated by '|', spaces are ignored.
+       Rows are separated by '|', spaces are ignored.
 
     '''
 
-    boardstr   = boardstr.replace(' ', '')
+    boardstr = boardstr.replace(' ', '')
     board_size = max(boardstr.index('|'), boardstr.count('|'))
-    state      = GameState( size = board_size )
+    state = GameState(size=board_size)
 
     moves = {}
 

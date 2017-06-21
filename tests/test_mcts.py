@@ -8,7 +8,7 @@ from AlphaGo.mcts import MCTS, TreeNode
 class TestTreeNode(unittest.TestCase):
 
     def setUp(self):
-        self.gs   = GameState()
+        self.gs = GameState()
         self.node = TreeNode(None, 1.0)
 
     def test_selection(self):
@@ -55,7 +55,7 @@ class TestTreeNode(unittest.TestCase):
 class TestMCTS(unittest.TestCase):
 
     def setUp(self):
-        self.gs   = GameState()
+        self.gs = GameState()
         self.mcts = MCTS(dummy_value, dummy_policy, dummy_rollout, n_playout=2)
 
     def _count_expansions(self):

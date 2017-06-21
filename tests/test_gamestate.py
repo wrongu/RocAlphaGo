@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 import AlphaGo.go as go
 from AlphaGo.go import GameState
 
@@ -7,9 +6,9 @@ from AlphaGo.go import GameState
 class TestKo(unittest.TestCase):
 
     def test_standard_ko(self):
-        
-        gs = GameState( size = 9 )
-        
+
+        gs = GameState(size=9)
+
         gs.do_move((1, 0))  # B
         gs.do_move((2, 0))  # W
         gs.do_move((0, 1))  # B
@@ -31,9 +30,9 @@ class TestKo(unittest.TestCase):
         self.assertTrue(gs.is_legal((2, 1)))
 
     def test_snapback_is_not_ko(self):
-        
-        gs = GameState( size = 5 )
-        
+
+        gs = GameState(size=5)
+
         # B o W B .
         # W W B . .
         # . . . . .
@@ -62,9 +61,9 @@ class TestKo(unittest.TestCase):
         self.assertEqual(gs.get_captures_white(), 1)
 
     def test_positional_superko(self):
-        
-        gs = GameState( size = 9 )
-        
+
+        gs = GameState(size=9)
+
         move_list = [(0, 3), (0, 4), (1, 3), (1, 4), (2, 3), (2, 4), (2, 2), (3, 4), (2, 1), (3, 3),
                      (3, 1), (3, 2), (3, 0), (4, 2), (1, 1), (4, 1), (8, 0), (4, 0), (8, 1), (0, 2),
                      (8, 2), (0, 1), (8, 3), (1, 0), (8, 4), (2, 0), (0, 0)]
@@ -74,7 +73,7 @@ class TestKo(unittest.TestCase):
         self.assertTrue(gs.is_legal((1, 0)))
 
         # gs = GameState(size=9, enforce_superko=True) super ko is not handled yet
-        gs = GameState( size = 9 )
+        gs = GameState(size=9)
         for move in move_list:
             gs.do_move(move)
         self.assertFalse(gs.is_legal((1, 0)))
@@ -83,9 +82,9 @@ class TestKo(unittest.TestCase):
 class TestEye(unittest.TestCase):
 
     def test_true_eye(self):
-        
-        gs = GameState( size = 7 )
-        
+
+        gs = GameState(size=7)
+
         gs.do_move((1, 0), go.BLACK)
         gs.do_move((0, 1), go.BLACK)
 
@@ -105,9 +104,9 @@ class TestEye(unittest.TestCase):
     def test_eye_recursion(self):
         # a checkerboard pattern of black is 'technically' all true eyes
         # mutually supporting each other
-        
-        gs = GameState( size = 7 )
-        
+
+        gs = GameState(size=7)
+
         for x in range(gs.get_size()):
             for y in range(gs.get_size()):
                 if (x + y) % 2 == 1:
@@ -121,9 +120,9 @@ class TestCacheSets(unittest.TestCase):
         # creates 3x3 black group in the middle, that is then all captured
         # ...then an assertion is made that the resulting liberties after
         # capture are the same as if the group had never been there
-                
-        gs_capture = GameState( size = 7 )
-        gs_reference = GameState( size = 7 )
+
+        gs_capture = GameState(size=7)
+        gs_reference = GameState(size=7)
         # add in 3x3 black stones
         for x in range(2, 5):
             for y in range(2, 5):
@@ -144,8 +143,8 @@ class TestCacheSets(unittest.TestCase):
             gs_reference.do_move((5, y), go.WHITE)
 
         # board configuration and liberties of gs_capture and of gs_reference should be identical
-        self.assertTrue( gs_reference.is_board_equal(gs_capture ))
-        self.assertTrue( gs_reference.is_liberty_equal(gs_capture ))
+        self.assertTrue(gs_reference.is_board_equal(gs_capture))
+        self.assertTrue(gs_reference.is_liberty_equal(gs_capture))
 
 
 if __name__ == '__main__':

@@ -31,19 +31,24 @@ install:
   - sudo ln -s /run/shm /dev/shm
 
   # install requirements
-  - conda install --yes Cython=0.24 h5py=2.6.0 numpy=1.11.2 scipy=0.18.1 PyYAML=3.12 matplotlib pandas pytest
-  - pip install --user --no-deps Theano==0.8.2 sgf==0.5 keras==1.2.0 pygtp==0.3
+  - conda install --yes Cython=0.25.2 h5py=2.6.0 numpy=1.11.2 scipy=0.18.1 PyYAML=3.12 matplotlib pandas pytest
+  - pip install --user --no-deps Theano==0.8.2 sgf==0.5 keras==2.0.4 pygtp==0.3
   - pip install --user flake8
+  
+  # compile cython code
+  - python setup.py build_ext --inplace
 
   # install TensorFlow if needed
   # tensorflow does not have a python3.3 wheel
   - if [[ "$KERAS_BACKEND" == "tensorflow" ]]; then
       if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp27-none-linux_x86_64.whl;
+        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.1.0-cp27-none-linux_x86_64.whl;
       elif [[ "$TRAVIS_PYTHON_VERSION" == "3.4" ]]; then
-        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp34-cp34m-linux_x86_64.whl;
+        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.1.0-cp34-cp34m-linux_x86_64.whl;
       elif [[ "$TRAVIS_PYTHON_VERSION" == "3.5" ]]; then
-        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp35-cp35m-linux_x86_64.whl;
+        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.1.0-cp35-cp35m-linux_x86_64.whl;
+      elif [[ "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then
+        pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.1.0-cp36-cp36m-linux_x86_64.whl;
       fi
     fi
 # run flake8 and unit tests

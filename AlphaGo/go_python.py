@@ -595,45 +595,45 @@ class GameState(object):
         # 8 surrounding position colours
         pattern_hash += self.board[x - 1][y - 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x - 1][y    ] + 2
+        pattern_hash += self.board[x - 1][y] + 2
         pattern_hash *= 10
         pattern_hash += self.board[x - 1][y + 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y - 1] + 2
+        pattern_hash += self.board[x][y - 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y - 1] + 2
+        pattern_hash += self.board[x][y - 1] + 2
         pattern_hash *= 10
         pattern_hash += self.board[x + 1][y - 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x + 1][y    ] + 2
+        pattern_hash += self.board[x + 1][y] + 2
         pattern_hash *= 10
         pattern_hash += self.board[x + 1][y + 1] + 2
         pattern_hash *= 10
 
         # 8 surrounding position liberties
         if self.board[x - 1][y - 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 1][y - 1], 3 )
+            pattern_hash += min(self.liberty_counts[x - 1][y - 1], 3)
         pattern_hash *= 10
-        if self.board[x - 1][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 1][y    ], 3 )
+        if self.board[x - 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y], 3)
         pattern_hash *= 10
         if self.board[x - 1][y + 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 1][y + 1], 3 )
+            pattern_hash += min(self.liberty_counts[x - 1][y + 1], 3)
         pattern_hash *= 10
-        if self.board[x    ][y - 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y - 1], 3 )
+        if self.board[x][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y - 1], 3)
         pattern_hash *= 10
-        if self.board[x    ][y + 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y + 1], 3 )
+        if self.board[x][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y + 1], 3)
         pattern_hash *= 10
         if self.board[x + 1][y - 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 1][y - 1], 3 )
+            pattern_hash += min(self.liberty_counts[x + 1][y - 1], 3)
         pattern_hash *= 10
-        if self.board[x + 1][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 1][y    ], 3 )
+        if self.board[x + 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y], 3)
         pattern_hash *= 10
         if self.board[x + 1][y + 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 1][y + 1], 3 )
+            pattern_hash += min(self.liberty_counts[x + 1][y + 1], 3)
 
         return pattern_hash
 
@@ -642,7 +642,7 @@ class GameState(object):
 
     def get_pattern_response_12d(self, position):
 
-        if len( self.history ) < 1:
+        if len(self.history) < 1:
             return -1
 
         (xNew, yNew) = position
@@ -668,80 +668,80 @@ class GameState(object):
 
         # stones
         pattern_hash *= 10
-        pattern_hash += self.board[x - 2][y    ] + 2
+        pattern_hash += self.board[x - 2][y] + 2
 
         pattern_hash *= 10
         pattern_hash += self.board[x - 1][y - 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x - 1][y    ] + 2
+        pattern_hash += self.board[x - 1][y] + 2
         pattern_hash *= 10
         pattern_hash += self.board[x - 1][y + 1] + 2
 
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y - 2] + 2
+        pattern_hash += self.board[x][y - 2] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y - 1] + 2
+        pattern_hash += self.board[x][y - 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y    ] + 2
+        pattern_hash += self.board[x][y] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y + 1] + 2
+        pattern_hash += self.board[x][y + 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x    ][y + 2] + 2
+        pattern_hash += self.board[x][y + 2] + 2
 
         pattern_hash *= 10
         pattern_hash += self.board[x + 1][y - 1] + 2
         pattern_hash *= 10
-        pattern_hash += self.board[x + 1][y    ] + 2
+        pattern_hash += self.board[x + 1][y] + 2
         pattern_hash *= 10
         pattern_hash += self.board[x + 1][y + 1] + 2
 
         pattern_hash *= 10
-        pattern_hash += self.board[x + 2][y    ] + 2
+        pattern_hash += self.board[x + 2][y] + 2
 
         # liberties
         pattern_hash *= 10
-        if self.board[x -2][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 2][y    ], 3 )
+        if self.board[x - 2][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 2][y], 3)
 
         pattern_hash *= 10
         if self.board[x - 1][y - 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 1][y - 1], 3 )
+            pattern_hash += min(self.liberty_counts[x - 1][y - 1], 3)
         pattern_hash *= 10
-        if self.board[x - 1][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 1][y    ], 3 )
+        if self.board[x - 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y], 3)
         pattern_hash *= 10
         if self.board[x - 1][y + 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x - 1][y + 1], 3 )
+            pattern_hash += min(self.liberty_counts[x - 1][y + 1], 3)
 
         pattern_hash *= 10
-        if self.board[x    ][y - 2] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y - 2], 3 )
+        if self.board[x][y - 2] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y - 2], 3)
         pattern_hash *= 10
-        if self.board[x    ][y - 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y - 1], 3 )
+        if self.board[x][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y - 1], 3)
         pattern_hash *= 10
-        if self.board[x    ][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y    ], 3 )
+        if self.board[x][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y], 3)
         pattern_hash *= 10
-        if self.board[x    ][y + 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y + 1], 3 )
+        if self.board[x][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y + 1], 3)
         pattern_hash *= 10
-        if self.board[x    ][y + 2] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x    ][y + 2], 3 )
+        if self.board[x][y + 2] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y + 2], 3)
 
         pattern_hash *= 10
         if self.board[x + 1][y - 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 1][y - 1], 3 )
+            pattern_hash += min(self.liberty_counts[x + 1][y - 1], 3)
         pattern_hash *= 10
-        if self.board[x + 1][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 1][y    ], 3 )
+        if self.board[x + 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y], 3)
         pattern_hash *= 10
         if self.board[x + 1][y + 1] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 1][y + 1], 3 )
+            pattern_hash += min(self.liberty_counts[x + 1][y + 1], 3)
 
         pattern_hash *= 10
-        if self.board[x + 2][y    ] != EMPTY:
-            pattern_hash += min( self.liberty_counts[x + 2][y    ], 3 )
+        if self.board[x + 2][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 2][y], 3)
 
         return pattern_hash
 
@@ -762,6 +762,7 @@ class GameState(object):
         # 0 -> diagonal neighbor
         # 1 -> horzontal neighbor
         return value % 2
+
 
 class IllegalMove(Exception):
     pass

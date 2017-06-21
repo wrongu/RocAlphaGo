@@ -28,7 +28,7 @@ class TestCNNValue(unittest.TestCase):
 
     # test shape
     def test_ouput_shape(self):
-        
+
         gs = GameState()
 
         val = self.value.eval_state(gs)

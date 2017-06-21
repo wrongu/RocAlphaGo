@@ -56,14 +56,22 @@ class CNNRollout(NeuralNetBase):
         network = Sequential()
 
         # create one convolutional layer
-        network.add(convolutional.Convolution2D(
+        network.add(convolutional.Conv2D(
             input_shape=(params["input_dim"], params["board"], params["board"]),
-            nb_filter=1,
-            nb_row=1,
-            nb_col=1,
-            init='uniform',
+            filters=1,
+            kernel_size=(1, 1),
+            kernel_initializer='uniform',
             activation='relu',
-            border_mode='same'))
+            padding='same',
+            kernel_constraint=None,
+            activity_regularizer=None,
+            trainable=True,
+            strides=[1, 1],
+            use_bias=True,
+            bias_regularizer=None,
+            bias_constraint=None,
+            data_format="channels_first",
+            kernel_regularizer=None))
 
         # reshape output to be board x board
         network.add(Flatten())

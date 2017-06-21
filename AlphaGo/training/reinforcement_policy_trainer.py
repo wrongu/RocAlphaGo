@@ -10,6 +10,7 @@ from AlphaGo.util import flatten_idx
 from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.ai import ProbabilisticPolicyPlayer
 
+
 def _make_training_pair(st, mv, preprocessor):
     # Convert move to one-hot
     st_tensor = preprocessor.state_to_tensor(st)
@@ -19,10 +20,9 @@ def _make_training_pair(st, mv, preprocessor):
 
 
 def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
-    '''
-       Run num_games games to completion, keeping track of each position and move of the learner.
+    '''Run num_games games to completion, keeping track of each position and move of the learner.
 
-       (Note: learning cannot happen until all games have completed)
+    (Note: learning cannot happen until all games have completed)
     '''
 
     board_size = learner.policy.model.input_shape[-1]
@@ -63,7 +63,6 @@ def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
                 (st_tensor, mv_tensor) = _make_training_pair(state, mv, learner.policy.preprocessor)
                 state_tensors[idx].append(st_tensor)
                 move_tensors[idx].append(mv_tensor)
-
             state.do_move(mv)
             if state.is_end_of_game():
                 learner_won[idx] = state.get_winner() == learner_color[idx]
@@ -89,12 +88,10 @@ def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
 
 
 def log_loss(y_true, y_pred):
+    '''Keras 'loss' function for the REINFORCE algorithm, where y_true is the action that was
+    taken, and updates with the negative gradient will make that action more likely. We use the
+    negative gradient because keras expects training data to minimize a loss function.
     '''
-       Keras 'loss' function for the REINFORCE algorithm, where y_true is the action that was
-       taken, and updates with the negative gradient will make that action more likely. We use the
-       negative gradient because keras expects training data to minimize a loss function.
-    '''
-    
     return -y_true * K.log(K.clip(y_pred, K.epsilon(), 1.0 - K.epsilon()))
 
 

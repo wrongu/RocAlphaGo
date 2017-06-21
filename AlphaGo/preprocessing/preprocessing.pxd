@@ -12,7 +12,7 @@ from AlphaGo.go_data cimport _BLACK, _EMPTY, _STONE, _LIBERTY, _CAPTURE, _FREE, 
 ctypedef char tensor_type
 
 # type defining cdef function
-ctypedef int (*preprocess_method)( Preprocess, GameState, tensor_type[ :, ::1 ], char*, int )
+ctypedef int (*preprocess_method)(Preprocess, GameState, tensor_type[ :, ::1 ], char*, int)
 
 
 cdef class Preprocess:
@@ -52,7 +52,7 @@ cdef class Preprocess:
     #                                                                          #
     ############################################################################
 
-    cdef int get_board(               self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_board(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature encoding WHITE BLACK and EMPTY on separate planes.
        plane 0 always refers to the current player stones
@@ -60,7 +60,7 @@ cdef class Preprocess:
        plane 2 to empty locations
     """
 
-    cdef int get_turns_since(         self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_turns_since(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature encoding the age of the stone at each location up to 'maximum'
 
@@ -69,7 +69,7 @@ cdef class Preprocess:
        - EMPTY locations are all-zero features
     """
 
-    cdef int get_liberties(           self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_liberties(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature encoding the number of liberties of the group connected to the stone at
        each location
@@ -80,7 +80,7 @@ cdef class Preprocess:
        - EMPTY locations are all-zero features
     """
 
-    cdef int get_capture_size(        self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_capture_size(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature encoding the number of opponent stones that would be captured by
        playing at each location, up to 'maximum'
@@ -93,14 +93,14 @@ cdef class Preprocess:
        - illegal move locations are all-zero features
     """
 
-    cdef int get_self_atari_size(     self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_self_atari_size(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature encoding the size of the own-stone group that is put into atari by
        playing at a location
 
     """
 
-    cdef int get_liberties_after(     self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_liberties_after(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature encoding what the number of liberties *would be* of the group connected to
        the stone *if* played at a location
@@ -111,60 +111,65 @@ cdef class Preprocess:
        - illegal move locations are all-zero features
     """
 
-    cdef int get_ladder_capture(      self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_ladder_capture(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature wrapping GameState.is_ladder_capture().
        check if an opponent group can be captured in a ladder
     """
 
-    cdef int get_ladder_escape(       self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_ladder_escape(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A feature wrapping GameState.is_ladder_escape().
        check if player_current group can escape ladder
     """
 
-    cdef int get_sensibleness(        self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_sensibleness(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
     """
 
-    cdef int get_legal(               self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int get_legal(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        Zero at all illegal moves, one at all legal moves. Unlike sensibleness, no eye check is done
        not used??
     """
 
-    cdef int zeros(                   self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int zeros(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        Plane filled with zeros
     """
-        
-    cdef int ones(                    self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+
+    cdef int ones(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        Plane filled with ones
     """
 
-    cdef int colour(                  self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int colour(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
     """
        Value net feature, plane with ones if active_player is black else zeros
     """
 
-    cdef int get_response(            self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_save_atari(          self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_neighbor(            self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_nakade(              self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_nakade_offset(       self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_response_12d(        self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_response_12d_offset( self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_non_response_3x3(        self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
-    cdef int get_non_response_3x3_offset( self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet )
+    cdef int ko(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    """
+       ko
+    """
+
+    cdef int get_response(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_save_atari(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_neighbor(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_nakade(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_nakade_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_response_12d(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_response_12d_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_non_response_3x3(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
+    cdef int get_non_response_3x3_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet)
 
     ############################################################################
     #   public cdef function                                                   #
     #                                                                          #
     ############################################################################
 
-    cdef np.ndarray[ tensor_type, ndim=4 ] generate_tensor( self, GameState state )
+    cdef np.ndarray[ tensor_type, ndim=4 ] generate_tensor(self, GameState state)
     """
        Convert a GameState to a Theano-compatible tensor
     """

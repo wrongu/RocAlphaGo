@@ -10,15 +10,15 @@ from AlphaGo.models.value import CNNValue
 class TestCNNValue(unittest.TestCase):
 
     def test_default_value(self):
-        
+
         state = GameState()
-        
+
         value = CNNValue(["board", "liberties", "sensibleness", "capture_size"])
         value.eval_state(state)
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
-                
+
         value = CNNValue(["board", "liberties", "sensibleness", "capture_size"])
         results = value.batch_eval_state([GameState(), GameState()])
         self.assertEqual(len(results), 2)  # one result per GameState
@@ -26,15 +26,15 @@ class TestCNNValue(unittest.TestCase):
         self.assertTrue(isinstance(results[1], np.float64))
 
     def test_output_size(self):
-        
+
         state = GameState()
-        
+
         value19 = CNNValue(["board", "liberties", "sensibleness", "capture_size"], board=19)
         output = value19.forward(value19.preprocessor.state_to_tensor(state))
         self.assertEqual(output.shape, (1, 1))
 
-        state = GameState( size=13 )
-        
+        state = GameState(size=13)
+
         value13 = CNNValue(["board", "liberties", "sensibleness", "capture_size"], board=13)
         output = value13.forward(value13.preprocessor.state_to_tensor(state))
         self.assertEqual(output.shape, (1, 1))
@@ -71,8 +71,8 @@ class TestValuePlayers(unittest.TestCase):
 
     def test_greedy_player(self):
 
-        gs = GameState( size = 9 )
-        
+        gs = GameState(size=9)
+
         value = CNNValue(["board", "ones", "turns_since"], board=9)
         player = ValuePlayer(value, greedy_start=0)
         for i in range(10):
@@ -82,8 +82,8 @@ class TestValuePlayers(unittest.TestCase):
 
     def test_probabilistic_player(self):
 
-        gs = GameState( size = 9 )
-        
+        gs = GameState(size=9)
+
         value = CNNValue(["board", "ones", "turns_since"], board=9)
         player = ValuePlayer(value)
         for i in range(10):
@@ -94,7 +94,7 @@ class TestValuePlayers(unittest.TestCase):
     def test_sensible_probabilistic(self):
 
         gs = GameState()
-        
+
         value = CNNValue(["board", "ones", "turns_since"])
         player = ValuePlayer(value)
         empty = (10, 10)
@@ -102,13 +102,13 @@ class TestValuePlayers(unittest.TestCase):
             for y in range(19):
                 if (x, y) != empty:
                     gs.do_move((x, y), go.BLACK)
-        gs.set_current_player( go.BLACK )
+        gs.set_current_player(go.BLACK)
         self.assertEqual(player.get_move(gs), go.PASS)
 
     def test_sensible_greedy(self):
 
         gs = GameState()
-        
+
         value = CNNValue(["board", "ones", "turns_since"])
         player = ValuePlayer(value, greedy_start=0)
         empty = (10, 10)
@@ -116,7 +116,7 @@ class TestValuePlayers(unittest.TestCase):
             for y in range(19):
                 if (x, y) != empty:
                     gs.do_move((x, y), go.BLACK)
-        gs.set_current_player( go.BLACK )
+        gs.set_current_player(go.BLACK)
         self.assertEqual(player.get_move(gs), go.PASS)
 
 
