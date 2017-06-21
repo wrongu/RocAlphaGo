@@ -191,6 +191,11 @@ def run_training(cmd_line_args=None):
     optimizer = SGD(lr=args.learning_rate)
     player.policy.model.compile(loss=log_loss, optimizer=optimizer)
     for i_iter in range(iter_start, args.iterations + 1):
+        # Note that player_weights will only be saved as a file every args.record_every iterations.
+        # Regardless, player_weights enters into the metadata to keep track of the win ratio over
+        # time.
+        player_weights = "weights.%05d.hdf5" % i_iter
+
         # Randomly choose opponent from pool (possibly self), and playing
         # game_batch games against them.
         opp_weights = np.random.choice(metadata["opponents"])
@@ -208,7 +213,6 @@ def run_training(cmd_line_args=None):
 
         # Save intermediate models.
         if i_iter % args.record_every == 0:
-            player_weights = "weights.%05d.hdf5" % i_iter
             player.policy.model.save_weights(os.path.join(args.out_directory, player_weights))
 
         # Add player to batch of oppenents once in a while.
