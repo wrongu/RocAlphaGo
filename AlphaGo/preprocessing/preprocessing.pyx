@@ -398,8 +398,22 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_save_atari(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           A feature wrapping GameState.is_ladder_escape().
+           check if player_current group can escape atari for at least one turn
         """
+
+        cdef int   location
+        cdef char* escapes = state.get_ladder_escapes(1)
+
+        # loop over all groups on board
+        for location in range(state.board_size):
+
+            if escapes[ location ] != _FREE:
+
+                tensor[ offSet, location ] = 1
+
+        # free escapes
+        free(escapes)
 
         return offSet + 1
 
@@ -440,8 +454,17 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_nakade(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           A nakade pattern is a 12d pattern on a location a stone was captured before
+           it is unclear if a max size of the captured group has to be considered and
+           how recent the capture event should have been
+
+           the 12d pattern can be encoded without stone colour and liberty count
+           unclear if a border location should be considered a stone or liberty
+
+           pattern lookup value is being set instead of 1
         """
+
+        # TODO tensor type has to be float
 
         return offSet + 1
 
@@ -451,7 +474,14 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_nakade_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           A nakade pattern is a 12d pattern on a location a stone was captured before
+           it is unclear if a max size of the captured group has to be considered and
+           how recent the capture event should have been
+
+           the 12d pattern can be encoded without stone colour and liberty count
+           unclear if a border location should be considered a stone or liberty
+
+           #pattern_id is offset
         """
 
         return offSet + self.pattern_nakade_size
@@ -462,7 +492,8 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_response_12d(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           Set 12d hash pattern for 12d shape around last move
+           pattern lookup value is being set instead of 1
         """
 
         # get last move location
@@ -476,7 +507,8 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_response_12d_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           Set 12d hash pattern for 12d shape around last move where
+           #pattern_id is offset
         """
 
         # get last move location
@@ -490,8 +522,11 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_non_response_3x3(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           Set 3x3 hash pattern for every legal location where
+           pattern lookup value is being set instead of 1
         """
+
+        # TODO tensor type has to be float
 
         return offSet + 1
 
@@ -501,8 +536,24 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int get_non_response_3x3_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           Fast rollout feature
+           Set 3x3 hash pattern for every legal location where
+           #pattern_id is offset
         """
+
+        cdef short i, location
+        cdef int   id
+
+        # loop over all legal moves and set to one
+        for i in range(state.moves_legal.count):
+
+            # get location
+            location = state.moves_legal.locations[ i ]
+            # get location hash and dict lookup
+            id = self.pattern_non_response_3x3.get( state.get_3x3_hash( location ) )
+
+            if id >= 0:
+
+                tensor[ offSet + id, location ] = 1
 
         return offSet + self.pattern_non_response_3x3_size
 
@@ -564,7 +615,7 @@ cdef class Preprocess:
     @cython.nonecheck(False)
     cdef int ko(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
         """
-           ko
+           ko feature
         """
 
         if state.ko is not _PASS:

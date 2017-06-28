@@ -178,13 +178,12 @@ cdef class GameState:
             self.hash3x3[ i ] = self.generate_3x3_hash(i)
 
         # initialize zobrist hash
-        # TODO optimize?
-        # rng = np.random.RandomState(0)
-        # self.hash_lookup = {
-        #    WHITE: rng.randint(np.iinfo(np.uint64).max, size=(size, size), dtype='uint64'),
-        #    BLACK: rng.randint(np.iinfo(np.uint64).max, size=(size, size), dtype='uint64')}
-        # self.current_hash = np.uint64(0)
-        # self.previous_hashes = set()
+        rng = np.random.RandomState(0)
+        self.hash_lookup = {
+          _WHITE: rng.randint(np.iinfo(np.uint64).max, size=self.board_size, dtype='uint64'),
+          _BLACK: rng.randint(np.iinfo(np.uint64).max, size=self.board_size, dtype='uint64')}
+        self.current_hash = np.uint64(0)
+        self.previous_hashes = set()
 
 
     @cython.boundscheck(False)
@@ -211,7 +210,7 @@ cdef class GameState:
         # pattern dictionary
 
         # zobrist
-      # self.hash_lookup     = copy_state.hash_lookup
+        self.hash_lookup     = copy_state.hash_lookup
 
         # !!! deep copy !!!
 
@@ -225,15 +224,15 @@ cdef class GameState:
         self.board_size      = copy_state.board_size
         self.player_current  = copy_state.player_current
         self.player_opponent = copy_state.player_opponent
-      # self.current_hash    = copy_state.current_hash
+        self.current_hash    = copy_state.current_hash.copy()
+        self.enforce_superko = copy_state.enforce_superko
+        self.previous_hashes = copy_state.previous_hashes.copy()
 
         # create history list
         self.moves_history       = locations_list_new(copy_state.moves_history.size)
         self.moves_history.count = copy_state.moves_history.count
         # copy all history moves in copy_state
         memcpy(self.moves_history.locations, copy_state.moves_history.locations, copy_state.moves_history.count * sizeof(short))
-
-      # self.previous_hashes = list(copy_state.previous_hashes)
 
         # create 3x3 hash array, these are updated after every move
         self.hash3x3         = <long *>malloc((self.board_size) * sizeof(long))
@@ -292,7 +291,7 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __init__(self, char size = 19, GameState copyState = None):
+    def __init__(self, char size = 19, GameState copyState = None, enforce_superko=False):
         """
            create new instance of GameState
         """
@@ -302,6 +301,11 @@ cdef class GameState:
             # create copy of given state
             self.initialize_duplicate(copyState)
         else:
+
+            self.enforce_superko = 0
+            if enforce_superko:
+
+                self.enforce_superko = 1
 
             # check if neighbor arrays exist or size has changed
             if not neighbor or size != neighbor_size:
@@ -406,6 +410,66 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
+    cdef void update_hash(self, short location, char colour):
+        """
+           xor current hash with location + colour action value
+        """
+
+        self.current_hash = np.bitwise_xor(self.current_hash, self.hash_lookup[colour][location])
+
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef bint is_positional_superko(self, short location, Group **board):
+        """
+           Find all actions that the current_player has done in the past, taking into
+           account the fact that history starts with BLACK when there are no
+           handicaps or with WHITE when there are.
+        """
+
+        cdef int i
+        cdef bint played
+        played = 0
+
+        # TODO correction for handicap
+        if self.player_current == _BLACK:
+
+            # move zero is black move
+            i = 0
+        else:
+
+            # move one is white move
+            i = 1
+
+        # check all moves by player if a move
+        # at location was played already
+        while i < self.moves_history.count:
+
+            # check if move was played aleady
+            if self.moves_history.locations[ i ] == location:
+
+                played = 1
+                break
+
+            i += 2
+
+        # if not played, no superko
+        if not played:
+            return 0
+
+        # TODO inefficient!!!
+        # duplicate state and play move
+        cdef GameState copy_state
+        copy_state = self.new_state_add_move(location)
+
+        # check if hash already exists
+        if copy_state.current_hash in self.previous_hashes:
+            return 1
+
+        return 0
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     cdef bint is_legal_move(self, short location, Group **board, short ko):
         """
            check if playing at location is a legal move to make
@@ -423,7 +487,30 @@ cdef class GameState:
         if 0 == self.has_liberty_after(location, board):
             return 0
 
-        # TODO check super-ko
+        return 1
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef bint is_legal_move_superko(self, short location, Group **board, short ko):
+        """
+           check if playing at location is a legal move to make
+        """
+
+        # check if it is empty
+        if board[ location ].colour != _EMPTY:
+            return 0
+
+        # check ko
+        if location == ko:
+            return 0
+
+        # check if it has liberty after
+        if 0 == self.has_liberty_after(location, board):
+            return 0
+
+        # if we have to enforce superko, check superko
+        if self.enforce_superko and self.is_positional_superko(location, board):
+            return 0
 
         return 1
 
@@ -523,7 +610,7 @@ cdef class GameState:
         for i in range(self.board_size):
 
             # check if a move is legal
-            if self.is_legal_move(i, self.board_groups, self.ko):
+            if self.is_legal_move_superko(i, self.board_groups, self.ko):
 
                 # add to moves_legal
                 moves_legal.locations[ moves_legal.count ] = i
@@ -582,6 +669,9 @@ cdef class GameState:
 
                 # set location to empty group
                 board[ location ] = self.group_empty
+
+                # update hash
+                self.update_hash(location, group_remove.colour)
 
                 # update liberty of neighbors
                 # loop over all four neighbors
@@ -645,6 +735,8 @@ cdef class GameState:
         cdef char  boardValue
         cdef char  group_removed = 0
         cdef int   i
+
+        self.update_hash(location, self.player_current)
 
         # loop over all four neighbors
         for i in range(4):
@@ -1394,7 +1486,7 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cdef bint is_ladder_escape_move(self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase):
+    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase):
         """
            play a ladder move on location, check if group has escaped,
            if the group has 2 liberty it is undetermined ->
@@ -1409,6 +1501,7 @@ cdef class GameState:
         cdef dict   capture_copy
         cdef Groups_List* removed_groups
         cdef short  location_neighbor, location_stone
+        cdef short  ko_count = list_ko.count
 
         # check if max exploration depth has been reached
         if maxDepth <= 0:
@@ -1422,6 +1515,18 @@ cdef class GameState:
         # do ladder move and save ko location
         ko_value       = ko[ 0 ]
         removed_groups = self.add_ladder_move(location, board, ko)
+
+        # check if it is a possible ko move
+        if ko[0] != _PASS:
+            locations_list_add_location_unique(list_ko, ko[0])
+
+        if list_ko.count >= 2:
+            # undo move
+            self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+
+            # decrement list_ko count
+            list_ko.count = ko_count
+            return 0
 
         # check group liberty
         group = board[ location_group ]
@@ -1470,10 +1575,11 @@ cdef class GameState:
 
                 if group.locations[ location_neighbor ] == _LIBERTY:
 
-                    if self.is_ladder_capture_move(board, ko,  location_group, capture.copy(), location_neighbor, maxDepth - 1, colour_group, colour_chase):
+                    if self.is_ladder_capture_move(board, ko, list_ko,  location_group, capture.copy(), location_neighbor, maxDepth - 1, colour_group, colour_chase):
 
                         # undo move
                         self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+                        list_ko.count = ko_count
                         return 0
 
             # escaped
@@ -1481,6 +1587,7 @@ cdef class GameState:
 
         # undo move
         self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+        list_ko.count = ko_count
 
         # return result
         return result
@@ -1488,7 +1595,7 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cdef bint is_ladder_capture_move(self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase):
+    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase):
         """
            play a ladder move on location, try capture and escape moves
            and see if the group is able to escape ladder
@@ -1500,6 +1607,7 @@ cdef class GameState:
         cdef dict   capture_copy
         cdef short  location_next
         cdef Groups_List* removed_groups
+        cdef short  ko_count = list_ko.count
 
         # if we haven't found a capture by a certain number of moves, assume it's worked.
         if maxDepth <= 0:
@@ -1513,6 +1621,18 @@ cdef class GameState:
         ko_value       = ko[ 0 ]
         removed_groups = self.add_ladder_move(location, board, ko)
 
+        # check if it is a possible ko move
+        if ko[0] != _PASS:
+            locations_list_add_location_unique(list_ko, ko[0])
+
+        if list_ko.count >= 2:
+            # undo move
+            self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+
+            # decrement list_ko count
+            list_ko.count = ko_count
+            return 1
+
         # check if the group at location can be captured
         group = board[ location ]
         if group.count_liberty == 1:
@@ -1525,10 +1645,11 @@ cdef class GameState:
 
             capture_copy = capture.copy()
             capture_copy.pop(location_next)
-            if self.is_ladder_escape_move(board, ko, location_group, capture.copy(), location_next, maxDepth - 1, colour_group, colour_chase):
+            if self.is_ladder_escape_move(board, ko, list_ko, location_group, capture.copy(), location_next, maxDepth - 1, colour_group, colour_chase):
 
                 # undo move
                 self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+                list_ko.count = ko_count
                 return 0
 
         group = board[ location_group ]
@@ -1541,15 +1662,17 @@ cdef class GameState:
                 capture_copy = capture.copy()
                 if location_next in capture_copy:
                     capture_copy.pop(location_next)
-                if self.is_ladder_escape_move(board, ko, location_group, capture.copy(), location_next, maxDepth - 1, colour_group, colour_chase):
+                if self.is_ladder_escape_move(board, ko, list_ko, location_group, capture.copy(), location_next, maxDepth - 1, colour_group, colour_chase):
 
                     # undo move
                     self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+                    list_ko.count = ko_count
                     return 0
 
         # no ladder escape found -> group is captured
         # undo move
         self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
+        list_ko.count = ko_count
         return 1
 
 
@@ -1660,6 +1783,7 @@ cdef class GameState:
         cdef dict    move_capture_copy
         cdef Group **board   = NULL
         cdef short   ko      = self.ko
+        cdef Locations_List *list_ko
 
         # create char array representing the board
         cdef char*   escapes = <char *>malloc(self.board_size)
@@ -1667,6 +1791,9 @@ cdef class GameState:
             raise MemoryError()
         # set all locations to _FREE
         memset(escapes, _FREE, self.board_size)
+
+        # create Locations_List list_ko able to hold all ko locations for detecting superko
+        list_ko = locations_list_new(3)
 
         # loop over all groups on board
         for i in range(self.groups_list.count_groups):
@@ -1704,7 +1831,7 @@ cdef class GameState:
                         if group.locations[ location_move ] == _LIBERTY and escapes[ location_move ] == _FREE:
 
                             # check if group can escape ladder by playing move
-                            if self.is_ladder_escape_move(board, &ko, location_group, move_capture.copy(), location_move, maxDepth, self.player_current, self.player_opponent):
+                            if self.is_ladder_escape_move(board, &ko, list_ko, location_group, move_capture.copy(), location_move, maxDepth, self.player_current, self.player_opponent):
 
                                 escapes[ location_move ] = _STONE
 
@@ -1717,7 +1844,7 @@ cdef class GameState:
                             move_capture_copy.pop(location_move)
 
                             # check if group can escape ladder by playing capture move
-                            if self.is_ladder_escape_move(board, &ko, location_group, move_capture_copy, location_move, maxDepth, self.player_current, self.player_opponent):
+                            if self.is_ladder_escape_move(board, &ko, list_ko, location_group, move_capture_copy, location_move, maxDepth, self.player_current, self.player_opponent):
 
                                 escapes[ location_move ] = _STONE
 
@@ -1725,6 +1852,8 @@ cdef class GameState:
         if board is not NULL:
 
             free(board)
+
+        locations_list_destroy(list_ko)
 
         return escapes
 
@@ -1744,6 +1873,7 @@ cdef class GameState:
         cdef dict    move_capture
         cdef Group **board    = NULL
         cdef short   ko       = self.ko
+        cdef Locations_List *list_ko
 
         # create char array representing the board
         cdef char*   captures = <char *>malloc(self.board_size)
@@ -1751,6 +1881,9 @@ cdef class GameState:
             raise MemoryError()
         # set all locations to _FREE
         memset(captures, _FREE, self.board_size)
+
+        # create Locations_List list_ko able to hold all ko locations for detecting superko
+        list_ko = locations_list_new(3)
 
         # loop over all groups on board
         for i in range(self.groups_list.count_groups):
@@ -1788,7 +1921,7 @@ cdef class GameState:
                         if group.locations[ location_move ] == _LIBERTY and captures[ location_move ] == _FREE:
 
                             # check if move is ladder capture
-                            if self.is_ladder_capture_move(board, &ko, location_group, move_capture.copy(), location_move, maxDepth, self.player_opponent, self.player_current):
+                            if self.is_ladder_capture_move(board, &ko, list_ko, location_group, move_capture.copy(), location_move, maxDepth, self.player_opponent, self.player_current):
 
                                 captures[ location_move ] = _STONE
 
@@ -1796,6 +1929,8 @@ cdef class GameState:
         if board is not NULL:
 
             free(board)
+
+        locations_list_destroy(list_ko)
 
         return captures
 
@@ -1840,8 +1975,8 @@ cdef class GameState:
         # set moves_legal
         self.set_moves_legal_list(self.moves_legal)
 
-        # TODO
         # update zobrist
+        self.previous_hashes.add(self.current_hash)
 
 
     @cython.boundscheck(False)
@@ -1990,7 +2125,7 @@ cdef class GameState:
         location = self.calculate_board_location(y, x)
 
         # check if move is legal
-        if not self.is_legal_move(location, self.board_groups, self.ko):
+        if not self.is_legal_move_superko(location, self.board_groups, self.ko):
 
             print(self.player_current)
             print(location)
@@ -2149,7 +2284,7 @@ cdef class GameState:
         # calculate location
         location = self.calculate_board_location(y, x)
 
-        if self.is_legal_move(location, self.board_groups, self.ko):
+        if self.is_legal_move_superko(location, self.board_groups, self.ko):
 
             return True
 
@@ -2586,6 +2721,18 @@ cdef class GameState:
     cdef test_cpp_fast(self):
 
         print("empty")
+
+        cdef unsigned long long a
+        cdef unsigned long long b
+        cdef unsigned long long i
+
+        a = 1024
+        i = 500
+
+        for i in range(501):
+            b = a^i
+         
+            print str(b) + " " + str(i)
 
 
     def test_cpp(self):

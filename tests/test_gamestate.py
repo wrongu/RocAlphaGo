@@ -72,11 +72,17 @@ class TestKo(unittest.TestCase):
             gs.do_move(move)
         self.assertTrue(gs.is_legal((1, 0)))
 
-        # gs = GameState(size=9, enforce_superko=True) super ko is not handled yet
-        gs = GameState(size=9)
+        # test with enforce_superko=True
+        gs = GameState(size=9, enforce_superko=True)
         for move in move_list:
             gs.do_move(move)
         self.assertFalse(gs.is_legal((1, 0)))
+
+        # test with enforce_superko=False
+        gs = GameState(size=9, enforce_superko=False)
+        for move in move_list:
+            gs.do_move(move)
+        self.assertTrue(gs.is_legal((1, 0)))
 
 
 class TestEye(unittest.TestCase):

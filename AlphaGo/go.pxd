@@ -55,8 +55,9 @@ cdef class GameState:
     cdef short *neighbor12d
 
     # zobrist
+    cdef object current_hash
+    cdef bint   enforce_superko
     cdef dict   hash_lookup
-    cdef int    current_hash
     cdef set    previous_hashes
 
     ############################################################################
@@ -80,7 +81,24 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
+    cdef void update_hash(self, short location, char colour)
+    """
+       xor current hash with location + colour action value
+    """
+
+    cdef bint is_positional_superko(self, short location, Group **board)
+    """
+       Find all actions that the current_player has done in the past, taking into
+       account the fact that history starts with BLACK when there are no
+       handicaps or with WHITE when there are.
+    """
+
     cdef bint is_legal_move(self, short location, Group **board, short ko)
+    """
+       check if playing at location is a legal move to make
+    """
+
+    cdef bint is_legal_move_superko(self, short location, Group **board, short ko)
     """
        check if playing at location is a legal move to make
     """
@@ -229,14 +247,14 @@ cdef class GameState:
        all changes to the board are stored in removed_groups
     """
 
-    cdef bint is_ladder_escape_move(self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
+    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
     """
        play a ladder move on location, check if group has escaped,
        if the group has 2 liberty it is undetermined ->
        try to capture it by playing at both liberty
     """
 
-    cdef bint is_ladder_capture_move(self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
+    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
     """
        play a ladder move on location, try capture and escape moves
        and see if the group is able to escape ladder
