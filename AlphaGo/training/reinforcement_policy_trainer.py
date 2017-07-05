@@ -19,7 +19,7 @@ def _make_training_pair(st, mv, preprocessor):
     return (st_tensor, mv_tensor)
 
 
-def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
+def run_n_games(optimizer, lr, learner, opponent, num_games, mock_states=[]):
     '''Run num_games games to completion, keeping track of each position and move of the learner.
 
     (Note: learning cannot happen until all games have completed)
@@ -78,7 +78,7 @@ def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
     # Train on each game's results, setting the learning rate negative to 'unlearn' positions from
     # games where the learner lost.
     for (st_tensor, mv_tensor, won) in zip(state_tensors, move_tensors, learner_won):
-        optimizer.lr = K.abs(optimizer.lr) * (+1 if won else -1)
+        K.set_value(optimizer.lr, abs(lr) * (+1 if won else -1))
         learner_net.train_on_batch(np.concatenate(st_tensor, axis=0),
                                    np.concatenate(mv_tensor, axis=0))
 
@@ -208,7 +208,7 @@ def run_training(cmd_line_args=None):
 
         # Run games (and learn from results). Keep track of the win ratio vs each opponent over
         # time.
-        win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
+        win_ratio = run_n_games(optimizer, args.learning_rate, player, opponent, args.game_batch)
         metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 
         # Save intermediate models.

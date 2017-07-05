@@ -102,7 +102,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             opponent = MockPlayer(policy2, game)
 
             # Run RL training
-            run_n_games(optimizer, learner, opponent, 2, mock_states=states)
+            run_n_games(optimizer, 0.001, learner, opponent, 2, mock_states=states)
 
             return policy1.model.get_weights()
 
@@ -145,12 +145,12 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
                                                         'minimodel_policy.json'))
             learner = MockPlayer(policy1, game)
             opponent = MockPlayer(policy2, game)
-            optimizer = SGD()
+            optimizer = SGD(lr=0.001)
             init_weights = policy1.model.get_weights()
             policy1.model.compile(loss=log_loss, optimizer=optimizer)
 
             # Run RL training
-            run_n_games(optimizer, learner, opponent, 2)
+            run_n_games(optimizer, 0.001, learner, opponent, 2)
 
             # Get new weights for comparison
             trained_weights = policy1.model.get_weights()
@@ -174,7 +174,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
                                                         'minimodel_policy.json'))
             learner = MockPlayer(policy1, game)
             opponent = MockPlayer(policy2, game)
-            optimizer = SGD()
+            optimizer = SGD(lr=0.001)
             policy1.model.compile(loss=log_loss, optimizer=optimizer)
 
             # Get initial (before learning) move probabilities for all moves made by black
@@ -182,7 +182,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             init_probs = [prob for (mv, prob) in init_move_probs]
 
             # Run RL training
-            run_n_games(optimizer, learner, opponent, 1, mock_states=win_state)
+            run_n_games(optimizer, 0.001, learner, opponent, 1, mock_states=win_state)
 
             # Get new move probabilities for black's moves having finished 1 round of training
             new_move_probs = get_sgf_move_probs(game, policy1, go.BLACK)
@@ -205,7 +205,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
                                                         'minimodel_policy.json'))
             learner = MockPlayer(policy1, game)
             opponent = MockPlayer(policy2, game)
-            optimizer = SGD()
+            optimizer = SGD(lr=0.001)
             policy1.model.compile(loss=log_loss, optimizer=optimizer)
 
             # Get initial (before learning) move probabilities for all moves made by black
@@ -213,7 +213,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             init_probs = [prob for (mv, prob) in init_move_probs]
 
             # Run RL training
-            run_n_games(optimizer, learner, opponent, 1, mock_states=lose_state)
+            run_n_games(optimizer, 0.001, learner, opponent, 1, mock_states=lose_state)
 
             # Get new move probabilities for black's moves having finished 1 round of training
             new_move_probs = get_sgf_move_probs(game, policy1, go.BLACK)
