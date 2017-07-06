@@ -1,14 +1,13 @@
-#cython: profile=True
-#cython: linetrace=True
-import sys
-import time
+# cython: profile=True
+# cython: linetrace=True
+# cython: wraparound=False
+# cython: boundscheck=False
+# cython: initializedcheck=False
 cimport cython
 import numpy as np
 cimport numpy as np
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy, memset
-from datetime import datetime
-from datetime import timedelta
 
 # global
 # global empty group
@@ -22,6 +21,9 @@ cdef short *neighbor
 cdef short *neighbor3x3
 cdef short *neighbor12d
 cdef char  neighbor_size
+
+# global array for zobrist lookup
+cdef unsigned long long *zobrist_lookup
 
 # expose variables to python
 PASS  = _PASS
@@ -74,17 +76,12 @@ cdef class GameState:
     # list with legal moves
     cdef Locations_List *moves_legal
 
-    # array, keep track of 3x3 pattern hashes
-    cdef long  *hash3x3
-
     # arrays, neighbor arrays pointers
     cdef short *neighbor
     cdef short *neighbor3x3
     cdef short *neighbor12d
 
     # zobrist
-    cdef dict   hash_lookup
-    cdef int    current_hash
     cdef set    previous_hashes
 
         -> variables, declared in go.pxd
@@ -106,10 +103,11 @@ cdef class GameState:
         cdef short i
 
         # set pointer to neighbor locations
-        # neighbor, neighbor3x3, neighbor12d are global
-        self.neighbor    = neighbor
-        self.neighbor3x3 = neighbor3x3
-        self.neighbor12d = neighbor12d
+        # neighbor, neighbor3x3, neighbor12d and zobrist_lookup are global
+        self.neighbor       = neighbor
+        self.neighbor3x3    = neighbor3x3
+        self.neighbor12d    = neighbor12d
+        self.zobrist_lookup = zobrist_lookup
 
         # initialize size and board_size
         self.size        = size
@@ -137,11 +135,6 @@ cdef class GameState:
         # border location is included, therefore the array size is board_size +1
         self.board_groups = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
         if not self.board_groups:
-            raise MemoryError()
-
-        # create 3x3 hash array, these are updated after every move
-        self.hash3x3      = <long   *>malloc((self.board_size) * sizeof(long))
-        if not self.hash3x3:
             raise MemoryError()
 
         # create Locations_List as legal_moves
@@ -172,18 +165,9 @@ cdef class GameState:
         # initialize border location to group_border
         self.board_groups[ self.board_size ] = group_border
 
-        # initialize all 3x3 hashes
-        for i in range(self.board_size):
-
-            self.hash3x3[ i ] = self.generate_3x3_hash(i)
-
-        # initialize zobrist hash
-        rng = np.random.RandomState(0)
-        self.hash_lookup = {
-          _WHITE: rng.randint(np.iinfo(np.uint64).max, size=self.board_size, dtype='uint64'),
-          _BLACK: rng.randint(np.iinfo(np.uint64).max, size=self.board_size, dtype='uint64')}
-        self.current_hash = np.uint64(0)
+        # set zobrist 
         self.previous_hashes = set()
+        self.zobrist_current = 0
 
 
     @cython.boundscheck(False)
@@ -210,7 +194,7 @@ cdef class GameState:
         # pattern dictionary
 
         # zobrist
-        self.hash_lookup     = copy_state.hash_lookup
+        self.zobrist_lookup  = copy_state.zobrist_lookup
 
         # !!! deep copy !!!
 
@@ -224,7 +208,7 @@ cdef class GameState:
         self.board_size      = copy_state.board_size
         self.player_current  = copy_state.player_current
         self.player_opponent = copy_state.player_opponent
-        self.current_hash    = copy_state.current_hash.copy()
+        self.zobrist_current = copy_state.zobrist_current
         self.enforce_superko = copy_state.enforce_superko
         self.previous_hashes = copy_state.previous_hashes.copy()
 
@@ -233,13 +217,6 @@ cdef class GameState:
         self.moves_history.count = copy_state.moves_history.count
         # copy all history moves in copy_state
         memcpy(self.moves_history.locations, copy_state.moves_history.locations, copy_state.moves_history.count * sizeof(short))
-
-        # create 3x3 hash array, these are updated after every move
-        self.hash3x3         = <long *>malloc((self.board_size) * sizeof(long))
-        if not self.hash3x3:
-            raise MemoryError()
-        # copy all 3x3 hashes from copy_state
-        memcpy(self.hash3x3, copy_state.hash3x3, (self.board_size) * sizeof(long))
 
         # create Locations_List as legal_moves
         # after every move this list will be updated to contain all legal moves
@@ -291,9 +268,10 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __init__(self, char size = 19, GameState copyState = None, enforce_superko=False):
+    def __init__(self, char size = 19, GameState copyState = None, enforce_superko=True):
         """
            create new instance of GameState
+
         """
 
         if copyState is not None:
@@ -302,10 +280,7 @@ cdef class GameState:
             self.initialize_duplicate(copyState)
         else:
 
-            self.enforce_superko = 0
-            if enforce_superko:
-
-                self.enforce_superko = 1
+            self.enforce_superko = enforce_superko
 
             # check if neighbor arrays exist or size has changed
             if not neighbor or size != neighbor_size:
@@ -320,6 +295,7 @@ cdef class GameState:
                 global neighbor_size
                 global group_empty
                 global group_border
+                global zobrist_lookup
 
                 # free arrays if they already existed
                 if neighbor:
@@ -327,14 +303,16 @@ cdef class GameState:
                     free(neighbor)
                     free(neighbor3x3)
                     free(neighbor12d)
+                    free(zobrist_lookup)
 
                 # set size
                 neighbor_size = size
 
                 # set neighbor arrays
-                neighbor    = get_neighbors(size)
-                neighbor3x3 = get_3x3_neighbors(size)
-                neighbor12d = get_12d_neighbors(size)
+                neighbor       = get_neighbors(size)
+                neighbor3x3    = get_3x3_neighbors(size)
+                neighbor12d    = get_12d_neighbors(size)
+                zobrist_lookup = get_zobrist_lookup(size)
 
                 # initialize EMPTY and BORDER group
                 if not group_empty:
@@ -363,11 +341,6 @@ cdef class GameState:
         """
 
         cdef int i
-
-        # free hash3x3
-        if self.hash3x3 is not NULL:
-
-            free(self.hash3x3)
 
         # free board_groups
         if self.board_groups is not NULL:
@@ -415,7 +388,10 @@ cdef class GameState:
            xor current hash with location + colour action value
         """
 
-        self.current_hash = np.bitwise_xor(self.current_hash, self.hash_lookup[colour][location])
+        if colour == _BLACK:
+            location += self.board_size
+
+        self.zobrist_current = self.zobrist_current ^ self.zobrist_lookup[location]
 
 
     @cython.boundscheck(False)
@@ -449,7 +425,6 @@ cdef class GameState:
             if self.moves_history.locations[ i ] == location:
 
                 played = 1
-                break
 
             i += 2
 
@@ -460,10 +435,14 @@ cdef class GameState:
         # TODO inefficient!!!
         # duplicate state and play move
         cdef GameState copy_state
-        copy_state = self.new_state_add_move(location)
+        copy_state = GameState(copyState=self)
+        copy_state.enforce_superko = 0
+
+        # do move
+        copy_state.add_move(location)
 
         # check if hash already exists
-        if copy_state.current_hash in self.previous_hashes:
+        if copy_state.zobrist_current in self.previous_hashes:
             return 1
 
         return 0
@@ -509,8 +488,9 @@ cdef class GameState:
             return 0
 
         # if we have to enforce superko, check superko
-        if self.enforce_superko and self.is_positional_superko(location, board):
-            return 0
+        if self.enforce_superko:
+            if self.is_positional_superko(location, board):
+                return 0
 
         return 1
 
@@ -692,36 +672,6 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cdef void update_hashes(self, Group* group):
-        """
-           update all locations affected by removal of group
-        """
-
-        cdef short i, a, location, location_array
-
-        # loop over all stones in group
-        for i in range(self.board_size):
-
-            if group.locations[ i ] == _STONE:
-
-                # update hash location
-                self.hash3x3[ i ] = self.generate_3x3_hash(i)
-
-                location_array = i * 8
-
-                # loop over diagonal
-                # this group is killed -> neighbors are enemy stones
-                for a in range(4, 8):
-
-                    # TODO add check for this group location
-                    location = self.neighbor3x3[ location_array + a ]
-                    if self.board_groups[ location ].colour == _EMPTY:
-
-                        self.hash3x3[ location ] = self.generate_3x3_hash(location)
-
-
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void add_to_group(self, short location, Group **board, short* ko, short* count_captures):
         """
            check if a stone on location is connected to a group, kills a group
@@ -779,7 +729,7 @@ cdef class GameState:
 
                     # remove group and update hashes
                     self.remove_group(tempGroup, board, ko)
-                    self.update_hashes(tempGroup)
+
                     # TODO hashes of locations next to a group where liberty change also have to be updated
 
                     # remove tempGroup from groupList and destroy
@@ -818,18 +768,6 @@ cdef class GameState:
             if board[ neighborLocation ].colour == _EMPTY:
 
                 group_add_liberty(newGroup, neighborLocation)
-                self.hash3x3[ neighborLocation ] = self.generate_3x3_hash(neighborLocation)
-
-        # loop over all four diagonals
-        for i in range(4, 8):
-
-            # get neighbor location
-            neighborLocation = self.neighbor3x3[ location_array + i ]
-
-            # if diagonal is empty update hash
-            if board[ neighborLocation ].colour == _EMPTY:
-
-                self.hash3x3[ neighborLocation ] = self.generate_3x3_hash(neighborLocation)
 
         # check if there is really a ko
         # if two groups died there is no ko
@@ -1122,9 +1060,6 @@ cdef class GameState:
 
         # TODO benchmark what is faster? first dict lookup then neighbor check or other way around
 
-        if eyes_lenght > 70:
-            print "pretty big" + str(eyes_lenght)
-
         # check if it is a known eye
         for i in range(eyes.count):
 
@@ -1256,6 +1191,50 @@ cdef class GameState:
         self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
 
         return removed_groups
+
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void remove_ladder_group(self, Group* group_remove, Group **board, short* ko):
+        """
+           remove group from board -> set all locations to group_empty
+           does not update zobrist hash
+        """
+
+        cdef short  location
+        cdef short  neighbor_location
+        cdef Group* group_temp
+        cdef char   board_value
+        cdef int    i
+
+        # if groupsize == 1, possible ko
+        if group_remove.count_stones == 1:
+
+            ko[ 0 ] = group_location_stone(group_remove, self.board_size)
+
+        # loop over all group stone locations
+        for location in range(self.board_size):
+
+            if group_remove.locations[ location ] == _STONE:
+
+                # set location to empty group
+                board[ location ] = self.group_empty
+
+                # update liberty of neighbors
+                # loop over all four neighbors
+                for i in range(4):
+
+                    # get neighbor location
+                    neighbor_location = self.neighbor[ location * 4 + i ]
+
+                    # only current_player groups can be next to a killed group
+                    # check if there is a group
+                    board_value = board[ neighbor_location ].colour
+                    if board_value == self.player_current:
+
+                        # add liberty
+                        group_temp = board[ neighbor_location ]
+                        group_add_liberty(group_temp, location)
 
 
     @cython.boundscheck(False)
@@ -1450,7 +1429,7 @@ cdef class GameState:
                 # remove group
                 if tempGroup.count_liberty == 0:
 
-                    self.remove_group(tempGroup, board, ko)
+                    self.remove_ladder_group(tempGroup, board, ko)
                     # add tempGroup to removed_groups
                     groups_list_add(tempGroup, removed_groups)
 
@@ -1731,27 +1710,14 @@ cdef class GameState:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cdef list get_neighbor_locations(self):
-        """
-           generate list with 3x3 neighbor locations
-           0,1,2,3 are direct neighbor
-           4,5,6,7 are diagonal neighbor
-           where -1 if it is a border location or non empty location
-        """
-
-        return []
-
-
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef long get_hash_12d(self, short centre):
         """
            return hash for 12d star pattern around location
         """
 
-        # get 12d hash value and add current player colour
+        # generate 12d hash value and add current player colour
 
-        return self.generate_12d_hash(centre) + self.player_current
+        return ( self.generate_12d_hash(centre) + self.player_current ) * _HASHVALUE
 
 
     @cython.boundscheck(False)
@@ -1761,10 +1727,9 @@ cdef class GameState:
            return 3x3 pattern hash + current player
         """
 
-        # 3x3 hash patterns are updated every move
-        # get 3x3 hash value and add current player colour
+        # generate 3x3 hash value and add current player colour
 
-        return self.hash3x3[ location ] + self.player_current
+        return self.generate_3x3_hash( location ) + self.player_current
 
 
     @cython.boundscheck(False)
@@ -1972,11 +1937,12 @@ cdef class GameState:
         # add move to history
         locations_list_add_location_increment(self.moves_history, location)
 
+        # update zobrist
+        self.previous_hashes.add(self.zobrist_current)
+
         # set moves_legal
         self.set_moves_legal_list(self.moves_legal)
 
-        # update zobrist
-        self.previous_hashes.add(self.current_hash)
 
 
     @cython.boundscheck(False)
@@ -2127,12 +2093,6 @@ cdef class GameState:
         # check if move is legal
         if not self.is_legal_move_superko(location, self.board_groups, self.ko):
 
-            print(self.player_current)
-            print(location)
-            print(self.get_legal_moves(include_eyes=True))
-            print("")
-            print(self.get_legal_moves(include_eyes=False))
-            self.printer()
             raise IllegalMove(str(action))
 
         # add move
@@ -2269,7 +2229,6 @@ cdef class GameState:
     def is_legal(self, action):
         """
            determine if the given action (x,y tuple) is a legal move
-           note: we only check ko, not superko at this point (TODO!)
         """
 
         cdef int   i
@@ -2558,7 +2517,7 @@ cdef class GameState:
     @cython.wraparound(False)
     def get_handicaps(self):
         """
-           TODO
+           TODO ?
            return list with handicap stones placed
         """
 
@@ -2569,7 +2528,7 @@ cdef class GameState:
     @cython.wraparound(False)
     def get_handicap(self):
         """
-           TODO
+           TODO ?
            return list with handicap stones placed
         """
 
@@ -2581,6 +2540,7 @@ cdef class GameState:
     cdef Locations_List* get_sensible_moves(self):
         """
            only used for def get_legal_moves
+           return a list with sensible legal moves
         """
 
         # TODO validate usage of struct is actually faster
@@ -2612,44 +2572,14 @@ cdef class GameState:
         return sensible_moves
 
 
-    ############################################################################
-    #   tests                                                                  #
-    #                                                                          #
-    ############################################################################
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def get_print_board_layout(self):
+        """
+           print current board state
+        """
 
-    def validate_equal(self, GameState state):
-
-        cdef int i
-        value = True
-
-        for i in range(self.board_size):
-
-            if self.ko != state.ko:
-
-                print("ko " + str(self.ko))
-                return False
-
-            if self.board_groups[ i ].colour != state.board_groups[ i ].colour:
-
-                print("board " + str(i))
-                value = False
-
-            if self.board_groups[ i ].count_stones != state.board_groups[ i ].count_stones:
-
-                print("stones " + str(i))
-                print(str(self.board_groups[ i ].count_stones) + " " + str(state.board_groups[ i ].count_stones))
-                value = False
-
-            if self.board_groups[ i ].count_liberty != state.board_groups[ i ].count_liberty:
-
-                print("liberty " + str(i) + " " + str(state.board_groups[ i ].colour) + " " + str(state.player_current))
-                print(str(self.board_groups[ i ].count_liberty) + " " + str(state.board_groups[ i ].count_liberty))
-                value = False
-
-        return value
-
-    def printer(self):
-        print("")
+        line = "\n"
         for i in range(self.size):
             A = str(i) + " "
             for j in range(self.size):
@@ -2660,193 +2590,24 @@ cdef class GameState:
                 elif self.board_groups[ j + i * self.size ].colour == _WHITE:
                     B = 'W'
                 A += str(B) + " "
-            print(A)
+            line += A + "\n"
+        return line
 
 
-    # do move, throw exception when outside the board
-    # action has to be a (x, y) tuple
-    # this function should be used from Python environment,
-    # use add_move from C environment for speed
-    def do_ladder_move(self, action):
+    def __repr__(self):
+        """
+           enable python: print GameState
         """
 
+        return self.get_print_board_layout()
+
+
+    def __str__(self):
+        """
+           enable python: str(GameState)
         """
 
-        # do move, return true if legal, return false if not
-
-        cdef int   x, y
-        cdef short location
-        (x, y) = action
-        location = self.calculate_board_location(y, x)
-        self.add_ladder_move(location, self.board_groups, &self.ko)
-
-        self.set_moves_legal_list(self.moves_legal)
-
-        return True
-
-
-    # do move, throw exception when outside the board
-    # action has to be a (x, y) tuple
-    # this function should be used from Python environment,
-    # use add_move from C environment for speed
-    def do_and_undo_ladder_move(self, action):
-        """
-
-        """
-
-        # do move, return true if legal, return false if not
-
-        cdef int   x, y
-        cdef short location, ko
-        (x, y) = action
-        location = self.calculate_board_location(y, x)
-
-        cdef Groups_List* removed_groups
-
-        ko = self.ko
-        removed_groups = self.add_ladder_move(location, self.board_groups, &self.ko)
-
-        self.undo_ladder_move(location, removed_groups, ko, self.board_groups, &self.ko)
-
-
-        return True
-
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cdef test(self):
-
-        print("empty")
-
-
-    cdef test_cpp_fast(self):
-
-        print("empty")
-
-        cdef unsigned long long a
-        cdef unsigned long long b
-        cdef unsigned long long i
-
-        a = 1024
-        i = 500
-
-        for i in range(501):
-            b = a^i
-         
-            print str(b) + " " + str(i)
-
-
-    def test_cpp(self):
-
-        print("cpp")
-        self.test_cpp_fast()
-        print("cpp")
-
-    def test_game_speed(self, list moves):
-
-        cdef short location
-
-        for location in moves:
-            self.add_move(location)
-
-    def convert_moves(self, list moves):
-        cdef list converted_moves = []
-        cdef int   x, y
-        cdef short location
-
-        for loc in moves:
-
-            (x, y) = loc
-            location = self.calculate_board_location(y, x)
-            converted_moves.append(location)
-
-        return converted_moves
-
-    def millis(self, start_time):
-       dt = datetime.now() - start_time
-       ms = (dt.days * 24 * 60 * 60 + dt.seconds) * 1000 + dt.microseconds / 1000.0
-       return ms
-
-    def test_stuff(self):
-        cdef long a, h, i, j, k
-        cdef short b, e
-
-        if not neighbor:
-            print("NOT")
-
-        for i in range(self.board_size * 4):
-            if neighbor[ i ] != self.neighbor[ i ]:
-                print("NOT EQUAL")
-                return
-
-        if not neighbor3x3:
-            print("NOT")
-
-        for i in range(self.board_size * 8):
-            if neighbor3x3[ i ] != self.neighbor3x3[ i ]:
-                print("NOT EQUAL")
-                return
-
-        if not neighbor12d:
-            print("NOT")
-
-        for i in range(self.board_size * 12):
-            if neighbor12d[ i ] != self.neighbor12d[ i ]:
-                print("NOT EQUAL")
-                return
-
-        cdef long amount = 1000
-
-        e = 1
-        b = 0
-        start = datetime.now()
-
-        for h in range(amount):
-            for i in range(amount):
-
-                for a in range(self.board_size * 12):
-
-                    b = neighbor12d[ a ]
-
-                    if neighbor12d[ a ] > 100:
-                        e = neighbor12d[ a ]
-            if b * e > 0:
-                b = 1
-
-        end = datetime.now()
-        dt  = end - start
-        start = dt.microseconds
-
-        print("glob " + str(start) + " " + str(b))
-
-
-        e = 1
-        b = 0
-        start = datetime.now()
-
-        for h in range(amount):
-            for i in range(amount):
-
-                for a in range(self.board_size * 12):
-
-                    b = self.neighbor12d[ a ]
-
-                    if self.neighbor12d[ a ] > 100:
-                        e = self.neighbor12d[ a ]
-            if b * e > 0:
-                b = 1
-
-        end = datetime.now()
-        dt  = end - start
-        start = dt.microseconds
-
-        print("self " + str(start) + " " + str(b))
-
-
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def set_stuff(self):
-
-        self.get_sensible_moves()
+        return self.get_print_board_layout()
 
 
 class IllegalMove(Exception):

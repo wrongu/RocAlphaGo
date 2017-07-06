@@ -46,18 +46,16 @@ cdef class GameState:
     # list with legal moves
     cdef Locations_List *moves_legal
 
-    # array, keep track of 3x3 pattern hashes
-    cdef long  *hash3x3
-
     # arrays, neighbor arrays pointers
     cdef short *neighbor
     cdef short *neighbor3x3
     cdef short *neighbor12d
 
     # zobrist
-    cdef object current_hash
+    cdef unsigned long long zobrist_current
+    cdef unsigned long long *zobrist_lookup
+
     cdef bint   enforce_superko
-    cdef dict   hash_lookup
     cdef set    previous_hashes
 
     ############################################################################
@@ -140,11 +138,6 @@ cdef class GameState:
        remove group from board -> set all locations to group_empty
     """
 
-    cdef void update_hashes(self, Group* group)
-    """
-       update all locations affected by removal of group
-    """
-
     cdef void add_to_group(self, short location, Group **board, short* ko, short* count_captures)
     """
        check if a stone on location is connected to a group, kills a group
@@ -221,6 +214,12 @@ cdef class GameState:
        position
     """
 
+    cdef void remove_ladder_group(self, Group* group_remove, Group **board, short* ko)
+    """
+       remove group from board -> set all locations to group_empty
+       does not update zobrist hash
+    """
+
     cdef void undo_ladder_move(self, short location, Groups_List* removed_groups, short ko, Group **board, short* ko)
     """
        Use removed_groups list to return board state to be the same as before
@@ -274,14 +273,6 @@ cdef class GameState:
 
        loop over all legal moves and determine stone count, liberty count and
        capture count of a play on that location
-    """
-
-    cdef list get_neighbor_locations(self)
-    """
-       generate list with 3x3 neighbor locations
-       0,1,2,3 are direct neighbor
-       4,5,6,7 are diagonal neighbor
-       where -1 if it is a border location or non empty location
     """
 
     cdef long get_hash_12d(self, short centre)
@@ -357,19 +348,4 @@ cdef class GameState:
     cdef Locations_List* get_sensible_moves(self)
     """
        only used for def get_legal_moves
-    """
-
-    ############################################################################
-    #   tests                                                                  #
-    #                                                                          #
-    ############################################################################
-
-    cdef test(self)
-    """
-       test function
-    """
-
-    cdef test_cpp_fast(self)
-    """
-       test function
     """
