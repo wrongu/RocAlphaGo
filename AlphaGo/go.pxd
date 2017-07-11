@@ -46,17 +46,16 @@ cdef class GameState:
     # list with legal moves
     cdef Locations_List *moves_legal
 
-    # array, keep track of 3x3 pattern hashes
-    cdef long  *hash3x3
-
     # arrays, neighbor arrays pointers
     cdef short *neighbor
     cdef short *neighbor3x3
     cdef short *neighbor12d
 
     # zobrist
-    cdef dict   hash_lookup
-    cdef int    current_hash
+    cdef unsigned long long zobrist_current
+    cdef unsigned long long *zobrist_lookup
+
+    cdef bint   enforce_superko
     cdef set    previous_hashes
 
     ############################################################################
@@ -80,7 +79,24 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
+    cdef void update_hash(self, short location, char colour)
+    """
+       xor current hash with location + colour action value
+    """
+
+    cdef bint is_positional_superko(self, short location, Group **board)
+    """
+       Find all actions that the current_player has done in the past, taking into
+       account the fact that history starts with BLACK when there are no
+       handicaps or with WHITE when there are.
+    """
+
     cdef bint is_legal_move(self, short location, Group **board, short ko)
+    """
+       check if playing at location is a legal move to make
+    """
+
+    cdef bint is_legal_move_superko(self, short location, Group **board, short ko)
     """
        check if playing at location is a legal move to make
     """
@@ -120,11 +136,6 @@ cdef class GameState:
     cdef void remove_group(self, Group* group_remove, Group **board, short* ko)
     """
        remove group from board -> set all locations to group_empty
-    """
-
-    cdef void update_hashes(self, Group* group)
-    """
-       update all locations affected by removal of group
     """
 
     cdef void add_to_group(self, short location, Group **board, short* ko, short* count_captures)
@@ -203,6 +214,12 @@ cdef class GameState:
        position
     """
 
+    cdef void remove_ladder_group(self, Group* group_remove, Group **board, short* ko)
+    """
+       remove group from board -> set all locations to group_empty
+       does not update zobrist hash
+    """
+
     cdef void undo_ladder_move(self, short location, Groups_List* removed_groups, short ko, Group **board, short* ko)
     """
        Use removed_groups list to return board state to be the same as before
@@ -229,14 +246,14 @@ cdef class GameState:
        all changes to the board are stored in removed_groups
     """
 
-    cdef bint is_ladder_escape_move(self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
+    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
     """
        play a ladder move on location, check if group has escaped,
        if the group has 2 liberty it is undetermined ->
        try to capture it by playing at both liberty
     """
 
-    cdef bint is_ladder_capture_move(self, Group **board, short* ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
+    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)
     """
        play a ladder move on location, try capture and escape moves
        and see if the group is able to escape ladder
@@ -256,14 +273,6 @@ cdef class GameState:
 
        loop over all legal moves and determine stone count, liberty count and
        capture count of a play on that location
-    """
-
-    cdef list get_neighbor_locations(self)
-    """
-       generate list with 3x3 neighbor locations
-       0,1,2,3 are direct neighbor
-       4,5,6,7 are diagonal neighbor
-       where -1 if it is a border location or non empty location
     """
 
     cdef long get_hash_12d(self, short centre)
@@ -339,19 +348,4 @@ cdef class GameState:
     cdef Locations_List* get_sensible_moves(self)
     """
        only used for def get_legal_moves
-    """
-
-    ############################################################################
-    #   tests                                                                  #
-    #                                                                          #
-    ############################################################################
-
-    cdef test(self)
-    """
-       test function
-    """
-
-    cdef test_cpp_fast(self)
-    """
-       test function
     """

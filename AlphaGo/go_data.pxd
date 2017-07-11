@@ -1,3 +1,5 @@
+import numpy as np
+cimport numpy as np
 
 ############################################################################
 #   constants                                                              #
@@ -49,20 +51,50 @@ cdef char _HASHVALUE
     - no boundchecks
 """
 
-# struct to store group information
+"""
+   struct to store group stone and liberty locations
+
+   locations is a char pointer array of size board_size and initialized
+   to _FREE. after adding a stone/liberty that location is set to
+   _STONE/_LIBERTY and count_stones/count_liberty is incremented
+
+   note that a stone location can never be a liberty location,
+   if a stone is placed on a liberty location liberty_count is decremented
+
+   it works as a dictionary so lookup time for a location is O(1)
+   looping over all stone/liberty location could be optimized by adding 
+   two lists containing stone/liberty locations
+
+   TODO check if this dictionary implementation is faster on average
+   use as a two list implementation
+"""
 cdef struct Group:
     char  *locations
     short  count_stones
     short  count_liberty
     char   colour
 
-# struct to store a list of Group
+"""
+   struct to store a list of Group
+
+   board_groups is a Group pointer array of size #size and containing
+   #count_groups groups
+
+   TODO convert to c++ list?
+"""
 cdef struct Groups_List:
     Group **board_groups
     short   count_groups
     short   size
 
-# struct to store a list of short (board locations)
+"""
+   struct to store a list of short (board locations)
+
+   locations is a short pointer array of size #size and containing
+   #count locations
+
+   TODO convert to c++ list and/or set
+"""
 cdef struct Locations_List:
     short  *locations
     short   count
@@ -274,4 +306,15 @@ cdef short* get_12d_neighbors(char size)
                  45 67
             +1    89a
             +2     b
+"""
+
+############################################################################
+#   zobrist creation functions                                             #
+#                                                                          #
+############################################################################
+
+
+cdef unsigned long long* get_zobrist_lookup(char size)
+"""
+
 """

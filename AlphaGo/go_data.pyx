@@ -1,4 +1,6 @@
 cimport cython
+import numpy as np
+cimport numpy as np
 from libc.stdlib cimport malloc, free, realloc
 from libc.string cimport memcpy, memset, memchr
 
@@ -55,22 +57,67 @@ _HASHVALUE = 33
 
 """ -> structs, declared in go_data.pxd
 
-# struct to store group information
+#    a struct has the advantage of being completely C, no python wrapper so
+#    no python overhead.
+#
+#    compared to a cdef class a struct has some advantages:
+#    - C only, no python overhead
+#    - able to get a pointer to it
+#    - smaller in size
+#
+#    drawbacks
+#    - have to be Malloc created and freed after use -> memory leak
+#    - no convenient functions available
+#    - no boundchecks
+
+
+#   struct to store group stone and liberty locations
+#
+#   locations is a char pointer array of size board_size and initialized
+#   to _FREE. after adding a stone/liberty that location is set to
+#   _STONE/_LIBERTY and count_stones/count_liberty is incremented
+#
+#   note that a stone location can never be a liberty location,
+#   if a stone is placed on a liberty location liberty_count is decremented
+#
+#   it works as a dictionary so lookup time for a location is O(1)
+#   looping over all stone/liberty location could be optimized by adding 
+#   two lists containing stone/liberty locations
+#
+#   TODO check if this dictionary implementation is faster on average
+#   use as a two list implementation
+
 cdef struct Group:
     char  *locations
     short  count_stones
     short  count_liberty
     char   colour
 
-# struct to store a list of Group
+
+#   struct to store a list of Group
+#
+#   board_groups is a Group pointer array of size #size and containing
+#   #count_groups groups
+#
+#   TODO convert to c++ list?
+
 cdef struct Groups_List:
     Group **board_groups
     short   count_groups
+    short   size
 
-# struct to store a list of short (board locations)
+
+#   struct to store a list of short (board locations)
+#
+#   locations is a short pointer array of size #size and containing
+#   #count locations
+
+   TODO convert to c++ list and/or set
+
 cdef struct Locations_List:
     short  *locations
     short   count
+    short   size
 """
 
 ############################################################################
@@ -533,6 +580,8 @@ cdef short calculate_board_location_or_border(char x, char y, char size):
     return calculate_board_location(x, y, size)
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef short* get_neighbors(char size):
     """
        create array for every board location with all 4 direct neighbor locations
@@ -675,3 +724,29 @@ cdef short* get_12d_neighbors(char size):
             neighbor12d[ location +  7 ] = calculate_board_location_or_border(x    , y + 2, size)
 
     return neighbor12d
+
+
+############################################################################
+#   zobrist creation functions                                             #
+#                                                                          #
+############################################################################
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef unsigned long long* get_zobrist_lookup(char size):
+    """
+       generate zobrist lookup array for boardsize size
+    """
+
+    cdef unsigned long long* zobrist_lookup
+
+    zobrist_lookup  = <unsigned long long *>malloc((size * size * 2) * sizeof(unsigned long long))
+    if not zobrist_lookup:
+        raise MemoryError()
+
+    # initialize all zobrist hash lookup values
+    for i in range(size * size * 2):
+        zobrist_lookup[i] = np.random.randint(np.iinfo(np.uint64).max, dtype='uint64')
+
+    return zobrist_lookup

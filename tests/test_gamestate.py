@@ -62,7 +62,8 @@ class TestKo(unittest.TestCase):
 
     def test_positional_superko(self):
 
-        gs = GameState(size=9)
+        # test with enforce_superko=False
+        gs = GameState(size=9, enforce_superko=False)
 
         move_list = [(0, 3), (0, 4), (1, 3), (1, 4), (2, 3), (2, 4), (2, 2), (3, 4), (2, 1), (3, 3),
                      (3, 1), (3, 2), (3, 0), (4, 2), (1, 1), (4, 1), (8, 0), (4, 0), (8, 1), (0, 2),
@@ -72,8 +73,8 @@ class TestKo(unittest.TestCase):
             gs.do_move(move)
         self.assertTrue(gs.is_legal((1, 0)))
 
-        # gs = GameState(size=9, enforce_superko=True) super ko is not handled yet
-        gs = GameState(size=9)
+        # test with enforce_superko=True
+        gs = GameState(size=9, enforce_superko=True)
         for move in move_list:
             gs.do_move(move)
         self.assertFalse(gs.is_legal((1, 0)))
