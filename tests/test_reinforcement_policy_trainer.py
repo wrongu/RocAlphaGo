@@ -69,13 +69,27 @@ class MockState(go.GameState):
 
 class TestReinforcementPolicyTrainer(unittest.TestCase):
 
-    def testTrain(self):
+    def testTrainLL(self):
         model = os.path.join('tests', 'test_data', 'minimodel_policy.json')
         init_weights = os.path.join('tests', 'test_data', 'hdf5',
                                     'random_minimodel_policy_weights.hdf5')
         output = os.path.join('tests', 'test_data', '.tmp.rl.training/')
         args = [model, init_weights, output, '--game-batch', '1', '--iterations',
-                '1', '--record-every', '1']
+                '1', '--record-every', '1', '--loss', 'll']
+        run_training(args)
+
+        os.remove(os.path.join(output, 'metadata.json'))
+        os.remove(os.path.join(output, 'weights.00000.hdf5'))
+        os.remove(os.path.join(output, 'weights.00001.hdf5'))
+        os.rmdir(output)
+
+    def testTrainCCE(self):
+        model = os.path.join('tests', 'test_data', 'minimodel_policy.json')
+        init_weights = os.path.join('tests', 'test_data', 'hdf5',
+                                    'random_minimodel_policy_weights.hdf5')
+        output = os.path.join('tests', 'test_data', '.tmp.rl.training/')
+        args = [model, init_weights, output, '--game-batch', '1', '--iterations',
+                '1', '--record-every', '1', '--loss', 'cce']
         run_training(args)
 
         os.remove(os.path.join(output, 'metadata.json'))
@@ -85,7 +99,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
 
     def testGradientDirectionChangesWithGameResult(self):
 
-        def run_and_get_new_weights(init_weights, winners, game):
+        def run_and_get_new_weights(init_weights, winners, game, loss_type):
 
             # Create "mock" states that end after 2 moves with a predetermined winner.
             states = [MockState(winner, 2, size=19) for winner in winners]
@@ -96,7 +110,8 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
                                                         'minimodel_policy.json'))
             policy1.model.set_weights(init_weights)
             optimizer = SGD(lr=0.001)
-            policy1.model.compile(loss=log_loss, optimizer=optimizer)
+            loss_function = log_loss if loss_type == "ll" else "categorical_crossentropy"
+            policy1.model.compile(loss=loss_function, optimizer=optimizer)
 
             learner = MockPlayer(policy1, game)
             opponent = MockPlayer(policy2, game)
@@ -106,7 +121,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
 
             return policy1.model.get_weights()
 
-        def test_game_gradient(game):
+        def test_game_gradient(game, loss_type):
 
             policy = CNNPolicy.load_model(os.path.join('tests', 'test_data',
                                                        'minimodel_policy.json'))
@@ -114,9 +129,9 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             # Cases 1 and 2 have identical starting models and identical (state, action) pairs,
             # but they differ in who won the games.
             parameters1 = run_and_get_new_weights(initial_parameters,
-                                                  [go.BLACK, go.WHITE], game)
+                                                  [go.BLACK, go.WHITE], game, loss_type)
             parameters2 = run_and_get_new_weights(initial_parameters,
-                                                  [go.WHITE, go.BLACK], game)
+                                                  [go.WHITE, go.BLACK], game, loss_type)
 
             # Assert that some parameters changed.
             any_change_1 = any(not np.array_equal(i, p1) for (i, p1) in zip(initial_parameters,
@@ -134,7 +149,10 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
                 npt.assert_allclose(diff1, -diff2, rtol=1e-3, atol=1e-11)
 
         for f in _list_mock_games(SGF_FOLDER):
-            test_game_gradient(f)
+            # Test with 'log loss' loss function
+            test_game_gradient(f, "ll")
+            # Test with 'categorical crossentropy' loss function
+            test_game_gradient(f, "cce")
 
     def testRunNGamesUpdatesWeights(self):
         def test_game_run_N(game):
@@ -164,7 +182,7 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             test_game_run_N(f)
 
     def testWinIncreasesMoveProbability(self):
-        def test_game_increase(game):
+        def test_game_increase(game, loss_type):
 
             # Create "mock" state that ends after 20 moves with the learner winnning
             win_state = [MockState(go.BLACK, 20, size=19)]
@@ -175,7 +193,8 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             learner = MockPlayer(policy1, game)
             opponent = MockPlayer(policy2, game)
             optimizer = SGD(lr=0.001)
-            policy1.model.compile(loss=log_loss, optimizer=optimizer)
+            loss_function = log_loss if loss_type == "ll" else "categorical_crossentropy"
+            policy1.model.compile(loss=loss_function, optimizer=optimizer)
 
             # Get initial (before learning) move probabilities for all moves made by black
             init_move_probs = get_sgf_move_probs(game, policy1, go.BLACK)
@@ -192,10 +211,13 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             self.assertTrue(sum((new_probs[i] - init_probs[i]) for i in range(10)) > 0)
 
         for f in _list_mock_games(SGF_FOLDER):
-            test_game_increase(f)
+            # Test with 'log loss' loss function
+            test_game_increase(f, "ll")
+            # Test with 'categorical crossentropy' loss function
+            test_game_increase(f, "cce")
 
     def testLoseDecreasesMoveProbability(self):
-        def test_game_decrease(game):
+        def test_game_decrease(game, loss_type):
 
             # Create "mock" state that ends after 20 moves with the learner losing
             lose_state = [MockState(go.WHITE, 20, size=19)]
@@ -206,7 +228,8 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             learner = MockPlayer(policy1, game)
             opponent = MockPlayer(policy2, game)
             optimizer = SGD(lr=0.001)
-            policy1.model.compile(loss=log_loss, optimizer=optimizer)
+            loss_function = log_loss if loss_type == "ll" else "categorical_crossentropy"
+            policy1.model.compile(loss=loss_function, optimizer=optimizer)
 
             # Get initial (before learning) move probabilities for all moves made by black
             init_move_probs = get_sgf_move_probs(game, policy1, go.BLACK)
@@ -223,7 +246,10 @@ class TestReinforcementPolicyTrainer(unittest.TestCase):
             self.assertTrue(sum((new_probs[i] - init_probs[i]) for i in range(10)) < 0)
 
         for f in _list_mock_games(SGF_FOLDER):
-            test_game_decrease(f)
+            # Test with 'log loss' loss function
+            test_game_decrease(f, "ll")
+            # Test with 'categorical crossentropy' loss function
+            test_game_decrease(f, "cce")
 
 
 if __name__ == '__main__':

@@ -101,6 +101,7 @@ def run_training(cmd_line_args=None):
     parser.add_argument("model_json", help="Path to policy model JSON.")
     parser.add_argument("initial_weights", help="Path to HDF5 file with inital weights (i.e. result of supervised training).")  # noqa: E501
     parser.add_argument("out_directory", help="Path to folder where the model params and metadata will be saved after each epoch.")  # noqa: E501
+    parser.add_argument("--loss", help="Loss function to use. 'll' for default 'log loss' or REINFORCE algorithm, 'cce' for categorical cross-entropy.", type=str, default="ll", choices=["ll", "cce"])  # noqa: E501
     parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)  # noqa: E501
     parser.add_argument("--policy-temp", help="Distribution temperature of players using policies (Default: 0.67)", type=float, default=0.67)  # noqa: E501
     parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)  # noqa: E501
@@ -189,7 +190,8 @@ def run_training(cmd_line_args=None):
             json.dump(metadata, f, sort_keys=True, indent=2)
 
     optimizer = SGD(lr=args.learning_rate)
-    player.policy.model.compile(loss=log_loss, optimizer=optimizer)
+    loss_function = log_loss if args.loss == "ll" else "categorical_crossentropy"
+    player.policy.model.compile(loss=loss_function, optimizer=optimizer)
     for i_iter in range(iter_start, args.iterations + 1):
         # Note that player_weights will only be saved as a file every args.record_every iterations.
         # Regardless, player_weights enters into the metadata to keep track of the win ratio over
