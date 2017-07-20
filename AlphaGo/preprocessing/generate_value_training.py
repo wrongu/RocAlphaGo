@@ -288,7 +288,7 @@ def handle_arguments(cmd_line_args=None):
             "ladder_capture",
             "ladder_escape",
             "sensibleness",
-            "zeros"]
+            "color"]
     else:
         features = args.features.split(",")
 
