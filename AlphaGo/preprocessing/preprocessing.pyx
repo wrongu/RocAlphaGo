@@ -1,8 +1,7 @@
-# cython: profile=True
-# cython: linetrace=True
 # cython: wraparound=False
 # cython: boundscheck=False
 # cython: initializedcheck=False
+# cython: nonecheck=False
 cimport cython
 import numpy as np
 cimport numpy as np
@@ -15,9 +14,7 @@ cdef class Preprocess:
     #                                                                          #
     ############################################################################
 
-
-    """ -> variables, declared in preprocessing.pxd
-
+    """
     # all feature processors
     # TODO find correct type so an array can be used
     cdef list  processors
@@ -42,24 +39,20 @@ cdef class Preprocess:
     cdef int   pattern_nakade_size
     cdef int   pattern_response_12d_size
     cdef int   pattern_non_response_3x3_size
-
-        -> variables, declared in preprocessing.pxd
     """
-
 
     ############################################################################
     #   Tensor generating functions                                            #
     #                                                                          #
     ############################################################################
 
+    cdef int get_board(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature encoding WHITE BLACK and EMPTY on separate planes.
 
-    @cython.nonecheck(False)
-    cdef int get_board(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature encoding WHITE BLACK and EMPTY on separate planes.
-           plane 0 always refers to the current player stones
-           plane 1 to the opponent stones
-           plane 2 to empty locations
+           Note:
+           - plane 0 always refers to the current player stones
+           - plane 1 to the opponent stones
+           - plane 2 to empty locations
         """
 
         cdef short  location
@@ -70,27 +63,21 @@ cdef class Preprocess:
         # loop over all locations on board
         for location in range(self.board_size):
 
-            group = state.board_groups[ location ]
-
+            # Get color of stone from its group
+            group = state.board_groups[location]
             if group.colour == _EMPTY:
-
-                plane = offSet + 2
+                plane = offset + 2
             elif group.colour == opponent:
-
-                plane = offSet + 1
+                plane = offset + 1
             else:
+                plane = offset
 
-                plane = offSet
+            tensor[plane, location] = 1
 
-            tensor[ plane, location ] = 1
+        return offset + 3
 
-        return offSet + 3
-
-
-    @cython.nonecheck(False)
-    cdef int get_turns_since(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature encoding the age of the stone at each location up to 'maximum'
+    cdef int get_turns_since(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature encoding the age of the stone at each location up to 'maximum'
 
            Note:
            - the [maximum-1] plane is used for any stone with age greater than or equal to maximum
@@ -99,81 +86,61 @@ cdef class Preprocess:
 
         cdef short location
         cdef Locations_List *history = state.moves_history
-        cdef int   age      = offSet + 7
-        cdef dict  agesSet  = {}
-        cdef int   i
+        cdef int i, age = offset + 7
+        cdef dict agesSet = {}
 
         # set all stones to max age
         for i in range(history.count):
-
-            location = history.locations[ i ]
-
-            if location != _PASS and state.board_groups[ location ].colour > _EMPTY:
-
-                tensor[ age, location ] = 1
+            location = history.locations[i]
+            if location != _PASS and state.board_groups[location].colour > _EMPTY:
+                tensor[age, location] = 1
 
         # start with newest stone
-        i   = history.count - 1
+        i = history.count - 1
         age = 0
 
         # loop over history backwards
         while age < 7 and i >= 0:
-
-            location = history.locations[ i ]
-
+            location = history.locations[i]
             # if age has not been set yet
-            if location != _PASS and not location in agesSet and state.board_groups[ location ].colour > _EMPTY:
+            if location != _PASS and location not in agesSet and \
+                    state.board_groups[location].colour > _EMPTY:
+                tensor[offset + age, location] = 1
+                tensor[offset + 7, location] = 0
+                agesSet[location] = location
 
-                tensor[  offSet + age, location ] = 1
-                tensor[  offSet + 7,   location ] = 0
-                agesSet[ location ]               = location
-
-            i   -= 1
+            i -= 1
             age += 1
 
-        return offSet + 8
+        return offset + 8
 
-
-    @cython.nonecheck(False)
-    cdef int get_liberties(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature encoding the number of liberties of the group connected to the stone at
+    cdef int get_liberties(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature encoding the number of liberties of the group connected to the stone at
            each location
 
            Note:
            - there is no zero-liberties plane; the 0th plane indicates groups in atari
-           - the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
+           - the [maximum-1] plane is used for any stone with liberties greater than or equal to
+             maximum
            - EMPTY locations are all-zero features
         """
 
-        cdef int    i, groupLiberty
+        cdef int i, groupLiberty
         cdef Group* group
-        cdef short  location
+        cdef short location
 
         for location in range(self.board_size):
 
-            group = state.board_groups[ location ]
-
+            # Get liberty count from group structure directly
+            group = state.board_groups[location]
             if group.colour > _EMPTY:
+                groupLiberty = min(group.count_liberty - 1, 7)
+                tensor[offset + groupLiberty, location] = 1
 
-                groupLiberty = group.count_liberty - 1
+        return offset + 8
 
-                # check max liberty count
-                if groupLiberty > 7:
-
-                    groupLiberty = 7
-
-                groupLiberty += offSet
-
-                tensor[ groupLiberty, location ] = 1
-
-        return offSet + 8
-
-
-    @cython.nonecheck(False)
-    cdef int get_capture_size(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature encoding the number of opponent stones that would be captured by
+    cdef int get_capture_size(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature encoding the number of opponent stones that would be captured by
            playing at each location, up to 'maximum'
 
            Note:
@@ -186,148 +153,109 @@ cdef class Preprocess:
 
         cdef short i, location, capture_size
 
-        # loop over all legal moves and set get capture size
+        # Loop over all legal moves and set get capture size
         for i in range(state.moves_legal.count):
+            location = state.moves_legal.locations[i]
+            capture_size = min(groups_after[location * 3 + _CAPTURE], 7)
+            tensor[offset + capture_size, location] = 1
 
-            location = state.moves_legal.locations[ i ]
+        return offset + 8
 
-            capture_size = groups_after[ location * 3 + _CAPTURE ]
-
-            if capture_size > 7:
-                capture_size = 7
-
-            tensor[ offSet + capture_size, location ] = 1
-
-        return offSet + 8
-
-
-    @cython.nonecheck(False)
-    cdef int get_self_atari_size(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature encoding the size of the own-stone group that is put into atari by
+    cdef int get_self_atari_size(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature encoding the size of the own-stone group that is put into atari by
            playing at a location
 
         """
 
         cdef short i, location, group_liberty
 
-        # loop over all groups on board
+        # Loop over all groups on board
         for i in range(state.moves_legal.count):
-
-            location = state.moves_legal.locations[ i ]
-
-            group_liberty = groups_after[ location * 3 + _LIBERTY ]
-
+            location = state.moves_legal.locations[i]
+            group_liberty = groups_after[location * 3 + _LIBERTY]
+            # This group is in atari if it has exactly 1 liberty
             if group_liberty == 1:
+                group_liberty = min(groups_after[location * 3 + _STONE] - 1, 7)
+                tensor[offset + group_liberty, location] = 1
 
-                group_liberty = groups_after[ location * 3 + _STONE ] - 1
-                if group_liberty > 7:
-                    group_liberty = 7
+        return offset + 8
 
-                tensor[ offSet + group_liberty, location ] = 1
-
-        return offSet + 8
-
-
-    @cython.nonecheck(False)
-    cdef int get_liberties_after(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature encoding what the number of liberties *would be* of the group connected to
+    cdef int get_liberties_after(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature encoding what the number of liberties *would be* of the group connected to
            the stone *if* played at a location
 
            Note:
            - there is no zero-liberties plane; the 0th plane indicates groups in atari
-           - the [maximum-1] plane is used for any stone with liberties greater than or equal to maximum
+           - the [maximum-1] plane is used for any stone with liberties greater than or equal to
+             maximum
            - illegal move locations are all-zero features
         """
 
         cdef short i, location, liberty
 
-        # loop over all legal moves
+        # Loop over all legal moves
         for i in range(state.moves_legal.count):
-
-            location = state.moves_legal.locations[ i ]
-
-            liberty = groups_after[ location * 3 + _LIBERTY ] - 1
-
-            if liberty > 7:
-                liberty = 7
-
+            location = state.moves_legal.locations[i]
             if liberty >= 0:
+                liberty = min(groups_after[location * 3 + _LIBERTY] - 1, 7)
+                tensor[offset + liberty, location] = 1
 
-                tensor[ offSet + liberty, location ] = 1
+        return offset + 8
 
-        return offSet + 8
-
-
-    @cython.nonecheck(False)
-    cdef int get_ladder_capture(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature wrapping GameState.is_ladder_capture().
+    cdef int get_ladder_capture(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature wrapping GameState.is_ladder_capture().
            check if an opponent group can be captured in a ladder
         """
 
-        cdef int   location
+        cdef int location
         cdef char* captures = state.get_ladder_captures(80)
 
-        # loop over all groups on board
+        # Loop over all groups on board
         for location in range(state.board_size):
-
-            if captures[ location ] != _FREE:
-
-                tensor[ offSet, location ] = 1
+            if captures[location] != _FREE:
+                tensor[offset, location] = 1
 
         # free captures
         free(captures)
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_ladder_escape(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature wrapping GameState.is_ladder_escape().
+    cdef int get_ladder_escape(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature wrapping GameState.is_ladder_escape().
            check if player_current group can escape ladder
         """
 
-        cdef int   location
+        cdef int location
         cdef char* escapes = state.get_ladder_escapes(80)
 
-        # loop over all groups on board
+        # Loop over all groups on board
         for location in range(state.board_size):
-
-            if escapes[ location ] != _FREE:
-
-                tensor[ offSet, location ] = 1
+            if escapes[location] != _FREE:
+                tensor[offset, location] = 1
 
         # free escapes
         free(escapes)
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_sensibleness(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
+    cdef int get_sensibleness(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A move is 'sensible' if it is legal and if it does not fill the current_player's own eye
         """
 
-        cdef int    i
+        cdef int i
         cdef short  location
         cdef Group* group
 
-        # set all legal moves to 1
+        # Set all legal moves to 1
         for i in range(state.moves_legal.count):
+            tensor[offset, state.moves_legal.locations[i]] = 1
 
-            tensor[ offSet, state.moves_legal.locations[ i ] ] = 1
+        # List can increment but a big enough starting value is important
+        cdef Locations_List* eyes = locations_list_new(15)
 
-        # list can increment but a big enough starting value is important
-        cdef Locations_List* eyes  = locations_list_new(15)
-
-        # loop over all board groups
+        # Loop over all board groups to unmark own-eyes
         for i in range(state.groups_list.count_groups):
-
-            group = state.groups_list.board_groups[ i ]
+            group = state.groups_list.board_groups[i]
 
             # if group is current player
             if group.colour == state.player_current:
@@ -336,89 +264,71 @@ cdef class Preprocess:
                 for location in range(self.board_size):
 
                     # check liberty location as possible eye
-                    if group.locations[ location ] == _LIBERTY:
+                    if group.locations[location] == _LIBERTY:
 
                         # check if location is an eye
                         if state.is_true_eye(location, eyes, state.player_current):
-
-                            tensor[ offSet, location ] = 0
+                            tensor[offset, location] = 0
 
         locations_list_destroy(eyes)
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_legal(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Zero at all illegal moves, one at all legal moves. Unlike sensibleness, no eye check is done
+    cdef int get_legal(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Zero at all illegal moves, one at all legal moves. Unlike sensibleness, no eye check is done
            not used??
         """
 
         cdef short location
 
-        # loop over all legal moves and set to one
+        # Loop over all legal moves and set to one
         for location in range(state.moves_legal.count):
+            tensor[offset, state.moves_legal.locations[location]] = 1
 
-            tensor[ offSet, state.moves_legal.locations[ location ] ] = 1
+        return offset + 1
 
-        return offSet + 1
-
-
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.nonecheck(False)
-    cdef int get_response(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           single feature plane encoding whether this location matches any of the response
+    cdef int get_response(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """single feature plane encoding whether this location matches any of the response
            patterns, for now it only checks the 12d response patterns as we do not use the
            3x3 response patterns.
 
-           TODO 
+           TODO
            - decide if we consider nakade patterns response patterns as well
-           - optimization? 12d response patterns are calculated twice..          
+           - optimization? 12d response patterns are calculated twice..
         """
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_save_atari(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A feature wrapping GameState.is_ladder_escape().
+    cdef int get_save_atari(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A feature wrapping GameState.is_ladder_escape().
            check if player_current group can escape atari for at least one turn
         """
 
-        cdef int   location
+        cdef int location
         cdef char* escapes = state.get_ladder_escapes(1)
 
         # loop over all groups on board
         for location in range(state.board_size):
-
-            if escapes[ location ] != _FREE:
-
-                tensor[ offSet, location ] = 1
+            if escapes[location] != _FREE:
+                tensor[offset, location] = 1
 
         # free escapes
         free(escapes)
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_neighbor(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           encode last move neighbor positions in two planes:
+    cdef int get_neighbor(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """encode last move neighbor positions in two planes:
            - horizontal & vertical / direct neighbor
            - diagonal neighbor
         """
 
         cdef short location, last_move
-        cdef int   i, plane
+        cdef int i, plane
         cdef short *neighbor3x3 = state.neighbor3x3
 
         # get last move
-        last_move = state.moves_history.locations[ state.moves_history.count - 1 ]
+        last_move = state.moves_history.locations[state.moves_history.count - 1]
 
         # check if last move is not _PASS
         if last_move != _PASS:
@@ -427,42 +337,37 @@ cdef class Preprocess:
             last_move *= 8
 
             # direct neighbor plane is plane offset
-            plane = offSet
+            plane = offset
 
             # loop over direct neighbor
             # 0,1,2,3 are direct neighbor locations
             for i in range(4):
 
                 # get neighbor location
-                location = neighbor3x3[ last_move + i ]
+                location = neighbor3x3[last_move + i]
 
                 # check if location is empty
-                if state.board_groups[ location ].colour == _EMPTY:
-
-                    tensor[ plane, location ] = 1
+                if state.board_groups[location].colour == _EMPTY:
+                    tensor[plane, location] = 1
 
             # diagonal neighbor plane is plane offset + 1
-            plane = offSet + 1
+            plane = offset + 1
 
             # loop over diagonal neighbor
             # 4,5,6,7 are diagonal neighbor locations
             for i in range(4, 8):
 
                 # get neighbor location
-                location = neighbor3x3[ last_move + i ]
+                location = neighbor3x3[last_move + i]
 
                 # check if location is empty
-                if state.board_groups[ location ].colour == _EMPTY:
+                if state.board_groups[location].colour == _EMPTY:
+                    tensor[plane, location] = 1
 
-                    tensor[ plane, location ] = 1
+        return offset + 2
 
-        return offSet + 2
-
-
-    @cython.nonecheck(False)
-    cdef int get_nakade(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A nakade pattern is a 12d pattern on a location a stone was captured before
+    cdef int get_nakade(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A nakade pattern is a 12d pattern on a location a stone was captured before
            it is unclear if a max size of the captured group has to be considered and
            how recent the capture event should have been
 
@@ -473,14 +378,10 @@ cdef class Preprocess:
         """
 
         # TODO tensor type has to be float
+        return offset + 1
 
-        return offSet + 1
-
-
-    @cython.nonecheck(False)
-    cdef int get_nakade_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           A nakade pattern is a 12d pattern on a location a stone was captured before
+    cdef int get_nakade_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """A nakade pattern is a 12d pattern on a location a stone was captured before
            it is unclear if a max size of the captured group has to be considered and
            how recent the capture event should have been
 
@@ -490,152 +391,115 @@ cdef class Preprocess:
            #pattern_id is offset
         """
 
-        return offSet + self.pattern_nakade_size
+        return offset + self.pattern_nakade_size
 
-
-    @cython.nonecheck(False)
-    cdef int get_response_12d(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Set 12d hash pattern for 12d shape around last move
+    cdef int get_response_12d(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Set 12d hash pattern for 12d shape around last move
            pattern lookup value is being set instead of 1
         """
 
         # get last move location
         # check for pass
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_response_12d_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Set 12d hash pattern for 12d shape around last move where
+    cdef int get_response_12d_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Set 12d hash pattern for 12d shape around last move where
            #pattern_id is offset
         """
 
         # get last move location
         # check for pass
 
-        return offSet + self.pattern_response_12d_size
+        return offset + self.pattern_response_12d_size
 
-
-    @cython.nonecheck(False)
-    cdef int get_non_response_3x3(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Set 3x3 hash pattern for every legal location where
+    cdef int get_non_response_3x3(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Set 3x3 hash pattern for every legal location where
            pattern lookup value is being set instead of 1
         """
 
         # TODO tensor type has to be float
 
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int get_non_response_3x3_offset(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Set 3x3 hash pattern for every legal location where
+    cdef int get_non_response_3x3_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Set 3x3 hash pattern for every legal location where
            #pattern_id is offset
         """
 
         cdef short i, location
-        cdef int   id
+        cdef int pattern_id
 
         # loop over all legal moves and set to one
         for i in range(state.moves_legal.count):
 
             # get location
-            location = state.moves_legal.locations[ i ]
+            location = state.moves_legal.locations[i]
+
             # get location hash and dict lookup
-            id = self.pattern_non_response_3x3.get( state.get_3x3_hash( location ) )
+            pattern_id = self.pattern_non_response_3x3.get(state.get_3x3_hash(location))
+            if pattern_id >= 0:
+                tensor[offset + pattern_id, location] = 1
 
-            if id >= 0:
+        return offset + self.pattern_non_response_3x3_size
 
-                tensor[ offSet + id, location ] = 1
-
-        return offSet + self.pattern_non_response_3x3_size
-
-
-    @cython.nonecheck(False)
-    cdef int zeros(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Plane filled with zeros
-        """
-
-        #########################################################
-        # strange things happen if a function does no do anything
-        # do not remove next line without extensive testing!!!!!!
-        tensor[ offSet, 0 ] = 0
-
-        return offSet + 1
-
-
-    @cython.nonecheck(False)
-    cdef int ones(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Plane filled with ones
+    cdef int zeros(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Plane filled with zeros
         """
 
         cdef short location
 
         for location in range(0, self.board_size):
+            tensor[offset, location] = 0
 
-            tensor[ offSet, location ] = 1
-        return offSet + 1
+        return offset + 1
 
-
-    @cython.nonecheck(False)
-    cdef int colour(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
-        """
-           Value net feature, plane with ones if active_player is black else zeros
+    cdef int ones(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Plane filled with ones
         """
 
         cdef short location
 
-        # if player_current is white
-        if state.player_current == _BLACK:
+        for location in range(0, self.board_size):
+            tensor[offset, location] = 1
 
-                for location in range(0, self.board_size):
+        return offset + 1
 
-                    tensor[ offSet, location ] = 1
-
-        return offSet + 1
-
-
-    @cython.nonecheck(False)
-    cdef int ko(self, GameState state, tensor_type[ :, ::1 ] tensor, char *groups_after, int offSet):
+    cdef int colour(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Value net feature, plane with ones if active_player is black else zeros
         """
-           ko feature
+
+        if state.player_current == _BLACK:
+            return self.ones(state, tensor, groups_after, offset)
+        else:
+            return self.zeros(state, tensor, groups_after, offset)
+
+    cdef int ko(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+        """Ko feature
         """
 
         if state.ko is not _PASS:
+            tensor[offset, state.ko] = 1
 
-            tensor[ offSet, state.ko ] = 1
-
-        return offSet + 1
-
+        return offset + 1
 
     ############################################################################
     #   init function                                                          #
     #                                                                          #
     ############################################################################
 
-
-    def __init__(self, list feature_list, char size=19, dict_nakade=None, dict_3x3=None, dict_12d=None, verbose=False):
-        """
-        """
-
-        self.size       = size
+    def __init__(self, list feature_list, char size=19, dict_nakade=None, dict_3x3=None, dict_12d=None, verbose=False):  # noqa: E501
+        self.size = size
         self.board_size = size * size
 
         cdef int i
 
         # preprocess_method is a function pointer:
-        # ctypedef int (*preprocess_method)(Preprocess, GameState, tensor_type[ :, ::1 ], char*, int)
+        # ctypedef int (*preprocess_method)(Preprocess, GameState, tensor_type[:, ::1], char*, int)
         cdef preprocess_method processor
 
         # create a list with function pointers
-        self.processors = <preprocess_method  *>malloc(len(feature_list) * sizeof(preprocess_method))
+        self.processors = <preprocess_method *>malloc(len(feature_list) * sizeof(preprocess_method))
 
         if not self.processors:
             raise MemoryError()
@@ -678,97 +542,95 @@ cdef class Preprocess:
         # loop over feature_list add the corresponding function
         # and increment output_dim accordingly
         for i in range(len(feature_list)):
-            feat = feature_list[ i ].lower()
+            feat = feature_list[i].lower()
             if feat == "board":
-                processor            = self.get_board
-                self.output_dim     += 3
+                processor = self.get_board
+                self.output_dim += 3
 
             elif feat == "ones":
-                processor            = self.ones
-                self.output_dim     += 1
+                processor = self.ones
+                self.output_dim += 1
 
             elif feat == "turns_since":
-                processor            = self.get_turns_since
-                self.output_dim     += 8
+                processor = self.get_turns_since
+                self.output_dim += 8
 
             elif feat == "liberties":
-                processor            = self.get_liberties
-                self.output_dim     += 8
+                processor = self.get_liberties
+                self.output_dim += 8
 
             elif feat == "capture_size":
-                processor            = self.get_capture_size
-                self.output_dim     += 8
+                processor = self.get_capture_size
+                self.output_dim += 8
 
             elif feat == "self_atari_size":
-                processor            = self.get_self_atari_size
-                self.output_dim     += 8
+                processor = self.get_self_atari_size
+                self.output_dim += 8
 
             elif feat == "liberties_after":
-                processor            = self.get_liberties_after
-                self.output_dim     += 8
+                processor = self.get_liberties_after
+                self.output_dim += 8
 
             elif feat == "ladder_capture":
-                processor            = self.get_ladder_capture
-                self.output_dim     += 1
+                processor = self.get_ladder_capture
+                self.output_dim += 1
 
             elif feat == "ladder_escape":
-                processor            = self.get_ladder_escape
-                self.output_dim     += 1
+                processor = self.get_ladder_escape
+                self.output_dim += 1
 
             elif feat == "sensibleness":
-                processor            = self.get_sensibleness
-                self.output_dim     += 1
+                processor = self.get_sensibleness
+                self.output_dim += 1
 
             elif feat == "zeros":
-                processor            = self.zeros
-                self.output_dim     += 1
+                processor = self.zeros
+                self.output_dim += 1
 
             elif feat == "legal":
-                processor            = self.get_legal
-                self.output_dim     += 1
+                processor = self.get_legal
+                self.output_dim += 1
 
             elif feat == "response":
-                processor            = self.get_response
-                self.output_dim     += 1
+                processor = self.get_response
+                self.output_dim += 1
 
             elif feat == "save_atari":
-                processor            = self.get_save_atari
-                self.output_dim     += 1
+                processor = self.get_save_atari
+                self.output_dim += 1
 
             elif feat == "neighbor":
-                processor            = self.get_neighbor
-                self.output_dim     += 2
+                processor = self.get_neighbor
+                self.output_dim += 2
 
             elif feat == "nakade":
-                processor            = self.get_nakade
-                self.output_dim     += self.pattern_nakade_size
+                processor = self.get_nakade
+                self.output_dim += self.pattern_nakade_size
 
             elif feat == "response_12d":
-                processor            = self.get_response_12d
-                self.output_dim     += self.pattern_response_12d_size
+                processor = self.get_response_12d
+                self.output_dim += self.pattern_response_12d_size
 
             elif feat == "non_response_3x3":
-                processor            = self.get_non_response_3x3
-                self.output_dim     += self.pattern_non_response_3x3_size
+                processor = self.get_non_response_3x3
+                self.output_dim += self.pattern_non_response_3x3_size
 
             elif feat == "color":
-                processor            = self.colour
-                self.output_dim     += 1
+                processor = self.colour
+                self.output_dim += 1
 
             elif feat == "ko":
-                processor            = self.ko
-                self.output_dim     += 1
+                processor = self.ko
+                self.output_dim += 1
             else:
 
                 # incorrect feature input
                 raise ValueError("uknown feature: %s" % feat)
 
-            self.processors[ i ] = processor
-
+            self.processors[i] = processor
 
     def __dealloc__(self):
-        """
-           Prevent memory leaks by freeing all arrays created with malloc
+        """Prevent memory leaks by freeing all arrays created with malloc
         """
 
         if self.processors is not NULL:
@@ -779,11 +641,8 @@ cdef class Preprocess:
     #                                                                          #
     ############################################################################
 
-
-    @cython.nonecheck(False)
-    cdef np.ndarray[ tensor_type, ndim=4 ] generate_tensor(self, GameState state):
-        """
-           Convert a GameState to a Theano-compatible tensor
+    cdef np.ndarray[tensor_type, ndim=4] generate_tensor(self, GameState state):
+        """Convert a GameState to a Theano-compatible tensor
         """
 
         cdef int i
@@ -791,19 +650,19 @@ cdef class Preprocess:
 
         # create complete array now instead of concatenate later
         # TODO check if we can use a Malloc array somehow.. faster!!
-        cdef np.ndarray[ tensor_type, ndim=2 ] np_tensor = np.zeros((self.output_dim, self.board_size), dtype=np.int8)
-        cdef tensor_type[ :, ::1 ] tensor                = np_tensor
+        cdef np.ndarray[tensor_type, ndim=2] np_tensor = \
+            np.zeros((self.output_dim, self.board_size), dtype=np.int8)
+        cdef tensor_type[:, ::1] tensor = np_tensor
 
-        cdef int offSet = 0
+        cdef int offset = 0
 
         # get char array with next move information
         cdef char *groups_after = state.get_groups_after()
 
         # loop over all processors and generate tensor
         for i in range(len(self.feature_list)):
-
-            proc   = self.processors[ i ]
-            offSet = proc(self, state, tensor, groups_after, offSet)
+            proc = self.processors[i]
+            offset = proc(self, state, tensor, groups_after, offset)
 
         # free groups_after
         free(groups_after)
@@ -811,32 +670,22 @@ cdef class Preprocess:
         # create a singleton 'batch' dimension
         return np_tensor.reshape((1, self.output_dim, self.size, self.size))
 
-
     ############################################################################
     #   public def function (Python)                                           #
     #                                                                          #
     ############################################################################
 
-
     def state_to_tensor(self, GameState state):
+        """Convert a GameState to a Theano-compatible tensor
         """
-           Convert a GameState to a Theano-compatible tensor
-        """
-
         return self.generate_tensor(state)
 
-
     def get_output_dimension(self):
+        """return output_dim, the amount of planes an output tensor will have
         """
-           return output_dim, the amount of planes an output tensor will have
-        """
-
         return self.output_dim
 
-
     def get_feature_list(self):
+        """return feature list
         """
-           return feature list
-        """
-
         return self.feature_list
