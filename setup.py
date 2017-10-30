@@ -1,19 +1,21 @@
 import numpy
-import os
 from distutils.core import setup
+from distutils.extension import Extension
 from Cython.Build import cythonize
 
-setup(
+extensions = [
+    Extension("AlphaGo.go", ["AlphaGo/go.pyx"],
+              include_dirs=[numpy.get_include()], language="c++"),
+    Extension("AlphaGo.go_data", ["AlphaGo/go_data.pyx"],
+              include_dirs=[numpy.get_include()], language="c++"),
+    Extension("AlphaGo.preprocessing.preprocessing", ["AlphaGo/preprocessing/preprocessing.pyx"],
+              include_dirs=[numpy.get_include()], language="c++"),
+    Extension("AlphaGo.preprocessing.preprocessing_rollout",
+              ["AlphaGo/preprocessing/preprocessing_rollout.pyx"],
+              include_dirs=[numpy.get_include()], language="c++"),
+]
 
-    name='RocAlphaGo',
-    # list with files to be cythonized
-    ext_modules=cythonize(["AlphaGo/go.pyx", "AlphaGo/go_data.pyx",
-                           "AlphaGo/preprocessing/preprocessing.pyx",
-                           "AlphaGo/preprocessing/preprocessing_rollout.pyx"]),
-    # include numpy
-    include_dirs=[numpy.get_include(),
-                  os.path.join(numpy.get_include(), 'numpy')]
-)
+setup(name="RocAlphaGo", ext_modules=cythonize(extensions))
 
 """
    install all necessary dependencies using:
