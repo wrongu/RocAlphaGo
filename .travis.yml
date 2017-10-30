@@ -21,7 +21,7 @@ install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
-  
+
   # create and activiate environment with python=$TRAVIS_PYTHON_VERSION
   - conda create -q -n RocAlphaGo-test python=$TRAVIS_PYTHON_VERSION
   - source activate RocAlphaGo-test
@@ -34,7 +34,7 @@ install:
   - conda install --yes Cython=0.25.2 h5py=2.6.0 numpy=1.11.2 scipy=0.18.1 PyYAML=3.12 matplotlib pandas pytest
   - pip install --user --no-deps Theano==0.8.2 sgf==0.5 keras==2.0.4 pygtp==0.3
   - pip install --user flake8
-  
+
   # compile cython code
   - python setup.py build_ext --inplace
 
@@ -54,6 +54,7 @@ install:
 # run flake8 and unit tests
 script:
     - flake8
-    
+    - flake8 --config=.flake8.cython
+
     # run unit test
     - python -m unittest discover
