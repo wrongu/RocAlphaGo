@@ -4,6 +4,9 @@
 *.hdf5
 *.sgf
 *.pkl
+*.cpp
+*.so
+build/
 !tests/test_data/sgf/*.sgf
 !tests/test_data/hdf5/*.h5
 !tests/test_data/hdf5/*.hdf5
