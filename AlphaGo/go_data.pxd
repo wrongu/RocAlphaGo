@@ -36,20 +36,19 @@ cdef char _HASHVALUE
 #                                                                          #
 ############################################################################
 
-"""
-    a struct has the advantage of being completely C, no python wrapper so
-    no python overhead.
-
-    compared to a cdef class a struct has some advantages:
-    - C only, no python overhead
-    - able to get a pointer to it
-    - smaller in size
-
-    drawbacks
-    - have to be Malloc created and freed after use -> memory leak
-    - no convenient functions available
-    - no boundchecks
-"""
+# Notes on use of structs over 'extension types':
+#
+# A struct has the advantage of being completely C, no python wrapper so no python overhead.
+#
+# compared to a cdef class a struct has some advantages:
+# - C only, no python overhead
+# - able to get a pointer to it
+# - smaller in size
+#
+# drawbacks
+# - have to be Malloc created and freed after use -> memory leak
+# - no convenient functions available
+# - no boundchecks
 
 """
    struct to store group stone and liberty locations
@@ -62,17 +61,17 @@ cdef char _HASHVALUE
    if a stone is placed on a liberty location liberty_count is decremented
 
    it works as a dictionary so lookup time for a location is O(1)
-   looping over all stone/liberty location could be optimized by adding 
+   looping over all stone/liberty location could be optimized by adding
    two lists containing stone/liberty locations
 
    TODO check if this dictionary implementation is faster on average
    use as a two list implementation
 """
 cdef struct Group:
-    char  *locations
-    short  count_stones
-    short  count_liberty
-    char   colour
+    char* locations
+    short count_stones
+    short count_liberty
+    char  colour
 
 """
    struct to store a list of Group
@@ -83,7 +82,7 @@ cdef struct Group:
    TODO convert to c++ list?
 """
 cdef struct Groups_List:
-    Group **board_groups
+    Group** board_groups
     short   count_groups
     short   size
 
@@ -96,9 +95,9 @@ cdef struct Groups_List:
    TODO convert to c++ list and/or set
 """
 cdef struct Locations_List:
-    short  *locations
-    short   count
-    short   size
+    short* locations
+    short  count
+    short  size
 
 
 ############################################################################
@@ -106,7 +105,7 @@ cdef struct Locations_List:
 #                                                                          #
 ############################################################################
 
-cdef Group* group_new(char colour,  short size)
+cdef Group* group_new(char colour, short size)
 """
    create new struct Group
    with locations #size char long initialized to FREE
@@ -315,6 +314,3 @@ cdef short* get_12d_neighbors(char size)
 
 
 cdef unsigned long long* get_zobrist_lookup(char size)
-"""
-
-"""

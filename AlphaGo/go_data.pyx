@@ -1,3 +1,7 @@
+# cython: wraparound=False
+# cython: boundscheck=False
+# cython: initializedcheck=False
+# cython: nonecheck=False
 cimport cython
 import numpy as np
 cimport numpy as np
@@ -28,96 +32,82 @@ from libc.string cimport memcpy, memset, memchr
 
 
 # value for PASS move
-_PASS    = -1
+_PASS = -1
 
 # observe: stones > EMPTY
 #          border < EMPTY
 # be aware you should NOT use != EMPTY as this includes border locations
-_BORDER  = 1
-_EMPTY   = 2
-_WHITE   = 3
-_BLACK   = 4
+_BORDER = 1
+_EMPTY = 2
+_WHITE = 3
+_BLACK = 4
 
 # used for group stone, liberty locations, legal move and sensible move
-_FREE    = 3
-_STONE   = 0
+_FREE = 3
+_STONE = 0
 _LIBERTY = 1
 _CAPTURE = 2
-_LEGAL   = 4
-_EYE     = 5
+_LEGAL = 4
+_EYE = 5
 
 # value used to generate pattern hashes
 _HASHVALUE = 33
 
 
 ############################################################################
-#   Structs                                                                #
+#   Structs defined in go_data.pxd                                         #
 #                                                                          #
 ############################################################################
 
-""" -> structs, declared in go_data.pxd
+"""
+# struct to store group stone and liberty locations
+#
+# locations is a char pointer array of size board_size and initialized
+# to _FREE. after adding a stone/liberty that location is set to
+# _STONE/_LIBERTY and count_stones/count_liberty is incremented
+#
+# note that a stone location can never be a liberty location,
+# if a stone is placed on a liberty location liberty_count is decremented
+#
+# it works as a dictionary so lookup time for a location is O(1)
+# looping over all stone/liberty location could be optimized by adding
+# two lists containing stone/liberty locations
+#
+# TODO check if this dictionary implementation is faster on average
+# use as a two list implementation
 
-#    a struct has the advantage of being completely C, no python wrapper so
-#    no python overhead.
-#
-#    compared to a cdef class a struct has some advantages:
-#    - C only, no python overhead
-#    - able to get a pointer to it
-#    - smaller in size
-#
-#    drawbacks
-#    - have to be Malloc created and freed after use -> memory leak
-#    - no convenient functions available
-#    - no boundchecks
-
-
-#   struct to store group stone and liberty locations
-#
-#   locations is a char pointer array of size board_size and initialized
-#   to _FREE. after adding a stone/liberty that location is set to
-#   _STONE/_LIBERTY and count_stones/count_liberty is incremented
-#
-#   note that a stone location can never be a liberty location,
-#   if a stone is placed on a liberty location liberty_count is decremented
-#
-#   it works as a dictionary so lookup time for a location is O(1)
-#   looping over all stone/liberty location could be optimized by adding 
-#   two lists containing stone/liberty locations
-#
-#   TODO check if this dictionary implementation is faster on average
-#   use as a two list implementation
 
 cdef struct Group:
-    char  *locations
-    short  count_stones
-    short  count_liberty
-    char   colour
+    char* locations
+    short count_stones
+    short count_liberty
+    char  colour
 
+# struct to store a list of Group
+#
+# board_groups is a Group pointer array of size #size and containing
+# #count_groups groups
+#
+# TODO convert to c++ list?
 
-#   struct to store a list of Group
-#
-#   board_groups is a Group pointer array of size #size and containing
-#   #count_groups groups
-#
-#   TODO convert to c++ list?
 
 cdef struct Groups_List:
-    Group **board_groups
+    Group** board_groups
     short   count_groups
     short   size
 
-
-#   struct to store a list of short (board locations)
+# struct to store a list of short (board locations)
 #
-#   locations is a short pointer array of size #size and containing
-#   #count locations
+# locations is a short pointer array of size #size and containing
+# #count locations
+#
+# TODO convert to c++ list and/or set
 
-   TODO convert to c++ list and/or set
 
 cdef struct Locations_List:
-    short  *locations
-    short   count
-    short   size
+    short* locations
+    short  count
+    short  size
 """
 
 ############################################################################
@@ -126,12 +116,8 @@ cdef struct Locations_List:
 ############################################################################
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef Group* group_new(char colour, short size):
-    """
-       create new struct Group
-       with locations #size char long initialized to FREE
+    """Create new struct Group with locations set to FREE
     """
 
     cdef int i
@@ -142,14 +128,14 @@ cdef Group* group_new(char colour, short size):
         raise MemoryError()
 
     # allocate memory for array locations
-    group.locations = <char  *>malloc(size)
+    group.locations = <char* >malloc(size)
     if not group.locations:
         raise MemoryError()
 
     # set counts to 0 and colour to colour
-    group.count_stones  = 0
+    group.count_stones = 0
     group.count_liberty = 0
-    group.colour        = colour
+    group.colour = colour
 
     # initialize locations with FREE
     memset(group.locations, _FREE, size)
@@ -157,11 +143,8 @@ cdef Group* group_new(char colour, short size):
     return group
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef Group* group_duplicate(Group* group, short size):
-    """
-       create new struct Group initialized as a duplicate of group
+    """Create new struct Group initialized as a duplicate of group
     """
 
     cdef int i
@@ -172,14 +155,14 @@ cdef Group* group_duplicate(Group* group, short size):
         raise MemoryError()
 
     # allocate memory for array locations
-    duplicate.locations = <char  *>malloc(size)
+    duplicate.locations = <char* >malloc(size)
     if not duplicate.locations:
         raise MemoryError()
 
     # set counts and colour values
-    duplicate.count_stones  = group.count_stones
+    duplicate.count_stones = group.count_stones
     duplicate.count_liberty = group.count_liberty
-    duplicate.colour        = group.colour
+    duplicate.colour = group.colour
 
     # duplicate locations array in memory
     # memcpy is optimized to do this quickly
@@ -188,72 +171,56 @@ cdef Group* group_duplicate(Group* group, short size):
     return duplicate
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void group_destroy(Group* group):
-    """
-       free memory location of group and locations
+    """Free memory location of group and locations
     """
 
     # check if group exists
     if group is not NULL:
-
         # check if locations exists
         if group.locations is not NULL:
-
             # free locations
             free(group.locations)
-
         # free group
         free(group)
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void group_add_stone(Group* group, short location):
-    """
-       update location as STONE
-       update liberty count if it was a liberty location
+    """Update location as STONE
 
-       n.b. stone count is not incremented if a stone was present already
+    update liberty count if it was a liberty location
+    n.b. stone count is not incremented if a stone was present already
     """
 
     # check if locations is a liberty
-    if group.locations[ location ] == _FREE:
-
+    if group.locations[location] == _FREE:
         # locations is FREE, increment stone count
         group.count_stones += 1
-    elif group.locations[ location ] == _LIBERTY:
 
+    elif group.locations[location] == _LIBERTY:
         # locations is LIBERTY, increment stone count and decrement liberty count
-        group.count_stones  += 1
+        group.count_stones += 1
         group.count_liberty -= 1
 
     # set STONE
-    group.locations[ location ] = _STONE
+    group.locations[location] = _STONE
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void group_remove_stone(Group* group, short location):
-    """
-       update location as FREE
-       update stone count if it was a stone location
+    """Update location as FREE
+
+    update stone count if it was a stone location
     """
 
     # check if a stone is present
-    if group.locations[ location ] == _STONE:
-
+    if group.locations[location] == _STONE:
         # stone present, decrement stone count and set location to FREE
         group.count_stones -= 1
-        group.locations[ location ] = _FREE
+        group.locations[location] = _FREE
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef short group_location_stone(Group* group, short size):
-    """
-       return first location where a STONE is located
+    """Return first location where a STONE is located
     """
 
     # memchr is a in memory search function, it starts searching at
@@ -264,47 +231,36 @@ cdef short group_location_stone(Group* group, short size):
     return <short>(<long>memchr(group.locations, _STONE, size) - <long>group.locations)
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void group_add_liberty(Group* group, short location):
-    """
-       update location as LIBERTY
-       update liberty count if it was a FREE location
+    """Update location as LIBERTY
 
-       n.b. liberty count is not incremented if a stone was present already
+    update liberty count if it was a FREE location
+    n.b. liberty count is not incremented if a stone was present already
     """
 
     # check if location is FREE
-    if group.locations[ location ] == _FREE:
-
+    if group.locations[location] == _FREE:
         # increment liberty count, set location to LIBERTY
         group.count_liberty += 1
-        group.locations[ location ] = _LIBERTY
+        group.locations[location] = _LIBERTY
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void group_remove_liberty(Group* group, short location):
-    """
-       update location as FREE
-       update liberty count if it was a LIBERTY location
+    """Update location as FREE
 
-       n.b. liberty count is not decremented if location is a FREE location
+    update liberty count if it was a LIBERTY location
+    n.b. liberty count is not decremented if location is a FREE location
     """
 
     # check if location is LIBERTY
-    if group.locations[ location ] == _LIBERTY:
-
+    if group.locations[location] == _LIBERTY:
         # decrement liberty count, set location to FREE
         group.count_liberty -= 1
-        group.locations[ location ] = _FREE
+        group.locations[location] = _FREE
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef short group_location_liberty(Group* group, short size):
-    """
-       return location where a LIBERTY is located
+    """Return location where a LIBERTY is located
     """
 
     # memchr is a in memory search function, it starts searching at
@@ -321,17 +277,13 @@ cdef short group_location_liberty(Group* group, short size):
 ############################################################################
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef Groups_List* groups_list_new(short size):
-    """
-       create new struct Groups_List
-       with locations #size Group* long and count_groups set to 0
+    """Create new empty Groups_List
     """
 
     cdef Groups_List* list_new
 
-    list_new              = <Groups_List *>malloc(sizeof(Groups_List))
+    list_new = <Groups_List *>malloc(sizeof(Groups_List))
     if not list_new:
         raise MemoryError()
 
@@ -344,64 +296,48 @@ cdef Groups_List* groups_list_new(short size):
     return list_new
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void groups_list_add(Group* group, Groups_List* groups_list):
-    """
-       add group to list and increment groups count
+    """Add group to list and increment groups count
     """
 
-    groups_list.board_groups[ groups_list.count_groups ] = group
+    groups_list.board_groups[groups_list.count_groups] = group
     groups_list.count_groups += 1
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void groups_list_add_unique(Group* group, Groups_List* groups_list):
-    """
-       check if a group is already in the list, return if so
-       add group to list if not
+    """Check if a group is already in the list, return if so, add group to list if not
     """
 
     cdef int i
 
     # loop over array
     for i in range(groups_list.count_groups):
-
         # check if group is present
-        if group == groups_list.board_groups[ i ]:
-
+        if group == groups_list.board_groups[i]:
             # group is present, return
             return
 
     # group is not present, add to group
-    groups_list.board_groups[ groups_list.count_groups ] = group
+    groups_list.board_groups[groups_list.count_groups] = group
     groups_list.count_groups += 1
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void groups_list_remove(Group* group, Groups_List* groups_list):
-    """
-       remove group from list and decrement groups count
+    """Remove group from list and decrement groups count
     """
 
     cdef int i
 
     # loop over array
     for i in range(groups_list.count_groups):
-
         # check if group is present
-        if groups_list.board_groups[ i ] == group:
-
-            # group is present, move last group to this location
-            # and decrement groups count
+        if groups_list.board_groups[i] == group:
+            # group is present, move last group to this location and decrement groups count
             groups_list.count_groups -= 1
-            groups_list.board_groups[ i ] = groups_list.board_groups[ groups_list.count_groups ]
+            groups_list.board_groups[i] = groups_list.board_groups[groups_list.count_groups]
             return
 
-    # TODO this should not happen, create error for this??
-    print("Group not found!!!!!!!!!!!!!!")
+    raise RuntimeError("Removing nonexistent group!")
 
 
 ############################################################################
@@ -410,18 +346,14 @@ cdef void groups_list_remove(Group* group, Groups_List* groups_list):
 ############################################################################
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef Locations_List* locations_list_new(short size):
-    """
-       create new struct Locations_List
-       with locations #size short long and count set to 0
+    """Create new empty Locations_List
     """
 
     cdef Locations_List* list_new
 
     # allocate memory for Group
-    list_new           = <Locations_List *>malloc(sizeof(Locations_List))
+    list_new = <Locations_List *>malloc(sizeof(Locations_List))
     if not list_new:
         raise MemoryError()
 
@@ -431,95 +363,74 @@ cdef Locations_List* locations_list_new(short size):
         raise MemoryError()
 
     # set count to 0
-    list_new.count     = 0
+    list_new.count = 0
 
     # set size
-    list_new.size      = size
+    list_new.size = size
 
     return list_new
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
+
 cdef void locations_list_destroy(Locations_List* locations_list):
-    """
-       free memory location of locations_list and locations
+    """Free memory location of locations_list and locations
     """
 
     # check if locations_list exists
     if locations_list is not NULL:
-
         # check if locations exists
         if locations_list.locations is not NULL:
-
             # free locations
             free(locations_list.locations)
-
         # free locations_list
         free(locations_list)
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
+
 cdef void locations_list_remove_location(Locations_List* locations_list, short location):
-    """
-       remove location from list
+    """Remove location from list
     """
 
     cdef int i
 
     # loop over array
     for i in range(locations_list.count):
-
-        # check if [ i ] == location
-        if locations_list.locations[ i ] == location:
-
+        # check if [i] == location
+        if locations_list.locations[i] == location:
             # location found, move last value to this location
             # and decrement count
             locations_list.count -= 1
-            locations_list.locations[ i ] = locations_list.locations[ locations_list.count ]
+            locations_list.locations[i] = locations_list.locations[locations_list.count]
             return
 
-    # TODO this should not happen, create error for this??
-    print("location not found!!!!!!!!!!!!!!")
+    raise RuntimeError("Removing nonexistent location!")
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void locations_list_add_location(Locations_List* locations_list, short location):
-    """
-       add location to list and increment count
+    """Add location to list and increment count
     """
 
-    locations_list.locations[ locations_list.count ] = location
+    locations_list.locations[locations_list.count] = location
     locations_list.count += 1
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void locations_list_add_location_increment(Locations_List* locations_list, short location):
-    """
-       check if list can hold one more location, resize list if not
+    """Check if list can hold one more location, resize list if not
        add location to list and increment count
     """
 
     if locations_list.count == locations_list.size:
 
         locations_list.size += 10
-        locations_list.locations = <short *>realloc(locations_list.locations, locations_list.size * sizeof(short))
+        locations_list.locations = <short *>realloc(locations_list.locations,
+                                                    locations_list.size * sizeof(short))
         if not locations_list.locations:
-            print("MEM ERROR")
             raise MemoryError()
 
-
-    locations_list.locations[ locations_list.count ] = location
+    locations_list.locations[locations_list.count] = location
     locations_list.count += 1
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
 cdef void locations_list_add_location_unique(Locations_List* locations_list, short location):
-    """
-       check if location is present in list, return if so
+    """Check if location is present in list, return if so
        add location to list if not
     """
 
@@ -527,15 +438,13 @@ cdef void locations_list_add_location_unique(Locations_List* locations_list, sho
 
     # loop over array
     for i in range(locations_list.count):
-
         # check if location is present
-        if location == locations_list.locations[ i ]:
-
+        if location == locations_list.locations[i]:
             # location found, do nothing -> return
             return
 
     # add location to list and increment count
-    locations_list.locations[ locations_list.count ] = location
+    locations_list.locations[locations_list.count] = location
     locations_list.count += 1
 
 
@@ -545,11 +454,8 @@ cdef void locations_list_add_location_unique(Locations_List* locations_list, sho
 ############################################################################
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef short calculate_board_location(char x, char y, char size):
-    """
-       return location on board
+    """Return location on board
        no checks on outside board
        x = columns
        y = rows
@@ -559,12 +465,9 @@ cdef short calculate_board_location(char x, char y, char size):
     return x + (y * size)
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef short calculate_board_location_or_border(char x, char y, char size):
-    """
-       return location on board or borderlocation
-       board locations = [ 0, size * size)
+    """Return location on board or borderlocation
+       board locations = [0, size * size)
        border location = size * size
        x = columns
        y = rows
@@ -572,7 +475,6 @@ cdef short calculate_board_location_or_border(char x, char y, char size):
 
     # check if x or y are outside board
     if x < 0 or y < 0 or x >= size or y >= size:
-
         # return border location
         return size * size
 
@@ -580,11 +482,8 @@ cdef short calculate_board_location_or_border(char x, char y, char size):
     return calculate_board_location(x, y, size)
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef short* get_neighbors(char size):
-    """
-       create array for every board location with all 4 direct neighbor locations
+    """Create array for every board location with all 4 direct neighbor locations
        neighbor order: left - right - above - below
 
                 -1     x
@@ -609,22 +508,18 @@ cdef short* get_neighbors(char size):
 
     # add all direct neighbors to every board location
     for y in range(size):
-
         for x in range(size):
-
             location = (x + (y * size)) * 4
-            neighbor[ location + 0 ] = calculate_board_location_or_border(x - 1, y    , size)
-            neighbor[ location + 1 ] = calculate_board_location_or_border(x + 1, y    , size)
-            neighbor[ location + 2 ] = calculate_board_location_or_border(x    , y - 1, size)
-            neighbor[ location + 3 ] = calculate_board_location_or_border(x    , y + 1, size)
+            neighbor[location + 0] = calculate_board_location_or_border(x - 1, y, size)
+            neighbor[location + 1] = calculate_board_location_or_border(x + 1, y, size)
+            neighbor[location + 2] = calculate_board_location_or_border(x, y - 1, size)
+            neighbor[location + 3] = calculate_board_location_or_border(x, y + 1, size)
 
     return neighbor
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
+
 cdef short* get_3x3_neighbors(char size):
-    """
-       create for every board location array with all 8 surrounding neighbor locations
+    """Create for every board location array with all 8 surrounding neighbor locations
        neighbor order: above middle - middle left - middle right - below middle
                        above left - above right - below left - below right
                        this order is more useful as it separates neighbors and then diagonals
@@ -651,27 +546,24 @@ cdef short* get_3x3_neighbors(char size):
 
     # add all surrounding neighbors to every board location
     for x in range(size):
-
         for y in range(size):
-
             location = (x + (y * size)) * 8
-            neighbor3x3[ location + 0 ] = calculate_board_location_or_border(x    , y - 1, size)
-            neighbor3x3[ location + 1 ] = calculate_board_location_or_border(x - 1, y    , size)
-            neighbor3x3[ location + 2 ] = calculate_board_location_or_border(x + 1, y    , size)
-            neighbor3x3[ location + 3 ] = calculate_board_location_or_border(x    , y + 1, size)
-
-            neighbor3x3[ location + 4 ] = calculate_board_location_or_border(x - 1, y - 1, size)
-            neighbor3x3[ location + 5 ] = calculate_board_location_or_border(x + 1, y - 1, size)
-            neighbor3x3[ location + 6 ] = calculate_board_location_or_border(x - 1, y + 1, size)
-            neighbor3x3[ location + 7 ] = calculate_board_location_or_border(x + 1, y + 1, size)
+            # Cardinal directions
+            neighbor3x3[location + 0] = calculate_board_location_or_border(x, y - 1, size)
+            neighbor3x3[location + 1] = calculate_board_location_or_border(x - 1, y, size)
+            neighbor3x3[location + 2] = calculate_board_location_or_border(x + 1, y, size)
+            neighbor3x3[location + 3] = calculate_board_location_or_border(x, y + 1, size)
+            # Diagonal directions
+            neighbor3x3[location + 4] = calculate_board_location_or_border(x - 1, y - 1, size)
+            neighbor3x3[location + 5] = calculate_board_location_or_border(x + 1, y - 1, size)
+            neighbor3x3[location + 6] = calculate_board_location_or_border(x - 1, y + 1, size)
+            neighbor3x3[location + 7] = calculate_board_location_or_border(x + 1, y + 1, size)
 
     return neighbor3x3
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
+
 cdef short* get_12d_neighbors(char size):
-    """
-       create array for every board location with 12d star neighbor locations
+    """Create array for every board location with 12d star neighbor locations
        neighbor order: top star tip
                        above left - above middle - above right
                        left star tip - left - right - right star tip
@@ -702,26 +594,24 @@ cdef short* get_12d_neighbors(char size):
 
     # add all 12d neighbors to every board location
     for x in range(size):
-
         for y in range(size):
-
             location = (x + (y * size)) * 12
-            neighbor12d[ location +  4 ] = calculate_board_location_or_border(x    , y - 2, size)
+            neighbor12d[location + 4] = calculate_board_location_or_border(x, y - 2, size)
 
-            neighbor12d[ location +  1 ] = calculate_board_location_or_border(x - 1, y - 1, size)
-            neighbor12d[ location +  5 ] = calculate_board_location_or_border(x    , y - 1, size)
-            neighbor12d[ location +  8 ] = calculate_board_location_or_border(x + 1, y - 1, size)
+            neighbor12d[location + 1] = calculate_board_location_or_border(x - 1, y - 1, size)
+            neighbor12d[location + 5] = calculate_board_location_or_border(x, y - 1, size)
+            neighbor12d[location + 8] = calculate_board_location_or_border(x + 1, y - 1, size)
 
-            neighbor12d[ location +  0 ] = calculate_board_location_or_border(x - 2, y    , size)
-            neighbor12d[ location +  2 ] = calculate_board_location_or_border(x - 1, y    , size)
-            neighbor12d[ location +  9 ] = calculate_board_location_or_border(x + 1, y    , size)
-            neighbor12d[ location + 11 ] = calculate_board_location_or_border(x + 2, y    , size)
+            neighbor12d[location + 0] = calculate_board_location_or_border(x - 2, y, size)
+            neighbor12d[location + 2] = calculate_board_location_or_border(x - 1, y, size)
+            neighbor12d[location + 9] = calculate_board_location_or_border(x + 1, y, size)
+            neighbor12d[location + 11] = calculate_board_location_or_border(x + 2, y, size)
 
-            neighbor12d[ location +  3 ] = calculate_board_location_or_border(x - 1, y + 1, size)
-            neighbor12d[ location +  6 ] = calculate_board_location_or_border(x    , y + 1, size)
-            neighbor12d[ location + 10 ] = calculate_board_location_or_border(x + 1, y + 1, size)
+            neighbor12d[location + 3] = calculate_board_location_or_border(x - 1, y + 1, size)
+            neighbor12d[location + 6] = calculate_board_location_or_border(x, y + 1, size)
+            neighbor12d[location + 10] = calculate_board_location_or_border(x + 1, y + 1, size)
 
-            neighbor12d[ location +  7 ] = calculate_board_location_or_border(x    , y + 2, size)
+            neighbor12d[location + 7] = calculate_board_location_or_border(x, y + 2, size)
 
     return neighbor12d
 
@@ -732,16 +622,13 @@ cdef short* get_12d_neighbors(char size):
 ############################################################################
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef unsigned long long* get_zobrist_lookup(char size):
-    """
-       generate zobrist lookup array for boardsize size
+    """Generate zobrist lookup array for boardsize size
     """
 
     cdef unsigned long long* zobrist_lookup
 
-    zobrist_lookup  = <unsigned long long *>malloc((size * size * 2) * sizeof(unsigned long long))
+    zobrist_lookup = <unsigned long long *>malloc((size * size * 2) * sizeof(unsigned long long))
     if not zobrist_lookup:
         raise MemoryError()
 
