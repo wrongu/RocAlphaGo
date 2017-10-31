@@ -4,7 +4,7 @@ from libc.stdlib cimport malloc, free
 from AlphaGo.go cimport GameState
 from AlphaGo.go_data cimport _BLACK, _EMPTY, _STONE, _LIBERTY, _CAPTURE, \
     _FREE, _PASS, Group, Locations_List, locations_list_destroy, \
-    locations_list_new
+    locations_list_new, _HASHVALUE
 from numpy cimport ndarray
 import numpy as np
 cimport numpy as np
@@ -27,6 +27,9 @@ cdef class Preprocess:
     # all feature processors
     # TODO find correct type so an array can be used
     cdef preprocess_method *processors
+
+    # flag whether or not any features require 'lookahead' to groups_after
+    cdef bint  requires_groups_after
 
     # list with all features used currently
     # TODO find correct type so an array can be used
@@ -143,16 +146,64 @@ cdef class Preprocess:
     """Ko positions
     """
 
-    cdef int get_response(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_save_atari(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_neighbor(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_nakade(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_nakade_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_response_12d(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_response_12d_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_non_response_3x3(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
-    cdef int get_non_response_3x3_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
+    cdef int get_response(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """Single feature plane encoding whether this location matches any of the response
+       patterns, for now it only checks the 12d response patterns as we do not use the
+       3x3 response patterns.
+    """
 
+    cdef int get_save_atari(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """A feature wrapping GameState.is_ladder_escape().
+       check if player_current group can escape atari for at least one turn
+    """
+
+    cdef int get_neighbor(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """Encode last move neighbor positions in two planes:
+       - horizontal & vertical / direct neighbor
+       - diagonal neighbor
+    """
+
+    cdef int get_nakade(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """A nakade pattern is a 12d pattern on a location a stone was captured before
+       it is unclear if a max size of the captured group has to be considered and
+       how recent the capture event should have been
+
+       the 12d pattern can be encoded without stone colour and liberty count
+       unclear if a border location should be considered a stone or liberty
+
+       pattern lookup value is being set instead of 1
+    """
+
+    cdef int get_nakade_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """A nakade pattern is a 12d pattern on a location a stone was captured before
+       it is unclear if a max size of the captured group has to be considered and
+       how recent the capture event should have been
+
+       the 12d pattern can be encoded without stone colour and liberty count
+       unclear if a border location should be considered a stone or liberty
+
+       #pattern_id is offset
+    """
+
+    cdef int get_response_12d(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """Set 12d hash pattern for 12d shape around last move
+       pattern lookup value is being set instead of 1
+    """
+
+    cdef int get_response_12d_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """Set 12d hash pattern for 12d shape around last move where
+       #pattern_id is offset
+    """
+
+    cdef int get_non_response_3x3(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa:E501
+    """Set 3x3 hash pattern for every legal location where
+       pattern lookup value is being set instead of 1
+    """
+
+    cdef int get_non_response_3x3_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
+    """Set 3x3 hash pattern for every legal location where
+       #pattern_id is offset
+    """
     ############################################################################
     #   public cdef function                                                   #
     #                                                                          #

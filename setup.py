@@ -10,9 +10,6 @@ extensions = [
               include_dirs=[numpy.get_include()], language="c++"),
     Extension("AlphaGo.preprocessing.preprocessing", ["AlphaGo/preprocessing/preprocessing.pyx"],
               include_dirs=[numpy.get_include()], language="c++"),
-    Extension("AlphaGo.preprocessing.preprocessing_rollout",
-              ["AlphaGo/preprocessing/preprocessing_rollout.pyx"],
-              include_dirs=[numpy.get_include()], language="c++"),
 ]
 
 setup(name="RocAlphaGo", ext_modules=cythonize(extensions))

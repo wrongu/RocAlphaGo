@@ -297,6 +297,47 @@ cdef class Preprocess:
            - optimization? 12d response patterns are calculated twice..
         """
 
+        cdef short location, location_x, location_y, last_move, last_move_x, last_move_y
+        cdef int i, plane, id
+        cdef long hash_base, hash_pattern
+        cdef short* neighbor12d = state.neighbor12d
+
+        # get last move
+        last_move = state.moves_history.locations[state.moves_history.count - 1]
+
+        # check if last move is not _PASS
+        if last_move != _PASS:
+            # get 12d pattern hash of last move location and colour
+            hash_base = state.get_hash_12d(last_move)
+
+            # calculate last_move x and y
+            last_move_x = last_move / state.size
+            last_move_y = last_move % state.size
+
+            # last_move location in neighbor12d array
+            last_move *= 12
+
+            # loop over all locations in 12d shape
+            for i in range(12):
+                # get location
+                location = neighbor12d[last_move + i]
+
+                # check if location is empty
+                if state.board_groups[location].colour == _EMPTY:
+                    # calculate location x and y
+                    location_x = (location / state.size) - last_move_x
+                    location_y = (location % state.size) - last_move_y
+
+                    # calculate 12d response pattern hash
+                    hash_pattern = hash_base + location_x
+                    hash_pattern *= _HASHVALUE
+                    hash_pattern += location_y
+
+                    # dictionary lookup
+                    pattern_id = self.pattern_response_12d.get(hash_pattern)
+                    if pattern_id >= 0:
+                        tensor[offset, location] = 1
+
         return offset + 1
 
     cdef int get_save_atari(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
@@ -332,7 +373,6 @@ cdef class Preprocess:
 
         # check if last move is not _PASS
         if last_move != _PASS:
-
             # last_move location in neighbor3x3 array
             last_move *= 8
 
@@ -342,7 +382,6 @@ cdef class Preprocess:
             # loop over direct neighbor
             # 0,1,2,3 are direct neighbor locations
             for i in range(4):
-
                 # get neighbor location
                 location = neighbor3x3[last_move + i]
 
@@ -356,7 +395,6 @@ cdef class Preprocess:
             # loop over diagonal neighbor
             # 4,5,6,7 are diagonal neighbor locations
             for i in range(4, 8):
-
                 # get neighbor location
                 location = neighbor3x3[last_move + i]
 
@@ -404,12 +442,69 @@ cdef class Preprocess:
         return offset + 1
 
     cdef int get_response_12d_offset(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
-        """Set 12d hash pattern for 12d shape around last move where
+        """Check all empty locations in a 12d shape around the last move for being a 12d response
+           pattern match
            #pattern_id is offset
+
+           base hash is 12d pattern hash of last move location + colour
+           add relative position of every empty location in a 12d shape to get 12d response pattern
+           hash
+
+             c                        hash                    x   y
+            ...       location a has: state.get_hash_12d(x), -1,  0
+           .ax..      location b has: state.get_hash_12d(x), +1, -1
+            ..b       location c has: state.get_hash_12d(x),  0, +2
+             .
+
+           12d response pattern hash value is calculated by:
+           ((hash + x) * _HASHVALUE) + y
         """
 
-        # get last move location
-        # check for pass
+        cdef short location, location_x, location_y, last_move, last_move_x, last_move_y
+        cdef int i, plane, id
+        cdef long hash_base, hash_pattern
+        cdef short* neighbor12d = state.neighbor12d
+
+        # get last move
+        last_move = state.moves_history.locations[state.moves_history.count - 1]
+
+        # check if last move is not _PASS
+        if last_move != _PASS:
+
+            # get 12d pattern hash of last move location and colour
+            hash_base = state.get_hash_12d(last_move)
+
+            # calculate last_move x and y
+            last_move_x = last_move / state.size
+            last_move_y = last_move % state.size
+
+            # last_move location in neighbor12d array
+            last_move *= 12
+
+            # loop over all locations in 12d shape
+            for i in range(12):
+
+                # get location
+                location = neighbor12d[last_move + i]
+
+                # check if location is empty
+                if state.board_groups[location].colour == _EMPTY:
+
+                    # calculate location x and y
+                    location_x = (location / state.size) - last_move_x
+                    location_y = (location % state.size) - last_move_y
+
+                    # calculate 12d response pattern hash
+                    hash_pattern = hash_base + location_x
+                    hash_pattern *= _HASHVALUE
+                    hash_pattern += location_y
+
+                    # dictionary lookup
+                    id = self.pattern_response_12d.get(hash_pattern)
+
+                    if id >= 0:
+
+                        tensor[offset + id, location] = 1
 
         return offset + self.pattern_response_12d_size
 
@@ -501,6 +596,8 @@ cdef class Preprocess:
         # create a list with function pointers
         self.processors = <preprocess_method *>malloc(len(feature_list) * sizeof(preprocess_method))
 
+        self.requires_groups_after = False
+
         if not self.processors:
             raise MemoryError()
 
@@ -562,14 +659,17 @@ cdef class Preprocess:
             elif feat == "capture_size":
                 processor = self.get_capture_size
                 self.output_dim += 8
+                self.requires_groups_after = True
 
             elif feat == "self_atari_size":
                 processor = self.get_self_atari_size
                 self.output_dim += 8
+                self.requires_groups_after = True
 
             elif feat == "liberties_after":
                 processor = self.get_liberties_after
                 self.output_dim += 8
+                self.requires_groups_after = True
 
             elif feat == "ladder_capture":
                 processor = self.get_ladder_capture
@@ -657,7 +757,7 @@ cdef class Preprocess:
         cdef int offset = 0
 
         # get char array with next move information
-        cdef char *groups_after = state.get_groups_after()
+        cdef char *groups_after = state.get_groups_after() if self.requires_groups_after else NULL
 
         # loop over all processors and generate tensor
         for i in range(len(self.feature_list)):
@@ -665,7 +765,8 @@ cdef class Preprocess:
             offset = proc(self, state, tensor, groups_after, offset)
 
         # free groups_after
-        free(groups_after)
+        if self.requires_groups_after:
+            free(groups_after)
 
         # create a singleton 'batch' dimension
         return np_tensor.reshape((1, self.output_dim, self.size, self.size))
