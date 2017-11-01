@@ -144,10 +144,7 @@ def run_gtp(player_obj, inpt_fn=None, name="Gtp Player", version="0.0"):
         inpt = inpt_fn()
         # handle either single lines at a time
         # or multiple commands separated by '\n'
-        try:
-            cmd_list = inpt.split("\n")
-        except:
-            cmd_list = [inpt]
+        cmd_list = inpt.split("\n")
         for cmd in cmd_list:
             engine_reply = gtp_engine.send(cmd)
             sys.stdout.write(engine_reply)
