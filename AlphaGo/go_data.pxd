@@ -2,33 +2,37 @@ import numpy as np
 cimport numpy as np
 
 ############################################################################
-#   constants                                                              #
+#   Global constants                                                       #
 #                                                                          #
 ############################################################################
 
-# TODO find out if these are really used as compile time-constants
+# Note that "enum" is the best way to create a compile-time constant in cython.
 
-# value for PASS move
-cdef char _PASS
+cpdef enum GAME:
+    # value for _PASS move
+    _PASS = -1
 
-# observe: stones > EMPTY
-#          border < EMPTY
-# be aware you should NOT use != EMPTY as this includes border locations
-cdef char _BORDER
-cdef char _EMPTY
-cdef char _WHITE
-cdef char _BLACK
+cpdef enum STONES:
+    # observe: stones > _EMPTY
+    #          border < _EMPTY
+    # be aware you should NOT use != _EMPTY as this includes border locations
+    _BORDER = 1
+    _EMPTY = 2
+    _WHITE = 3
+    _BLACK = 4
 
-# used for group stone, liberty locations, legal move and eye locations
-cdef char _FREE
-cdef char _STONE
-cdef char _LIBERTY
-cdef char _CAPTURE
-cdef char _LEGAL
-cdef char _EYE
+cpdef enum PATTERNS:
+    # value used to generate pattern hashes
+    _HASHVALUE = 33
 
-# value used to generate pattern hashes
-cdef char _HASHVALUE
+cpdef enum GROUP:
+    # used for group stone, liberty locations, legal move and sensible move
+    _FREE = 3
+    _STONE = 0
+    _LIBERTY = 1
+    _CAPTURE = 2
+    _LEGAL = 4
+    _EYE = 5
 
 
 ############################################################################
@@ -108,7 +112,7 @@ cdef struct Locations_List:
 cdef Group* group_new(char colour, short size)
 """
    create new struct Group
-   with locations #size char long initialized to FREE
+   with locations #size char long initialized to _FREE
 """
 
 cdef Group* group_duplicate(Group* group, short size)
@@ -123,7 +127,7 @@ cdef void group_destroy(Group* group)
 
 cdef void group_add_stone(Group* group, short location)
 """
-   update location as STONE
+   update location as _STONE
    update liberty count if it was a liberty location
 
    n.b. stone count is not incremented if a stone was present already
@@ -131,34 +135,34 @@ cdef void group_add_stone(Group* group, short location)
 
 cdef void group_remove_stone(Group* group, short location)
 """
-   update location as FREE
+   update location as _FREE
    update stone count if it was a stone location
 """
 
 cdef short group_location_stone(Group* group, short size)
 """
-   return first location where a STONE is located
+   return first location where a _STONE is located
 """
 
 cdef void group_add_liberty(Group* group, short location)
 """
-   update location as LIBERTY
-   update liberty count if it was a FREE location
+   update location as _LIBERTY
+   update liberty count if it was a _FREE location
 
    n.b. liberty count is not incremented if a stone was present already
 """
 
 cdef void group_remove_liberty(Group* group, short location)
 """
-   update location as FREE
-   update liberty count if it was a LIBERTY location
+   update location as _FREE
+   update liberty count if it was a _LIBERTY location
 
-   n.b. liberty count is not decremented if location is a FREE location
+   n.b. liberty count is not decremented if location is a _FREE location
 """
 
 cdef short group_location_liberty(Group* group, short size)
 """
-   return location where a LIBERTY is located
+   return location where a _LIBERTY is located
 """
 
 ############################################################################

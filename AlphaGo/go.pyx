@@ -23,7 +23,7 @@ cdef char  neighbor_size
 # global array for zobrist lookup
 cdef unsigned long long *zobrist_lookup
 
-# expose variables to python
+# Expose constants to python
 PASS = _PASS
 BLACK = _BLACK
 WHITE = _WHITE
@@ -268,7 +268,7 @@ cdef class GameState:
                 # Set global size
                 neighbor_size = size
 
-                # initialize EMPTY and BORDER group
+                # initialize _EMPTY and _BORDER group
                 group_empty = group_new(_EMPTY, self.board_size)
                 group_border = group_new(_BORDER, self.board_size)
 
@@ -294,6 +294,7 @@ cdef class GameState:
 
         # free board_groups
         if self.board_groups is not NULL:
+
             free(self.board_groups)
 
         # free history
@@ -310,10 +311,8 @@ cdef class GameState:
 
         # free groups_list all groups in groups_list.board_groups and groups_list.board_groups
         if self.groups_list is not NULL:
-
             # loop over all groups and free them
             for i in range(self.groups_list.count_groups):
-
                 group_destroy(self.groups_list.board_groups[i])
 
             # free groups_list.board_groups
@@ -339,8 +338,8 @@ cdef class GameState:
 
     cdef bint is_positional_superko(self, short location, Group **board):
         """Find all actions that the current_player has done in the past, taking into
-           account the fact that history starts with BLACK when there are no
-           handicaps or with WHITE when there are.
+           account the fact that history starts with _BLACK when there are no
+           handicaps or with _WHITE when there are.
         """
 
         cdef int i
@@ -745,8 +744,7 @@ cdef class GameState:
         return hash
 
     cdef void get_group_after(self, char* groups_after, char* locations, char* captures, short location):  # noqa: E501
-        """Groups_after is a board_size * 3 array representing STONES, LIBERTY, CAPTURE for every
-        location
+        """Groups_after is a board_size * 3 array representing STONES, _LIBERTY, _CAPTURE for every location
 
         calculate group after a play on location and set
         - groups_after[location * 3 +] to stone   count
@@ -847,7 +845,7 @@ cdef class GameState:
         groups_after[location_array + 2] = capture
 
     cdef void get_group_after_pointer(self, short* stones, short* liberty, short* capture, char* locations, char* captures, short location):  # noqa: E501
-        """Groups_after is a board_size * 3 array representing STONES, LIBERTY, CAPTURE for every location
+        """Groups_after is a board_size * 3 array representing STONES, _LIBERTY, _CAPTURE for every location
 
            calculate group after a play on location and set
            stones[0] to stone   count
@@ -1511,7 +1509,7 @@ cdef class GameState:
 
     cdef char* get_groups_after(self):
         """Return a short array of size board_size * 3 representing
-           STONES, LIBERTY, CAPTURE for every board location
+           STONES, _LIBERTY, _CAPTURE for every board location
 
            max count values are 100
 

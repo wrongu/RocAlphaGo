@@ -25,34 +25,6 @@ from libc.string cimport memcpy, memset, memchr
    - implement faster loop over all elements for dict using memchr and offset pointer
 """
 
-############################################################################
-#   constants                                                              #
-#                                                                          #
-############################################################################
-
-
-# value for PASS move
-_PASS = -1
-
-# observe: stones > EMPTY
-#          border < EMPTY
-# be aware you should NOT use != EMPTY as this includes border locations
-_BORDER = 1
-_EMPTY = 2
-_WHITE = 3
-_BLACK = 4
-
-# used for group stone, liberty locations, legal move and sensible move
-_FREE = 3
-_STONE = 0
-_LIBERTY = 1
-_CAPTURE = 2
-_LEGAL = 4
-_EYE = 5
-
-# value used to generate pattern hashes
-_HASHVALUE = 33
-
 
 ############################################################################
 #   Structs defined in go_data.pxd                                         #
@@ -117,7 +89,7 @@ cdef struct Locations_List:
 
 
 cdef Group* group_new(char colour, short size):
-    """Create new struct Group with locations set to FREE
+    """Create new struct Group with locations set to _FREE
     """
 
     cdef int i
@@ -137,7 +109,7 @@ cdef Group* group_new(char colour, short size):
     group.count_liberty = 0
     group.colour = colour
 
-    # initialize locations with FREE
+    # initialize locations with _FREE
     memset(group.locations, _FREE, size)
 
     return group
@@ -186,7 +158,7 @@ cdef void group_destroy(Group* group):
 
 
 cdef void group_add_stone(Group* group, short location):
-    """Update location as STONE
+    """Update location as _STONE
 
     update liberty count if it was a liberty location
     n.b. stone count is not incremented if a stone was present already
@@ -194,33 +166,33 @@ cdef void group_add_stone(Group* group, short location):
 
     # check if locations is a liberty
     if group.locations[location] == _FREE:
-        # locations is FREE, increment stone count
+        # locations is _FREE, increment stone count
         group.count_stones += 1
 
     elif group.locations[location] == _LIBERTY:
-        # locations is LIBERTY, increment stone count and decrement liberty count
+        # locations is _LIBERTY, increment stone count and decrement liberty count
         group.count_stones += 1
         group.count_liberty -= 1
 
-    # set STONE
+    # set _STONE
     group.locations[location] = _STONE
 
 
 cdef void group_remove_stone(Group* group, short location):
-    """Update location as FREE
+    """Update location as _FREE
 
     update stone count if it was a stone location
     """
 
     # check if a stone is present
     if group.locations[location] == _STONE:
-        # stone present, decrement stone count and set location to FREE
+        # stone present, decrement stone count and set location to _FREE
         group.count_stones -= 1
         group.locations[location] = _FREE
 
 
 cdef short group_location_stone(Group* group, short size):
-    """Return first location where a STONE is located
+    """Return first location where a _STONE is located
     """
 
     # memchr is a in memory search function, it starts searching at
@@ -232,35 +204,35 @@ cdef short group_location_stone(Group* group, short size):
 
 
 cdef void group_add_liberty(Group* group, short location):
-    """Update location as LIBERTY
+    """Update location as _LIBERTY
 
-    update liberty count if it was a FREE location
+    update liberty count if it was a _FREE location
     n.b. liberty count is not incremented if a stone was present already
     """
 
-    # check if location is FREE
+    # check if location is _FREE
     if group.locations[location] == _FREE:
-        # increment liberty count, set location to LIBERTY
+        # increment liberty count, set location to _LIBERTY
         group.count_liberty += 1
         group.locations[location] = _LIBERTY
 
 
 cdef void group_remove_liberty(Group* group, short location):
-    """Update location as FREE
+    """Update location as _FREE
 
-    update liberty count if it was a LIBERTY location
-    n.b. liberty count is not decremented if location is a FREE location
+    update liberty count if it was a _LIBERTY location
+    n.b. liberty count is not decremented if location is a _FREE location
     """
 
-    # check if location is LIBERTY
+    # check if location is _LIBERTY
     if group.locations[location] == _LIBERTY:
-        # decrement liberty count, set location to FREE
+        # decrement liberty count, set location to _FREE
         group.count_liberty -= 1
         group.locations[location] = _FREE
 
 
 cdef short group_location_liberty(Group* group, short size):
-    """Return location where a LIBERTY is located
+    """Return location where a _LIBERTY is located
     """
 
     # memchr is a in memory search function, it starts searching at

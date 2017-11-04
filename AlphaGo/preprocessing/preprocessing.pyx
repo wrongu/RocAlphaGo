@@ -47,7 +47,7 @@ cdef class Preprocess:
     ############################################################################
 
     cdef int get_board(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
-        """A feature encoding WHITE BLACK and EMPTY on separate planes.
+        """A feature encoding _WHITE _BLACK and _EMPTY on separate planes.
 
            Note:
            - plane 0 always refers to the current player stones
@@ -81,7 +81,7 @@ cdef class Preprocess:
 
            Note:
            - the [maximum-1] plane is used for any stone with age greater than or equal to maximum
-           - EMPTY locations are all-zero features
+           - _EMPTY locations are all-zero features
         """
 
         cdef short location
@@ -122,7 +122,7 @@ cdef class Preprocess:
            - there is no zero-liberties plane; the 0th plane indicates groups in atari
            - the [maximum-1] plane is used for any stone with liberties greater than or equal to
              maximum
-           - EMPTY locations are all-zero features
+           - _EMPTY locations are all-zero features
         """
 
         cdef int i, groupLiberty
