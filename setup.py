@@ -4,9 +4,9 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 
 extensions = [
-    Extension("AlphaGo.go", ["AlphaGo/go.pyx"],
+    Extension("AlphaGo.go.game_state", ["AlphaGo/go/game_state.pyx"],
               include_dirs=[numpy.get_include()], language="c++"),
-    Extension("AlphaGo.go_data", ["AlphaGo/go_data.pyx"],
+    Extension("AlphaGo.go.go_data", ["AlphaGo/go/go_data.pyx"],
               include_dirs=[numpy.get_include()], language="c++"),
     Extension("AlphaGo.preprocessing.preprocessing", ["AlphaGo/preprocessing/preprocessing.pyx"],
               include_dirs=[numpy.get_include()], language="c++"),

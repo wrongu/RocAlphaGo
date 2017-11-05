@@ -1,8 +1,8 @@
 import ast
 import time
 from libc.stdlib cimport malloc, free
-from AlphaGo.go cimport GameState
-from AlphaGo.go_data cimport _BLACK, _EMPTY, _STONE, _LIBERTY, _CAPTURE, \
+from AlphaGo.go.game_state cimport GameState
+from AlphaGo.go.go_data cimport _BLACK, _EMPTY, _STONE, _LIBERTY, _CAPTURE, \
     _FREE, _PASS, Group, Locations_List, locations_list_destroy, \
     locations_list_new, _HASHVALUE
 from numpy cimport ndarray

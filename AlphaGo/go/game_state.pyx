@@ -23,12 +23,6 @@ cdef char  neighbor_size
 # global array for zobrist lookup
 cdef unsigned long long *zobrist_lookup
 
-# Expose constants to python
-PASS = _PASS
-BLACK = _BLACK
-WHITE = _WHITE
-EMPTY = _EMPTY
-
 cdef class GameState:
 
     ############################################################################
@@ -1871,7 +1865,7 @@ cdef class GameState:
            If not, an IllegalMove exception is raised
         """
 
-        if action is _PASS:
+        if action == _PASS:
             locations_list_add_location_increment(self.moves_history, _PASS)
 
             if self.player_opponent == _BLACK:

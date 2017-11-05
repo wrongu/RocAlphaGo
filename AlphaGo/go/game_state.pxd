@@ -1,6 +1,6 @@
 import numpy as np
 cimport numpy as np
-from AlphaGo.go_data cimport *
+from AlphaGo.go.go_data cimport *
 
 
 cdef class GameState:
