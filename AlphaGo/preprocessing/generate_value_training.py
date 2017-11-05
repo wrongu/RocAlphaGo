@@ -292,7 +292,7 @@ def handle_arguments(cmd_line_args=None):
     else:
         features = args.features.split(",")
 
-    # always add colour feature
+    # always add color feature
     if "color" not in features:
         features.append("color")
 

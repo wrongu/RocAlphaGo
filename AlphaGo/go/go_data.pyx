@@ -53,7 +53,7 @@ cdef struct Group:
     char* locations
     short count_stones
     short count_liberty
-    char  colour
+    char  color
 
 # struct to store a list of Group
 #
@@ -88,7 +88,7 @@ cdef struct Locations_List:
 ############################################################################
 
 
-cdef Group* group_new(char colour, short size):
+cdef Group* group_new(char color, short size):
     """Create new struct Group with locations set to _FREE
     """
 
@@ -104,10 +104,10 @@ cdef Group* group_new(char colour, short size):
     if not group.locations:
         raise MemoryError()
 
-    # set counts to 0 and colour to colour
+    # set counts to 0 and color to color
     group.count_stones = 0
     group.count_liberty = 0
-    group.colour = colour
+    group.color = color
 
     # initialize locations with _FREE
     memset(group.locations, _FREE, size)
@@ -131,10 +131,10 @@ cdef Group* group_duplicate(Group* group, short size):
     if not duplicate.locations:
         raise MemoryError()
 
-    # set counts and colour values
+    # set counts and color values
     duplicate.count_stones = group.count_stones
     duplicate.count_liberty = group.count_liberty
-    duplicate.colour = group.colour
+    duplicate.color = group.color
 
     # duplicate locations array in memory
     # memcpy is optimized to do this quickly

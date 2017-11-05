@@ -587,12 +587,12 @@ class GameState(object):
             # position is to close to the edge
             return -1
 
-        # active player colour
+        # active player color
         pattern_hash = 2
         pattern_hash += long(self.current_player)
         pattern_hash *= 10
 
-        # 8 surrounding position colours
+        # 8 surrounding position colors
         pattern_hash += self.board[x - 1][y - 1] + 2
         pattern_hash *= 10
         pattern_hash += self.board[x - 1][y] + 2

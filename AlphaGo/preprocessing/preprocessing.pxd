@@ -138,7 +138,7 @@ cdef class Preprocess:
     """Plane filled with ones
     """
 
-    cdef int colour(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
+    cdef int color(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset)  # noqa: E501
     """Value net feature, plane with ones if active_player is black else zeros
     """
 
@@ -168,7 +168,7 @@ cdef class Preprocess:
        it is unclear if a max size of the captured group has to be considered and
        how recent the capture event should have been
 
-       the 12d pattern can be encoded without stone colour and liberty count
+       the 12d pattern can be encoded without stone color and liberty count
        unclear if a border location should be considered a stone or liberty
 
        pattern lookup value is being set instead of 1
@@ -179,7 +179,7 @@ cdef class Preprocess:
        it is unclear if a max size of the captured group has to be considered and
        how recent the capture event should have been
 
-       the 12d pattern can be encoded without stone colour and liberty count
+       the 12d pattern can be encoded without stone color and liberty count
        unclear if a border location should be considered a stone or liberty
 
        #pattern_id is offset

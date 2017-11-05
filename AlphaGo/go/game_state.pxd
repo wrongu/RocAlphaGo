@@ -76,8 +76,8 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
-    cdef void update_hash(self, short location, char colour)
-    """xor current hash with location + colour action value
+    cdef void update_hash(self, short location, char color)
+    """xor current hash with location + color action value
     """
 
     cdef bint is_positional_superko(self, short location, Group **board)
@@ -189,7 +189,7 @@ cdef class GameState:
 
        TODO validate no changes are being made!
 
-       TODO self.player colour is used, should become a pointer
+       TODO self.player color is used, should become a pointer
     """
 
     cdef Groups_List* add_ladder_move(self, short location, Group **board, short* ko)
@@ -227,13 +227,13 @@ cdef class GameState:
        all changes to the board are stored in removed_groups
     """
 
-    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)  # noqa: E501
+    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char color_group, char color_chase)  # noqa: E501
     """Play a ladder move on location, check if group has escaped,
        if the group has 2 liberty it is undetermined ->
        try to capture it by playing at both liberty
     """
 
-    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase)  # noqa: E501
+    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char color_group, char color_chase)  # noqa: E501
     """Play a ladder move on location, try capture and escape moves
        and see if the group is able to escape ladder
     """
@@ -303,7 +303,7 @@ cdef class GameState:
        positive value indicates white win
     """
 
-    cdef char get_winner_colour(self, float komi)
+    cdef char get_winner_color(self, float komi)
     """Calculate score of board state and return player ID (1, -1, or 0 for tie)
        corresponding to winner. Uses 'Area scoring'.
 

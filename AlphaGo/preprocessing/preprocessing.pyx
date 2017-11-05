@@ -65,9 +65,9 @@ cdef class Preprocess:
 
             # Get color of stone from its group
             group = state.board_groups[location]
-            if group.colour == _EMPTY:
+            if group.color == _EMPTY:
                 plane = offset + 2
-            elif group.colour == opponent:
+            elif group.color == opponent:
                 plane = offset + 1
             else:
                 plane = offset
@@ -92,7 +92,7 @@ cdef class Preprocess:
         # set all stones to max age
         for i in range(history.count):
             location = history.locations[i]
-            if location != _PASS and state.board_groups[location].colour > _EMPTY:
+            if location != _PASS and state.board_groups[location].color > _EMPTY:
                 tensor[age, location] = 1
 
         # start with newest stone
@@ -104,7 +104,7 @@ cdef class Preprocess:
             location = history.locations[i]
             # if age has not been set yet
             if location != _PASS and location not in agesSet and \
-                    state.board_groups[location].colour > _EMPTY:
+                    state.board_groups[location].color > _EMPTY:
                 tensor[offset + age, location] = 1
                 tensor[offset + 7, location] = 0
                 agesSet[location] = location
@@ -133,7 +133,7 @@ cdef class Preprocess:
 
             # Get liberty count from group structure directly
             group = state.board_groups[location]
-            if group.colour > _EMPTY:
+            if group.color > _EMPTY:
                 groupLiberty = min(group.count_liberty - 1, 7)
                 tensor[offset + groupLiberty, location] = 1
 
@@ -258,7 +258,7 @@ cdef class Preprocess:
             group = state.groups_list.board_groups[i]
 
             # if group is current player
-            if group.colour == state.player_current:
+            if group.color == state.player_current:
 
                 # loop over liberties because they are possible eyes
                 for location in range(self.board_size):
@@ -307,7 +307,7 @@ cdef class Preprocess:
 
         # check if last move is not _PASS
         if last_move != _PASS:
-            # get 12d pattern hash of last move location and colour
+            # get 12d pattern hash of last move location and color
             hash_base = state.get_hash_12d(last_move)
 
             # calculate last_move x and y
@@ -323,7 +323,7 @@ cdef class Preprocess:
                 location = neighbor12d[last_move + i]
 
                 # check if location is empty
-                if state.board_groups[location].colour == _EMPTY:
+                if state.board_groups[location].color == _EMPTY:
                     # calculate location x and y
                     location_x = (location / state.size) - last_move_x
                     location_y = (location % state.size) - last_move_y
@@ -386,7 +386,7 @@ cdef class Preprocess:
                 location = neighbor3x3[last_move + i]
 
                 # check if location is empty
-                if state.board_groups[location].colour == _EMPTY:
+                if state.board_groups[location].color == _EMPTY:
                     tensor[plane, location] = 1
 
             # diagonal neighbor plane is plane offset + 1
@@ -399,7 +399,7 @@ cdef class Preprocess:
                 location = neighbor3x3[last_move + i]
 
                 # check if location is empty
-                if state.board_groups[location].colour == _EMPTY:
+                if state.board_groups[location].color == _EMPTY:
                     tensor[plane, location] = 1
 
         return offset + 2
@@ -409,7 +409,7 @@ cdef class Preprocess:
            it is unclear if a max size of the captured group has to be considered and
            how recent the capture event should have been
 
-           the 12d pattern can be encoded without stone colour and liberty count
+           the 12d pattern can be encoded without stone color and liberty count
            unclear if a border location should be considered a stone or liberty
 
            pattern lookup value is being set instead of 1
@@ -423,7 +423,7 @@ cdef class Preprocess:
            it is unclear if a max size of the captured group has to be considered and
            how recent the capture event should have been
 
-           the 12d pattern can be encoded without stone colour and liberty count
+           the 12d pattern can be encoded without stone color and liberty count
            unclear if a border location should be considered a stone or liberty
 
            #pattern_id is offset
@@ -446,7 +446,7 @@ cdef class Preprocess:
            pattern match
            #pattern_id is offset
 
-           base hash is 12d pattern hash of last move location + colour
+           base hash is 12d pattern hash of last move location + color
            add relative position of every empty location in a 12d shape to get 12d response pattern
            hash
 
@@ -471,7 +471,7 @@ cdef class Preprocess:
         # check if last move is not _PASS
         if last_move != _PASS:
 
-            # get 12d pattern hash of last move location and colour
+            # get 12d pattern hash of last move location and color
             hash_base = state.get_hash_12d(last_move)
 
             # calculate last_move x and y
@@ -488,7 +488,7 @@ cdef class Preprocess:
                 location = neighbor12d[last_move + i]
 
                 # check if location is empty
-                if state.board_groups[location].colour == _EMPTY:
+                if state.board_groups[location].color == _EMPTY:
 
                     # calculate location x and y
                     location_x = (location / state.size) - last_move_x
@@ -560,7 +560,7 @@ cdef class Preprocess:
 
         return offset + 1
 
-    cdef int colour(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
+    cdef int color(self, GameState state, tensor_type[:, ::1] tensor, char *groups_after, int offset):  # noqa: E501
         """Value net feature, plane with ones if active_player is black else zeros
         """
 
@@ -716,7 +716,7 @@ cdef class Preprocess:
                 self.output_dim += self.pattern_non_response_3x3_size
 
             elif feat == "color":
-                processor = self.colour
+                processor = self.color
                 self.output_dim += 1
 
             elif feat == "ko":

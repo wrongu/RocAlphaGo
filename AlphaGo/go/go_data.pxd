@@ -75,7 +75,7 @@ cdef struct Group:
     char* locations
     short count_stones
     short count_liberty
-    char  colour
+    char  color
 
 """
    struct to store a list of Group
@@ -109,7 +109,7 @@ cdef struct Locations_List:
 #                                                                          #
 ############################################################################
 
-cdef Group* group_new(char colour, short size)
+cdef Group* group_new(char color, short size)
 """
    create new struct Group
    with locations #size char long initialized to _FREE

@@ -105,7 +105,7 @@ cdef class GameState:
         # create history list
         self.moves_history = locations_list_new(10)
 
-        # initialize player colours
+        # initialize player colors
         self.player_current = _BLACK
         self.player_opponent = _WHITE
 
@@ -119,7 +119,7 @@ cdef class GameState:
         # +1 on board_size is used as an border location used for all borders
 
         # create Group pointer array (Group **)
-        # this array represent the board, every group contains colour, stone-locations
+        # this array represent the board, every group contains color, stone-locations
         # and liberty locations
         # border location is included, therefore the array size is board_size +1
         self.board_groups = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
@@ -209,7 +209,7 @@ cdef class GameState:
         self.groups_list = groups_list_new(self.board_size)
 
         # create Group pointer array (Group **)
-        # this array represent the board, every group contains colour, stone-locations
+        # this array represent the board, every group contains color, stone-locations
         # and liberty locations
         # border location is included, therefore the array size is board_size +1
         self.board_groups = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
@@ -321,11 +321,11 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
-    cdef void update_hash(self, short location, char colour):
-        """Xor current hash with location + colour action value
+    cdef void update_hash(self, short location, char color):
+        """Xor current hash with location + color action value
         """
 
-        if colour == _BLACK:
+        if color == _BLACK:
             location += self.board_size
 
         self.zobrist_current = self.zobrist_current ^ self.zobrist_lookup[location]
@@ -385,7 +385,7 @@ cdef class GameState:
         """
 
         # check if it is empty
-        if board[location].colour != _EMPTY:
+        if board[location].color != _EMPTY:
             return 0
 
         # check ko
@@ -406,7 +406,7 @@ cdef class GameState:
         """
 
         # check if it is empty
-        if board[location].colour != _EMPTY:
+        if board[location].color != _EMPTY:
             return 0
 
         # check ko
@@ -441,7 +441,7 @@ cdef class GameState:
 
             # get neighbor location
             neighbor_location = self.neighbor[location * 4 + i]
-            board_value = board[neighbor_location].colour
+            board_value = board[neighbor_location].color
 
             # if empty location -> liberty -> legal move
             if board_value == _EMPTY:
@@ -449,7 +449,7 @@ cdef class GameState:
                 return 1
 
             # get neighbor group
-            # (group_border has zero libery and is wrong colour)
+            # (group_border has zero libery and is wrong color)
             group_temp = board[neighbor_location]
             count_liberty = group_temp.count_liberty
 
@@ -557,7 +557,7 @@ cdef class GameState:
                 board[location] = group_empty
 
                 # update hash
-                self.update_hash(location, group_remove.colour)
+                self.update_hash(location, group_remove.color)
 
                 # update liberty of neighbors
                 # loop over all four neighbors
@@ -568,7 +568,7 @@ cdef class GameState:
 
                     # only current_player groups can be next to a killed group
                     # check if there is a group
-                    board_value = board[neighbor_location].colour
+                    board_value = board[neighbor_location].color
                     if board_value == self.player_current:
 
                         # add liberty
@@ -595,7 +595,7 @@ cdef class GameState:
 
             # get neighbor location and value
             neighborLocation = self.neighbor[location * 4 + i]
-            boardValue = board[neighborLocation].colour
+            boardValue = board[neighborLocation].color
 
             # check if neighbor is friendly stone
             if boardValue == self.player_current:
@@ -668,7 +668,7 @@ cdef class GameState:
             neighborLocation = self.neighbor3x3[location_array + i]
 
             # if neighbor location is empty add liberty and update hash
-            if board[neighborLocation].colour == _EMPTY:
+            if board[neighborLocation].color == _EMPTY:
 
                 group_add_liberty(newGroup, neighborLocation)
 
@@ -694,14 +694,14 @@ cdef class GameState:
         # calculate location in neighbor12d array
         centre *= 12
 
-        # hash colour and liberty of all locations
+        # hash color and liberty of all locations
         for i in range(12):
 
             # get group
             group = self.board_groups[self.neighbor12d[centre + i]]
 
-            # hash colour
-            hash += group.colour
+            # hash color
+            hash += group.color
             hash *= _HASHVALUE
 
             # hash liberty
@@ -721,14 +721,14 @@ cdef class GameState:
         # calculate location in neighbor3x3 array
         centre *= 8
 
-        # hash colour and liberty of all locations
+        # hash color and liberty of all locations
         for i in range(8):
 
             # get group
             group = self.board_groups[self.neighbor3x3[centre + i]]
 
-            # hash colour
-            hash += group.colour
+            # hash color
+            hash += group.color
             hash *= _HASHVALUE
 
             # hash liberty
@@ -760,7 +760,7 @@ cdef class GameState:
             # get neighbor location and value
             neighbor_location = self.neighbor[location * 4 + i]
             temp_group = self.board_groups[neighbor_location]
-            board_value = temp_group.colour
+            board_value = temp_group.color
 
             # check if neighbor is friendly stone
             if board_value == _EMPTY:
@@ -859,7 +859,7 @@ cdef class GameState:
             # get neighbor location and value
             neighbor_location = self.neighbor[location * 4 + i]
             temp_group = self.board_groups[neighbor_location]
-            board_value = temp_group.colour
+            board_value = temp_group.color
 
             # check if neighbor is friendly stone
             if board_value == _EMPTY:
@@ -951,7 +951,7 @@ cdef class GameState:
         for i in range(4):
 
             location_neighbor = self.neighbor3x3[location * 8 + i]
-            board_value = self.board_groups[location_neighbor].colour
+            board_value = self.board_groups[location_neighbor].color
 
             if board_value == _BORDER:
 
@@ -967,7 +967,7 @@ cdef class GameState:
         for i in range(4, 8):
 
             location_neighbor = self.neighbor3x3[location * 8 + i]
-            board_value = self.board_groups[location_neighbor].colour
+            board_value = self.board_groups[location_neighbor].color
 
             if board_value == _EMPTY:
                 # locations_list_add_location(empty_diag, location_neighbor)
@@ -1040,7 +1040,7 @@ cdef class GameState:
 
        TODO validate no changes are being made!
 
-       TODO self.player colour is used, should become a pointer
+       TODO self.player color is used, should become a pointer
     """
 
     cdef Groups_List* add_ladder_move(self, short location, Group **board, short* ko):
@@ -1060,7 +1060,7 @@ cdef class GameState:
         # play move at location and add removed groups to removed_groups list
         self.get_removed_groups(location, removed_groups, board, ko)
 
-        # change player colour
+        # change player color
         self.player_current = self.player_opponent
         self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
 
@@ -1099,7 +1099,7 @@ cdef class GameState:
 
                     # only current_player groups can be next to a killed group
                     # check if there is a group
-                    board_value = board[neighbor_location].colour
+                    board_value = board[neighbor_location].color
                     if board_value == self.player_current:
 
                         # add liberty
@@ -1119,7 +1119,7 @@ cdef class GameState:
         # ko is a pointer -> add [0] to acces the actual value
         ko[0] = removed_ko
 
-        # change player colour
+        # change player color
         self.player_current = self.player_opponent
         self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
 
@@ -1133,10 +1133,10 @@ cdef class GameState:
             # this is important in order to get correct liberty counts
             group = removed_groups.board_groups[removed_groups.count_groups - i - 1]
 
-            # check group colour and determine what happened
+            # check group color and determine what happened
             # player_current  -> groups have been combined, set board locations to group
             # player_opponent -> groups have been removed, unremove them
-            if group.colour == self.player_opponent:
+            if group.color == self.player_opponent:
                 # opponent group was removed from the board -> unremove it
                 self.unremove_group(group, board)
             else:
@@ -1149,7 +1149,7 @@ cdef class GameState:
         # add liberty to neighbor groups
         for i in range(4):
             location_neighbor = self.neighbor[location * 4 + i]
-            if board[location_neighbor].colour > _EMPTY:
+            if board[location_neighbor].color > _EMPTY:
                 group_add_liberty(board[location_neighbor], location)
 
         # destroy group
@@ -1218,7 +1218,7 @@ cdef class GameState:
                     location_neighbor = self.neighbor[location_array + i]
 
                     # if location has opponent stone
-                    if board[location_neighbor].colour == color:
+                    if board[location_neighbor].color == color:
 
                         # get opponent group
                         group_neighbor = board[location_neighbor]
@@ -1253,7 +1253,7 @@ cdef class GameState:
 
             # get neighbor location and value
             neighborLocation = self.neighbor[location * 4 + i]
-            boardValue = board[neighborLocation].colour
+            boardValue = board[neighborLocation].color
 
             # check if neighbor is friendly stone
             if boardValue == self.player_current:
@@ -1298,7 +1298,7 @@ cdef class GameState:
             neighborLocation = self.neighbor[location * 4 + i]
 
             # check is neighbor is empty, add liberty if so
-            if board[neighborLocation].colour == _EMPTY:
+            if board[neighborLocation].color == _EMPTY:
 
                 group_add_liberty(newGroup, neighborLocation)
 
@@ -1308,7 +1308,7 @@ cdef class GameState:
         if group_removed >= 2 or newGroup.count_stones > 1:
             ko[0] = _PASS
 
-    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase):  # noqa: E501
+    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char color_group, char color_chase):  # noqa: E501
         """Play a ladder move on location, check if group has escaped,
            if the group has 2 liberty it is undetermined ->
            try to capture it by playing at both liberty
@@ -1379,7 +1379,7 @@ cdef class GameState:
                         location_neighbor = self.neighbor[location_stone * 4 + i]
 
                         # if location has opponent stone
-                        if board[location_neighbor].colour == colour_chase:
+                        if board[location_neighbor].color == color_chase:
 
                             # get opponent group
                             group_capture = board[location_neighbor]
@@ -1399,7 +1399,7 @@ cdef class GameState:
 
                     if self.is_ladder_capture_move(board, ko, list_ko, location_group,
                                                    capture.copy(), location_neighbor, maxDepth - 1,
-                                                   colour_group, colour_chase):
+                                                   color_group, color_chase):
                         # undo move
                         self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
                         list_ko.count = ko_count
@@ -1415,7 +1415,7 @@ cdef class GameState:
         # return result
         return result
 
-    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char colour_group, char colour_chase):  # noqa: E501
+    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char color_group, char color_chase):  # noqa: E501
         """Play a ladder move on location, try capture and escape moves
            and see if the group is able to escape ladder
         """
@@ -1465,7 +1465,7 @@ cdef class GameState:
             capture_copy = capture.copy()
             capture_copy.pop(location_next)
             if self.is_ladder_escape_move(board, ko, list_ko, location_group, capture.copy(),
-                                          location_next, maxDepth - 1, colour_group, colour_chase):
+                                          location_next, maxDepth - 1, color_group, color_chase):
                 # undo move
                 self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
                 list_ko.count = ko_count
@@ -1482,8 +1482,8 @@ cdef class GameState:
                 if location_next in capture_copy:
                     capture_copy.pop(location_next)
                 if self.is_ladder_escape_move(board, ko, list_ko, location_group, capture.copy(),
-                                              location_next, maxDepth - 1, colour_group,
-                                              colour_chase):
+                                              location_next, maxDepth - 1, color_group,
+                                              color_chase):
 
                     # undo move
                     self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
@@ -1549,7 +1549,7 @@ cdef class GameState:
         """Return hash for 12d star pattern around location
         """
 
-        # generate 12d hash value and add current player colour
+        # generate 12d hash value and add current player color
 
         return (self.generate_12d_hash(centre) + self.player_current) * _HASHVALUE
 
@@ -1557,7 +1557,7 @@ cdef class GameState:
         """Return 3x3 pattern hash + current player
         """
 
-        # generate 3x3 hash value and add current player colour
+        # generate 3x3 hash value and add current player color
 
         return self.generate_3x3_hash(location) + self.player_current
 
@@ -1595,7 +1595,7 @@ cdef class GameState:
             if group.count_liberty == 1:
 
                 # check if group has one liberty and is owned by current
-                if group.colour == self.player_current:
+                if group.color == self.player_current:
 
                     # the first time a possible ladder location is found, board
                     # is duplicated, technically this is not neccisary but it is
@@ -1687,7 +1687,7 @@ cdef class GameState:
             if group.count_liberty == 2:
 
                 # check if group is owned by opponent
-                if group.colour == self.player_opponent:
+                if group.color == self.player_opponent:
 
                     # the first time a possible ladder location is found, board
                     # is duplicated, technically this is not neccisary but it is
@@ -1756,7 +1756,7 @@ cdef class GameState:
         # add move to board
         self.add_to_group(location, self.board_groups, &self.ko, captures)
 
-        # switch player colour
+        # switch player color
         self.player_current = self.player_opponent
         self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
 
@@ -1802,8 +1802,8 @@ cdef class GameState:
         # loop over whole board
         for location in range(self.board_size):
 
-            # get location colour
-            board_value = self.board_groups[location].colour
+            # get location color
+            board_value = self.board_groups[location].color
 
             if board_value == _WHITE:
 
@@ -1834,7 +1834,7 @@ cdef class GameState:
 
         return score
 
-    cdef char get_winner_colour(self, float komi):
+    cdef char get_winner_color(self, float komi):
         """Calculate score of board state and return player ID (1, -1, or 0 for tie)
            corresponding to winner. Uses 'Area scoring'.
 
@@ -1873,7 +1873,7 @@ cdef class GameState:
             else:
                 self.passes_white += 1
 
-            # change player colour
+            # change player color
             self.player_current = self.player_opponent
             self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
 
@@ -1930,7 +1930,7 @@ cdef class GameState:
            corresponding to winner. Uses 'Area scoring'.
         """
 
-        return self.get_winner_colour(komi)
+        return self.get_winner_color(komi)
 
     def get_board_count(self, float komi=7.5):
         """Calculate score of board state
@@ -1979,7 +1979,7 @@ cdef class GameState:
             location = self.calculate_board_location(y, x)
             self.add_to_group(location, self.board_groups, &self.ko, &fake_capture)
 
-        # active player colour reverses
+        # active player color reverses
         self.player_current = _WHITE
         self.player_opponent = _BLACK
 
@@ -2035,11 +2035,11 @@ cdef class GameState:
 
         return self.player_current
 
-    def set_current_player(self, colour):
-        """Change current player colour
+    def set_current_player(self, color):
+        """Change current player color
         """
 
-        self.player_current = colour
+        self.player_current = color
         self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
 
     def get_history(self):
@@ -2096,7 +2096,7 @@ cdef class GameState:
 
         for x in range(self.board_size):
 
-            if self.board_groups[x].colour != state.board_groups[x].colour:
+            if self.board_groups[x].color != state.board_groups[x].color:
 
                 return False
 
@@ -2209,7 +2209,7 @@ cdef class GameState:
 
                 location = self.calculate_board_location(y, x)
 
-                board[x, y] = self.board_groups[location].colour
+                board[x, y] = self.board_groups[location].color
 
         return board
 
@@ -2276,9 +2276,9 @@ cdef class GameState:
             for j in range(self.size):
 
                 B = 0
-                if self.board_groups[j + i * self.size].colour == _BLACK:
+                if self.board_groups[j + i * self.size].color == _BLACK:
                     B = 'B'
-                elif self.board_groups[j + i * self.size].colour == _WHITE:
+                elif self.board_groups[j + i * self.size].color == _WHITE:
                     B = 'W'
                 A += str(B) + " "
             line += A + "\n"
