@@ -65,7 +65,7 @@ def run_n_games(optimizer, lr, learner, opponent, num_games, mock_states=[]):
                 move_tensors[idx].append(mv_tensor)
             state.do_move(mv)
             if state.is_end_of_game():
-                learner_won[idx] = state.get_winner() == learner_color[idx]
+                learner_won[idx] = state.get_winner_color() == learner_color[idx]
                 just_finished.append(idx)
 
         # Remove games that have finished from dict.
@@ -83,7 +83,7 @@ def run_n_games(optimizer, lr, learner, opponent, num_games, mock_states=[]):
                                    np.concatenate(mv_tensor, axis=0))
 
     # Return the win ratio.
-    wins = sum(state.get_winner() == pc for (state, pc) in zip(states, learner_color))
+    wins = sum(state.get_winner_color() == pc for (state, pc) in zip(states, learner_color))
     return float(wins) / num_games
 
 

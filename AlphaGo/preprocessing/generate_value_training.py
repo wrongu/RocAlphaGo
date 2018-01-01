@@ -141,7 +141,7 @@ def play_batch(player_RL, player_SL, batch_size, features, i_rand_move, next_idx
                 file_name = '0' + file_name
 
             # determine winner
-            winner_game = 'WHITE' if gm.get_winner() == WHITE else 'BLACK'
+            winner_game = 'WHITE' if gm.get_winner_color() == WHITE else 'BLACK'
             random_player = 'WHITE' if color == WHITE else 'BLACK'
 
             # generate file name
@@ -162,7 +162,7 @@ def play_batch(player_RL, player_SL, batch_size, features, i_rand_move, next_idx
     # winner BLACK & color WHITE -> LOSE
     # winner WHITE & color Black -> LOSE
     actual_batch_size = len(states)
-    winners = np.array([WIN if st.get_winner() == color else
+    winners = np.array([WIN if st.get_winner_color() == color else
                         LOSE for st in states]).reshape(actual_batch_size, 1)
     return training_states, winners
 

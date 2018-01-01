@@ -2,28 +2,42 @@
 # cython: boundscheck=False
 # cython: initializedcheck=False
 # cython: nonecheck=False
-cimport cython
+from cython.operator cimport dereference as d
 import numpy as np
 cimport numpy as np
-from libc.stdlib cimport malloc, free
-from libc.string cimport memcpy, memset
 
-# global empty group
-cdef Group *group_empty
 
-# global border group
-cdef Group *group_border
+############################################################################
+#   Global variables shared by instances of GameState                      #
+#                                                                          #
+############################################################################
 
-# global arrays, neighbor arrays pointers
-cdef short *neighbor
-cdef short *neighbor3x3
-cdef short *neighbor12d
-cdef char  neighbor_size
+# Global arrays (lookup tables) for neighbor indices
+cdef pattern_t neighbor
+cdef pattern_t neighbor3x3
+cdef pattern_t neighbor12d
+cdef short neighbor_size
 
-# global array for zobrist lookup
-cdef unsigned long long *zobrist_lookup
+# Global array for zobrist lookup
+cdef vector[zobrist_hash_t] zobrist_lookup
+
+
+# Constant value used to generate pattern hashes (TODO: move elsewhere)
+cdef int _HASHVALUE = 33
+
+
+############################################################################
+#   Class definition                                                       #
+#                                                                          #
+############################################################################
+
 
 cdef class GameState:
+    """Class representing the current state of a game of Go and its history.
+
+       Note that the python interface passes moves as (x, y) tuples, while all cython code uses the
+       slightly more streamlined 1D indexing.
+    """
 
     ############################################################################
     #   all variables are declared in the .pxd file                            #
@@ -31,52 +45,46 @@ cdef class GameState:
     ############################################################################
 
     """
-    # amount of locations on one side
-    cdef char  size
-    # amount of locations on board, size * size
-    cdef short board_size
+    # Dimensions of one side of the board and total number of squares, respectively
+    cdef short size, board_size
 
-    # possible ko location
-    cdef short ko
+    # Possible ko location
+    cdef location_t ko
 
-    # list with all groups
-    cdef Groups_List *groups_list
-    # pointer to empty group
-    cdef Group *group_empty
+    # Unordered list of all groups of stones
+    cdef group_set_t groups_set
 
-    # list representing board locations as groups
-    # a Group contains all group stone locations and group liberty locations
-    cdef Group **board_groups
+    # Lookup of a group from board location. Length is board size + 1 to include border
+    cdef board_group_t board
 
-    cdef char player_current
-    cdef char player_opponent
+    # Current player and opponent, either WHITE or BLACK
+    cdef stone_t current_player, opponent_player
 
-    # amount of black stones captured
-    cdef short capture_black
-    # amount of white stones captured
-    cdef short capture_white
+    # Amount of black stones captured by white, and vice versa
+    cdef short capture_black, capture_white
 
-    # amount of passes by black
-    cdef short passes_black
-    # amount of passes by white
-    cdef short passes_white
+    # Amount of passes by black and by white, respectively
+    cdef short passes_black, passes_white
 
-    # list with move history
-    cdef Locations_List *moves_history
+    # List with move history
+    cdef vector[location_t] moves_history
 
-    # list with legal moves
-    cdef Locations_List *moves_legal
+    # Number of handicap stones placed by BLACK at the start of the game
+    cdef short num_handicap
 
-    # arrays, neighbor arrays pointers
-    cdef short *neighbor
-    cdef short *neighbor3x3
-    cdef short *neighbor12d
+    # List with legal moves
+    cdef vector[location_t] legal_moves
 
-    # zobrist
-    cdef unsigned long long zobrist_current
-    cdef unsigned long long *zobrist_lookup
+    # Neighbors lookup tables
+    cdef pattern_t* neighbor
+    cdef pattern_t* neighbor3x3
+    cdef pattern_t* neighbor12d
 
-    cdef bint enforce_superko
+    # Zobrist hashing
+    cdef zobrist_hash_t zobrist_current
+    cdef vector[zobrist_hash_t] ptr_zobrist_lookup
+
+    cdef bool enforce_superko
     cdef set previous_hashes
     """
 
@@ -85,1747 +93,546 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
-    cdef void initialize_new(self, char size, bint enforce_superko):
-        """Initialize this state as empty state
+    cdef void initialize_new(self, short size, bool enforce_superko):
+        """Initialize as a new state.
         """
 
         cdef short i
 
-        # set pointer to neighbor locations
-        # neighbor, neighbor3x3, neighbor12d and zobrist_lookup are global
-        self.neighbor = neighbor
-        self.neighbor3x3 = neighbor3x3
-        self.neighbor12d = neighbor12d
-        self.zobrist_lookup = zobrist_lookup
-
-        # initialize size and board_size
+        # Initialize size and board_size
         self.size = size
         self.board_size = size * size
 
-        # create history list
-        self.moves_history = locations_list_new(10)
+        # Create placeholder groups for empty spaces and border.
+        self.group_empty = group_new(stone_t.EMPTY)
+        self.group_border = group_new(stone_t.BORDER)
 
-        # initialize player colors
-        self.player_current = _BLACK
-        self.player_opponent = _WHITE
+        # Create empty history list
+        self.moves_history = vector[location_t]()
 
-        self.ko = _PASS
-        self.capture_black = 0
-        self.capture_white = 0
-        self.passes_black = 0
-        self.passes_white = 0
+        # Initialize player colors
+        self.current_player = stone_t.BLACK
+        self.opponent_player = stone_t.WHITE
 
-        # create arrays and lists
-        # +1 on board_size is used as an border location used for all borders
+        self.ko = -1
+        self.capture_black, self.capture_white = 0, 0
+        self.passes_black, self.passes_white = 0, 0
+        self.num_handicap = 0
 
-        # create Group pointer array (Group **)
-        # this array represent the board, every group contains color, stone-locations
-        # and liberty locations
-        # border location is included, therefore the array size is board_size +1
-        self.board_groups = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
-        if not self.board_groups:
-            raise MemoryError()
+        # 'board' represents all stones on the board by first pointing to all groups of stones.
+        # Every group contains color, stone-locations and liberty locations. Border location is
+        # included, therefore the array size is board_size + 1
+        self.board = board_group_t(self.board_size + 1)
+        self.board[self.board_size] = self.group_border
 
-        # create Locations_List as legal_moves
-        # after every move this list will be updated to contain all legal moves
-        # max amount of legal moves is board_size
-        self.moves_legal = locations_list_new(self.board_size)
+        # Create list of legal moves (initially everything is legal). This is updated after each
+        # move.
+        self.legal_moves = vector[location_t](self.board_size)
 
-        # create groups_list as groups_list
-        # this list will contain all alive groups
-        # we do not need to set the theoretical max amount of groups as the list
-        # will be incremented in group_list_add
-        self.groups_list = groups_list_new(self.board_size)
+        # Create empty list of all current groups.
+        self.groups_set = group_set_t()
 
-        # initialize board, set all locations to group empty and add all
-        # locations as move_legal
+        # Initialize board, set all locations to empty and populate list of legal moves.
         for i in range(self.board_size):
-            self.board_groups[i] = group_empty
-            self.moves_legal.locations[i] = i
+            self.board[i] = self.group_empty
+            self.legal_moves[i] = i
 
-        # on an empty board board_size == amount of legal moves
-        # set the moves_legal count to board_size
-        self.moves_legal.count = self.board_size
-
-        # initialize border location to group_border
-        self.board_groups[self.board_size] = group_border
-
-        # set zobrist
+        # Initialize zobrist hashing things.
         self.previous_hashes = set()
         self.zobrist_current = 0
         self.enforce_superko = enforce_superko
 
     cdef void initialize_duplicate(self, GameState copy_state):
-        """Initialize all variables as a copy of copy_state
+        """Initialize all variables as a deep copy of copy_state
         """
 
         cdef int i
-        cdef short location
-        cdef Group* group_pointer
-        cdef Group* group
+        cdef location_t loc
+        cdef group_t val
+        cdef group_ptr_t ref_group, dup_group
 
-        # neighbor, neighbor3x3, neighbor12d and zobrist_lookup are global
-        self.neighbor = neighbor
-        self.neighbor3x3 = neighbor3x3
-        self.neighbor12d = neighbor12d
-        self.zobrist_lookup = zobrist_lookup
-
-        # !!! deep copy !!!
-
-        # set all values
+        # Copy each numeric instance variable's value.
+        self.size = copy_state.size
+        self.board_size = copy_state.board_size
         self.ko = copy_state.ko
+        self.current_player = copy_state.current_player
+        self.opponent_player = copy_state.opponent_player
         self.capture_black = copy_state.capture_black
         self.capture_white = copy_state.capture_white
         self.passes_black = copy_state.passes_black
         self.passes_white = copy_state.passes_white
-        self.size = copy_state.size
-        self.board_size = copy_state.board_size
-        self.player_current = copy_state.player_current
-        self.player_opponent = copy_state.player_opponent
+        self.num_handicap = copy_state.num_handicap
         self.zobrist_current = copy_state.zobrist_current
         self.enforce_superko = copy_state.enforce_superko
+
+        # Copy set of hashes using built in set.copy()
         self.previous_hashes = copy_state.previous_hashes.copy()
 
-        # create history list
-        self.moves_history = locations_list_new(copy_state.moves_history.size)
-        self.moves_history.count = copy_state.moves_history.count
-        # copy all history moves in copy_state
-        memcpy(self.moves_history.locations, copy_state.moves_history.locations,
-               copy_state.moves_history.count * sizeof(short))
+        # Copy all 'simple' C++ objects (i.e. non-pointers / non-groups) using default C++ copying
+        # rules, which automatically does a deep-copy of containers.
+        self.moves_history = copy_state.moves_history
+        self.legal_moves = copy_state.legal_moves
 
-        # create Locations_List as legal_moves
-        # after every move this list will be updated to contain all legal moves
-        # max amount of legal moves is board_size
-        self.moves_legal = locations_list_new(self.board_size)
-        self.moves_legal.count = copy_state.moves_legal.count
-        # copy all legal moves from copy_state
-        memcpy(self.moves_legal.locations, copy_state.moves_legal.locations,
-               copy_state.moves_legal.count * sizeof(short))
+        # Note: group_empty and group_border are constant, so duplicating the underlying object is
+        # unnecessary.
+        self.group_empty = copy_state.group_empty
+        self.group_border = copy_state.group_border
 
-        # create groups_list as groups_list
-        # this list will contain all alive groups
-        # we do not need to set the theoretical max amount of groups as the list
-        # will be incremented in group_list_add
-        self.groups_list = groups_list_new(self.board_size)
+        # Copy groups by duplicating the underlying groups objects.
+        self.groups_set = group_set_t()
+        self.board = board_group_t(self.board_size + 1)
 
-        # create Group pointer array (Group **)
-        # this array represent the board, every group contains color, stone-locations
-        # and liberty locations
-        # border location is included, therefore the array size is board_size +1
-        self.board_groups = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
-        if not self.board_groups:
-            raise MemoryError()
+        # Initialize all of self.board to the empty group, and set the border.
+        for i in range(self.board_size):
+            self.board[i] = self.group_empty
+        self.board[self.board_size] = self.group_border
 
-        # copy all group pointers from copy_state
-        # all Groups will be duplicated and overwritten but all group_empty pointers stay the same
-        memcpy(self.board_groups, copy_state.board_groups, (self.board_size + 1) * sizeof(Group*))
+        # Loop over each unique group in copy_state and make a duplicate.
+        for ref_group in copy_state.groups_set:
+            dup_group = group_duplicate(ref_group)
+            self.groups_set.insert(dup_group)
 
-        # loop over all groups in copy_state.groups_list
-        # duplicate them and set all Group pointers of this groups stone-locations
-        # to the new group
-        for i in range(copy_state.groups_list.count_groups):
-            # get group
-            group = copy_state.groups_list.board_groups[i]
-
-            # duplicate group
-            group_pointer = group_duplicate(group, self.board_size)
-
-            # add new group to groups_list
-            groups_list_add(group_pointer, self.groups_list)
-
-            # loop over all group locations
-            for location in range(self.board_size):
-                # if group has a stone on this location, set board_groups group pointer
-                if group.locations[location] == _STONE:
-                    self.board_groups[location] = group_pointer
+            # Set self.board[loc] for each stone in this group.
+            for loc, val in d(dup_group).locations:
+                if val == group_t.STONE:
+                    self.board[loc] = dup_group
 
     def __init__(self, char size=19, GameState copy=None, enforce_superko=True):
-        """Create new instance of GameState
+        """Create new instance of GameState. If copy is supplied, creates a deep copy of another
+           state. Otherwise, creates an empty state.
         """
+        global neighbor, neighbor3x3, neighbor12d, zobrist_lookup, neighbor_size
+
+        if copy is not None:
+            size = copy.size
+
+        # Check if this is the first GameState object (of this size) and initialize globals.
+        if neighbor_size == 0 or neighbor_size != size:
+            # Initialize "neighbor" lookup tables
+            neighbor = get_neighbors(size)
+            neighbor3x3 = get_3x3_neighbors(size)
+            neighbor12d = get_12d_neighbors(size)
+            zobrist_lookup = get_zobrist_lookup(size)
+
+            # Set global size to detect whether globals need to be reinitialized for other GameState
+            # instances with different sizes (which is unlikely).
+            # TODO - global map from size to lookup table
+            neighbor_size = size
+
+        # Regardless of 'new' or 'duplicate', set pointers to global lookup tables and set size.
+        self.ptr_neighbor = &neighbor
+        self.ptr_neighbor3x3 = &neighbor3x3
+        self.ptr_neighbor12d = &neighbor12d
+        self.ptr_zobrist_lookup = &zobrist_lookup
 
         if copy is None:
-            if neighbor_size == 0 or neighbor_size != size:
-                # This is the first GameState object - initialize global variables
-                global neighbor
-                global neighbor3x3
-                global neighbor12d
-                global zobrist_lookup
-                global neighbor_size
-                global group_empty
-                global group_border
-
-                neighbor = get_neighbors(size)
-                neighbor3x3 = get_3x3_neighbors(size)
-                neighbor12d = get_12d_neighbors(size)
-                zobrist_lookup = get_zobrist_lookup(size)
-
-                # Set global size
-                neighbor_size = size
-
-                # initialize _EMPTY and _BORDER group
-                group_empty = group_new(_EMPTY, self.board_size)
-                group_border = group_new(_BORDER, self.board_size)
-
-            # elif neighbor_size != size:
-            #     raise ValueError("Due to global variables, all GameState objects must have the "
-            #                      "same board size.")
-
-            # Initialize state of this object
             self.initialize_new(size, enforce_superko)
-
         else:
-            # create copy of given state
             self.initialize_duplicate(copy)
-
-    def __dealloc__(self):
-        """This function is called when this object is destroyed
-
-        Prevent memory leaks by freeing all arrays created with malloc. Global objects should not
-        be destroyed
-        """
-
-        cdef int i
-
-        # free board_groups
-        if self.board_groups is not NULL:
-
-            free(self.board_groups)
-
-        # free history
-        locations_list_destroy(self.moves_history)
-
-        # free moves_legal and moves_legal.locations
-        if self.moves_legal is not NULL:
-
-            if self.moves_legal.locations is not NULL:
-
-                free(self.moves_legal.locations)
-
-            free(self.moves_legal)
-
-        # free groups_list all groups in groups_list.board_groups and groups_list.board_groups
-        if self.groups_list is not NULL:
-            # loop over all groups and free them
-            for i in range(self.groups_list.count_groups):
-                group_destroy(self.groups_list.board_groups[i])
-
-            # free groups_list.board_groups
-            if self.groups_list.board_groups is not NULL:
-
-                free(self.groups_list.board_groups)
-
-            free(self.groups_list)
 
     ############################################################################
     #   private cdef functions used for game-play                              #
     #                                                                          #
     ############################################################################
 
-    cdef void update_hash(self, short location, char color):
-        """Xor current hash with location + color action value
+    cdef bool is_positional_superko(self, location_t location):
+        """Check whether the current player playing at 'location' would result in a state identical
+           to a previously seen state. Move must otherwise be legal.
         """
 
-        if color == _BLACK:
-            location += self.board_size
+        cdef int i, first
+        cdef bool played
 
-        self.zobrist_current = self.zobrist_current ^ self.zobrist_lookup[location]
+        # Part 1: quickly check that the current player has ever played at this location; if not, no
+        # fancier check is needed.
 
-    cdef bint is_positional_superko(self, short location, Group **board):
-        """Find all actions that the current_player has done in the past, taking into
-           account the fact that history starts with _BLACK when there are no
-           handicaps or with _WHITE when there are.
+        # Check if 'location' is one of the handicap stones placed by BLACK
+        if self.current_player == stone_t.BLACK and self.num_handicap > 0:
+            played = location in self.moves_history[:self.num_handicap]
+
+        # Calculate which was the first non-handicap move made by the current player
+        first = self.num_handicap + (1 if self.current_player == stone_t.WHITE else 0)
+
+        # Check if 'location' matches any other move made by the current player.
+        played = played or location in self.moves_history[first::2]
+
+        # If player never played at 'location', superko is impossible and we're done.
+        if not played:
+            return False
+
+        # Part 2: try move on a duplicate board and check hash of the result.
+
+        # TODO (?) faster hash check than duplicate full object
+        # Duplicate state and play move
+        cdef GameState copy_state = GameState(copy=self)
+
+        # Do move with superko check disabled (note: move must otherwise be legal).
+        copy_state.enforce_superko = False
+        copy_state.add_stone(location)
+
+        # Check if hash already exists (hash collisions are very unlikely)
+        if copy_state.zobrist_current in self.previous_hashes:
+            return True
+
+        return False
+
+    cdef bool has_liberty_after(self, location_t location):
+        """Check if a play at location results in an alive group. This is true if
+           - there is already a liberty next to this location, or
+           - connects to group with >= 2 liberties, or
+           - captures an enemy group
         """
 
         cdef int i
-        cdef bint played
-        played = 0
+        cdef stone_t board_value
+        cdef short count_liberty
+        cdef location_t neighbor_loc
 
-        # TODO correction for handicap
-        if self.player_current == _BLACK:
-
-            # move zero is black move
-            i = 0
-        else:
-
-            # move one is white move
-            i = 1
-
-        # check all moves by player if a move
-        # at location was played already
-        while i < self.moves_history.count:
-
-            # check if move was played aleady
-            if self.moves_history.locations[i] == location:
-
-                played = 1
-
-            i += 2
-
-        # if not played, no superko
-        if not played:
-            return 0
-
-        # TODO inefficient!!!
-        # duplicate state and play move
-        cdef GameState copy_state
-        copy_state = GameState(copy=self)
-        copy_state.enforce_superko = 0
-
-        # do move
-        copy_state.add_move(location)
-
-        # check if hash already exists
-        if copy_state.zobrist_current in self.previous_hashes:
-            return 1
-
-        return 0
-
-    cdef bint is_legal_move(self, short location, Group **board, short ko):
-        """Check if playing at location is a legal move to make
-        """
-
-        # check if it is empty
-        if board[location].color != _EMPTY:
-            return 0
-
-        # check ko
-        if location == ko:
-            return 0
-
-        # check if it has liberty after
-        if 0 == self.has_liberty_after(location, board):
-            return 0
-
-        if self.enforce_superko and self.is_positional_superko(location, board):
-            return 0
-
-        return 1
-
-    cdef bint is_legal_move_superko(self, short location, Group **board, short ko):
-        """Check if playing at location is a legal move to make
-        """
-
-        # check if it is empty
-        if board[location].color != _EMPTY:
-            return 0
-
-        # check ko
-        if location == ko:
-            return 0
-
-        # check if it has liberty after
-        if 0 == self.has_liberty_after(location, board):
-            return 0
-
-        # if we have to enforce superko, check superko
-        if self.enforce_superko and self.is_positional_superko(location, board):
-            return 0
-
-        return 1
-
-    cdef bint has_liberty_after(self, short location, Group **board):
-        """Check if a play at location results in an alive group
-           - has liberty
-           - conects to group with >= 2 liberty
-           - captures enemy group
-        """
-
-        cdef int    i
-        cdef char   board_value
-        cdef short  count_liberty
-        cdef short  neighbor_location
-        cdef Group* group_temp
-
-        # loop over all four neighbors
+        # Check all four neighbors
         for i in range(4):
+            # Get neighbor location
+            neighbor_loc = d(self.ptr_neighbor)[location * 4 + i]
+            board_value = d(self.board[neighbor_loc]).color
 
-            # get neighbor location
-            neighbor_location = self.neighbor[location * 4 + i]
-            board_value = board[neighbor_location].color
+            # If neighbor is empty, we're done
+            if board_value == stone_t.EMPTY:
+                return True
 
-            # if empty location -> liberty -> legal move
-            if board_value == _EMPTY:
+            # Check neighboring group.. this location will have a liberty either if (1) the
+            # neighboring group is friendly and has extra liberties, or (2) the neighboring group is
+            # the opponent and is captured by this move.
+            count_liberty = d(self.board[neighbor_loc]).count_liberty
 
-                return 1
+            # Case (1): neighboring group is friendly. Since playing at location would remove one
+            # liberty, this group would need >= 2 liberties to still have one left after playing
+            # here.
+            if board_value == self.current_player and count_liberty >= 2:
+                return True
 
-            # get neighbor group
-            # (group_border has zero libery and is wrong color)
-            group_temp = board[neighbor_location]
-            count_liberty = group_temp.count_liberty
+            # Case (2): neighboring group is opponent. If the opposing group has exactly 1 liberty,
+            # it must be at 'location', hence playing here would capture the opposing group.
+            elif board_value == self.opponent_player and count_liberty == 1:
+                return True
 
-            # if there is a player_current group
-            if board_value == self.player_current:
+        return False
 
-                # if it has at least 2 liberty
-                if count_liberty >= 2:
-
-                    # this move removes a liberty
-                    # if group has >2 liberty -> legal move
-                    return 1
-
-            # if is a player_opponent group and has only one liberty
-            elif board_value == self.player_opponent and count_liberty == 1:
-
-                # group killed and thus legal
-                return 1
-
-        return 0
-
-    cdef short calculate_board_location(self, char x, char y):
-        """2D tuple location to 1d index. Inverse of calculate_tuple_location()
-
-        No sanity checks on bounds.
-
-        - x is column
-        - y is row
+    cdef void update_legal_moves(self):
+        """Update legal_moves list
         """
 
-        return x + (y * self.size)
+        cdef location_t loc
 
-    cdef tuple calculate_tuple_location(self, short location):
-        """1d index to 2d tuple location. Inverse of calculate_board_location()
+        # Clear previous values in self.legal_moves
+        self.legal_moves.clear()
 
-        No sanity checks on bounds.
+        # Loop over all board locations and check if a move is legal.
+        # TODO (?) store smaller list of empty locations and search only those
+        for loc in range(self.board_size):
+            if self.is_legal_move(loc):
+                self.legal_moves.push_back(loc)
+
+    cdef void swap_players(self):
+        """Switch current_player and opponent_player
         """
 
-        return (location / self.size, location % self.size)
+        cdef stone_t swap = self.current_player
+        self.current_player = self.opponent_player
+        self.opponent_player = swap
 
-    cdef void set_moves_legal_list(self, Locations_List *moves_legal):
-        """Generate moves_legal list
+    cpdef void set_current_player(self, stone_t color):
+        """Set current player to the given color.
         """
-
-        cdef short i
-
-        # reset moves_legal count
-        moves_legal.count = 0
-
-        # TODO? keep empty locations list?
-        # loop over all board locations and check if a move is legal
-        for i in range(self.board_size):
-
-            # check if a move is legal
-            if self.is_legal_move_superko(i, self.board_groups, self.ko):
-
-                # add to moves_legal
-                moves_legal.locations[moves_legal.count] = i
-                moves_legal.count += 1
-
-    cdef void combine_groups(self, Group* group_keep, Group* group_remove, Group **board):
-        """Combine group_keep and group_remove and replace group_remove on the board
-        """
-
-        cdef int  i
-        cdef char value
-
-        # loop over all board locations
-        for i in range(self.board_size):
-
-            value = group_remove.locations[i]
-
-            if value == _STONE:
-
-                # group_remove has a stone, add to group_keep
-                # and set board location to group_keep
-                group_add_stone(group_keep, i)
-                board[i] = group_keep
-            elif value == _LIBERTY:
-
-                # add liberty
-                group_add_liberty(group_keep, i)
-
-    cdef void remove_group(self, Group* group_remove, Group **board, short* ko):
-        """Remove group from board -> set all locations to group_empty
-        """
-
-        cdef short  location
-        cdef short  neighbor_location
-        cdef Group* group_temp
-        cdef char   board_value
-        cdef int    i
-
-        # if groupsize == 1, possible ko
-        if group_remove.count_stones == 1:
-
-            ko[0] = group_location_stone(group_remove, self.board_size)
-
-        # loop over all group stone locations
-        for location in range(self.board_size):
-
-            if group_remove.locations[location] == _STONE:
-
-                # set location to empty group
-                board[location] = group_empty
-
-                # update hash
-                self.update_hash(location, group_remove.color)
-
-                # update liberty of neighbors
-                # loop over all four neighbors
-                for i in range(4):
-
-                    # get neighbor location
-                    neighbor_location = self.neighbor[location * 4 + i]
-
-                    # only current_player groups can be next to a killed group
-                    # check if there is a group
-                    board_value = board[neighbor_location].color
-                    if board_value == self.player_current:
-
-                        # add liberty
-                        group_temp = board[neighbor_location]
-                        group_add_liberty(group_temp, location)
-
-    cdef void add_to_group(self, short location, Group **board, short* ko, short* count_captures):
-        """Check if a stone on location is connected to a group, kills a group
-           or is a new group on the board
-        """
-
-        cdef Group* newGroup = NULL
-        cdef Group* tempGroup
-        cdef Group* changes
-        cdef short neighborLocation, location_array
-        cdef char  boardValue
-        cdef char  group_removed = 0
-        cdef int   i
-
-        self.update_hash(location, self.player_current)
-
-        # loop over all four neighbors
-        for i in range(4):
-
-            # get neighbor location and value
-            neighborLocation = self.neighbor[location * 4 + i]
-            boardValue = board[neighborLocation].color
-
-            # check if neighbor is friendly stone
-            if boardValue == self.player_current:
-
-                # check if this is the first friendly neighbor we found
-                if newGroup is NULL:
-
-                    # first friendly neighbor
-                    newGroup = board[neighborLocation]
-                else:
-
-                    # another friendly group, if they are different combine them
-                    tempGroup = board[neighborLocation]
-                    if tempGroup != newGroup:
-
-                        self.combine_groups(newGroup, tempGroup, board)
-
-                        # remove temp_group from groupList and destroy it
-                        groups_list_remove(tempGroup, self.groups_list)
-                        group_destroy(tempGroup)
-
-            elif boardValue == self.player_opponent:
-
-                # remove liberty from enemy group
-                tempGroup = board[neighborLocation]
-                group_remove_liberty(tempGroup, location)
-
-                # check liberty count and remove if 0
-                if tempGroup.count_liberty == 0:
-
-                    # increment capture count
-                    count_captures[0] += tempGroup.count_stones
-
-                    # remove group and update hashes
-                    self.remove_group(tempGroup, board, ko)
-
-                    # TODO hashes of locations next to a group where liberty change also have to be
-                    # updated
-
-                    # remove tempGroup from groupList and destroy
-                    groups_list_remove(tempGroup, self.groups_list)
-                    group_destroy(tempGroup)
-
-                    # increment group_removed count
-                    group_removed += 1
-
-        # check if no connected group is found
-        if newGroup is NULL:
-
-            # create new group and add to groups_list
-            newGroup = group_new(self.player_current, self.board_size)
-            groups_list_add(newGroup, self.groups_list)
-        else:
-
-            # remove liberty from group
-            group_remove_liberty(newGroup, location)
-
-        # add stone to group
-        group_add_stone(newGroup, location)
-        # set board location to group
-        board[location] = newGroup
-
-        # calculate location in neighbor array
-        location_array = location * 8
-
-        # loop over all four neighbors
-        for i in range(4):
-
-            # get neighbor location
-            neighborLocation = self.neighbor3x3[location_array + i]
-
-            # if neighbor location is empty add liberty and update hash
-            if board[neighborLocation].color == _EMPTY:
-
-                group_add_liberty(newGroup, neighborLocation)
-
-        # check if there is really a ko
-        # if two groups died there is no ko
-        # if newGroup has more than 1 stone there is no ko
-        if group_removed >= 2 or newGroup.count_stones > 1:
-            ko[0] = _PASS
+        if color <= stone_t.EMPTY:
+            raise ValueError("Player color must be BLACK or WHITE")
+        elif color != self.current_player:
+            self.swap_players()
+            self.ko = -1
+            self.update_legal_moves()
 
     ############################################################################
-    #   private cdef functions used for feature generation                     #
+    #   private cdef helper functions for feature generation                   #
     #                                                                          #
     ############################################################################
 
-    cdef long generate_12d_hash(self, short centre):
-        """Generate 12d hash around centre location
+    cdef bool is_eyeish(self, location_t location, stone_t owner):
+        """Check if a location is 'eyeish'; that is, check that all 4 neighbors are either border
+           or the same color.
         """
 
-        cdef int    i
-        cdef long   hash = _HASHVALUE
-        cdef Group* group
+        cdef group_ptr_t group
+        cdef int i
 
-        # calculate location in neighbor12d array
-        centre *= 12
+        # First, 'location' must be empty
+        if d(self.board[location]).color != stone_t.EMPTY:
+            return False
 
-        # hash color and liberty of all locations
-        for i in range(12):
-
-            # get group
-            group = self.board_groups[self.neighbor12d[centre + i]]
-
-            # hash color
-            hash += group.color
-            hash *= _HASHVALUE
-
-            # hash liberty
-            hash += min(group.count_liberty, 3)
-            hash *= _HASHVALUE
-
-        return hash
-
-    cdef long generate_3x3_hash(self, short centre):
-        """Generate 3x3 hash around centre location
-        """
-
-        cdef int    i
-        cdef long   hash = _HASHVALUE
-        cdef Group* group
-
-        # calculate location in neighbor3x3 array
-        centre *= 8
-
-        # hash color and liberty of all locations
-        for i in range(8):
-
-            # get group
-            group = self.board_groups[self.neighbor3x3[centre + i]]
-
-            # hash color
-            hash += group.color
-            hash *= _HASHVALUE
-
-            # hash liberty
-            hash += min(group.count_liberty, 3)
-            hash *= _HASHVALUE
-
-        return hash
-
-    cdef void get_group_after(self, char* groups_after, char* locations, char* captures, short location):  # noqa: E501
-        """Groups_after is a board_size * 3 array representing STONES, _LIBERTY, _CAPTURE for every location
-
-        calculate group after a play on location and set
-        - groups_after[location * 3 +] to stone   count
-        - groups_after[location * 3 + 1] to liberty count
-        - groups_after[location * 3 + 2] to capture count
-        """
-
-        cdef short neighbor_location
-        cdef short temp_location
-        cdef char board_value
-        cdef Group* temp_group
-        cdef int i, a
-        cdef int location_array = location * 3
-        cdef short stones, liberty, capture
-
-        # loop over all four neighbors
+        # Second, all 4 neighbors must either be BORDER or the same color as owner.
         for i in range(4):
+            group = self.board[d(self.ptr_neighbor)[4 * location + i]]
+            if not (d(group).color == stone_t.BORDER or d(group).color == owner):
+                return False
+        return True
 
-            # get neighbor location and value
-            neighbor_location = self.neighbor[location * 4 + i]
-            temp_group = self.board_groups[neighbor_location]
-            board_value = temp_group.color
-
-            # check if neighbor is friendly stone
-            if board_value == _EMPTY:
-
-                locations[neighbor_location] = _LIBERTY
-            elif board_value == self.player_current:
-
-                # found friendly group
-                for a in range(self.board_size):
-
-                    if temp_group.locations[a] != _FREE:
-
-                        locations[a] = temp_group.locations[a]
-
-            elif board_value == self.player_opponent:
-
-                # get enemy group
-                # if it has one liberty it wil be killed -> add potential liberty
-                if temp_group.count_liberty == 1:
-
-                    for a in range(self.board_size):
-
-                        if temp_group.locations[a] == _STONE:
-
-                            captures[a] = _CAPTURE
-
-        # add stone
-        locations[location] = _STONE
-
-        for neighbor_location in range(self.board_size):
-
-            if captures[neighbor_location] == _CAPTURE:
-
-                # loop over all four neighbors
-                for i in range(4):
-
-                    # get neighbor location and value
-                    temp_location = self.neighbor[neighbor_location * 4 + i]
-                    if temp_location < self.board_size and locations[temp_location] == _STONE:
-
-                        locations[neighbor_location] = _LIBERTY
-
-        # remove location as liberty
-        locations[location] = _STONE
-
-        stones = 0
-        liberty = 0
-        capture = 0
-
-        # count all values
-        for i in range(self.board_size):
-
-            if locations[i] == _STONE:
-
-                stones += 1
-            elif locations[i] == _LIBERTY:
-
-                liberty += 1
-            if captures[i] == _CAPTURE:
-
-                capture += 1
-
-        # check max
-        if stones > 100:
-            stones = 100
-
-        if liberty > 100:
-            liberty = 100
-
-        if capture > 100:
-            capture = 100
-
-        # set values
-        groups_after[location_array] = stones
-        groups_after[location_array + 1] = liberty
-        groups_after[location_array + 2] = capture
-
-    cdef void get_group_after_pointer(self, short* stones, short* liberty, short* capture, char* locations, char* captures, short location):  # noqa: E501
-        """Groups_after is a board_size * 3 array representing STONES, _LIBERTY, _CAPTURE for every location
-
-           calculate group after a play on location and set
-           stones[0] to stone   count
-           liberty[0] to liberty count
-           capture[0] to capture count
-        """
-        cdef short  neighbor_location
-        cdef short  temp_location
-        cdef char   board_value
-        cdef Group* temp_group
-        cdef int    i, a, b, c
-        cdef int    location_array = location * 3
-
-        # loop over all four neighbors
-        for i in range(4):
-
-            # get neighbor location and value
-            neighbor_location = self.neighbor[location * 4 + i]
-            temp_group = self.board_groups[neighbor_location]
-            board_value = temp_group.color
-
-            # check if neighbor is friendly stone
-            if board_value == _EMPTY:
-
-                locations[neighbor_location] = _LIBERTY
-            elif board_value == self.player_current:
-
-                # found friendly group
-                for a in range(self.board_size):
-
-                    if temp_group.locations[a] != _FREE:
-
-                        locations[a] = temp_group.locations[a]
-
-            elif board_value == self.player_opponent:
-
-                # get enemy group
-                # if it has one liberty it wil be killed -> add potential liberty
-                if temp_group.count_liberty == 1:
-
-                    for a in range(self.board_size):
-
-                        if temp_group.locations[a] == _STONE:
-
-                            captures[a] = _CAPTURE
-
-        # add stone
-        locations[location] = _STONE
-
-        for neighbor_location in range(self.board_size):
-
-            if captures[neighbor_location] == _CAPTURE:
-
-                # loop over all four neighbors
-                for i in range(4):
-
-                    # get neighbor location and value
-                    temp_location = self.neighbor[neighbor_location * 4 + i]
-                    if temp_location < self.board_size and locations[temp_location] == _STONE:
-
-                        locations[neighbor_location] = _LIBERTY
-
-        # remove location as liberty
-        locations[location] = _STONE
-
-        a = 0
-        b = 0
-        c = 0
-
-        # count all values
-        for i in range(self.board_size):
-
-            if locations[i] == _STONE:
-
-                a += 1
-            elif locations[i] == _LIBERTY:
-
-                b += 1
-            if captures[i] == _CAPTURE:
-
-                c += 1
-
-        stones[0] = a
-        liberty[0] = b
-        capture[0] = c
-
-    cdef bint is_true_eye(self, short location, Locations_List* eyes, char owner):
-        """Check if location is a real eye
+    cdef bool is_true_eye(self, location_t location, stone_t owner, list stack=[]):
+        """Check if location is a 'real' eye; this goes beyond checking if a location is 'eyeish' by
+           checking that corners have the same owner or are themselves eyes, recursively. A group
+           with two "true eyes" cannot be captured.
         """
 
-        cdef int   i
-        cdef int   eyes_lenght = eyes.count
-        cdef char  board_value, max_bad_diagonal
-        cdef char  count_bad_diagonal = 0
-        cdef char  count_border = 0
-        cdef short location_neighbor
-        cdef Locations_List* empty_diag
+        cdef int i
+        cdef stone_t board_value
+        cdef short max_bad_diagonal, count_bad_diagonal = 0
+        cdef location_t neighbor_loc
 
-        # TODO benchmark what is faster? first dict lookup then neighbor check or other way around
+        # First, check that location is at least 'eyeish'
+        if not self.is_eyeish(location, owner):
+            return False
 
-        # check if it is a known eye
-        for i in range(eyes.count):
-
-            if location == eyes.locations[i]:
-
-                return 1
-
-        # loop over neighbor
+        # If there is any adjacent border, max 'bad' diagonals is 0, otherwise it is 1.
         for i in range(4):
+            neighbor_loc = d(self.ptr_neighbor3x3)[location * 8 + i]
+            if d(self.board[neighbor_loc]).color == stone_t.BORDER:
+                max_bad_diagonal = 0
+                break
 
-            location_neighbor = self.neighbor3x3[location * 8 + i]
-            board_value = self.board_groups[location_neighbor].color
+        # Note: 'else' on a for loop is invoked if there was no break. Here, this means there was no
+        # adjacent border.
+        else:
+            max_bad_diagonal = 1
 
-            if board_value == _BORDER:
-
-                count_border += 1
-            elif not board_value == owner:
-
-                # empty location or enemy stone
-                return 0
-
-        empty_diag = locations_list_new(4)
-
-        # loop over diagonals
+        # Check diagonal neighbors; they are 'bad' if occupied by an opponent or if empty and not
+        # itself an eye (checked recursively)
         for i in range(4, 8):
+            neighbor_loc = d(self.ptr_neighbor3x3)[location * 8 + i]
+            board_value = d(self.board[neighbor_loc]).color
 
-            location_neighbor = self.neighbor3x3[location * 8 + i]
-            board_value = self.board_groups[location_neighbor].color
-
-            if board_value == _EMPTY:
-                # locations_list_add_location(empty_diag, location_neighbor)
-                empty_diag.locations[empty_diag.count] = location_neighbor
-                empty_diag.count += 1
-                count_bad_diagonal += 1
-            elif board_value == _BORDER:
-
-                count_border += 1
-            elif board_value != owner:
-
-                # enemy stone
+            # Check if diagonal is enemy stone
+            if board_value > stone_t.EMPTY and board_value != owner:
                 count_bad_diagonal += 1
 
-        # assume location is an eye
-        locations_list_add_location_increment(eyes, location)
-        # eyes.locations[eyes.count] = location
-        # eyes.count += 1
+            # Check if diagonal is empty and is itself an eye. First check if neighbor is in the
+            # search stack, in which case we don't recurse, since that would be an infinite loop.
+            elif board_value == stone_t.EMPTY and neighbor_loc not in stack:
+                stack.append(location)
+                if not self.is_true_eye(neighbor_loc, owner, stack):
+                    count_bad_diagonal += 1
+                stack.pop()
 
-        max_bad_diagonal = 1 if count_border == 0 else 0
+            # Terminate search if at any point there are more "bad" diagonals than the max allowable
+            # for this location.
+            if count_bad_diagonal > max_bad_diagonal:
+                return False
 
-        if count_bad_diagonal <= max_bad_diagonal:
-
-            # one bad diagonal is allowed in the middle
-            locations_list_destroy(empty_diag)
-            return 1
-
-        for i in range(empty_diag.count):
-
-            location_neighbor = empty_diag.locations[i]
-
-            if self.is_true_eye(location_neighbor, eyes, owner):
-
-                count_bad_diagonal -= 1
-
-        locations_list_destroy(empty_diag)
-
-        if count_bad_diagonal <= max_bad_diagonal:
-
-            return 1
-
-        # not an eye
-        eyes.count = eyes_lenght
-        return 0
+        # If made it to here, location must be a eye
+        return True
 
     ############################################################################
-    #   private cdef Ladder functions                                          #
-    #                                                                          #
+    #   public cdef functions for feature generation (used by preprocessing)   #
+    #   TODO: move all of these to preprocessing itself                        #
     ############################################################################
 
-    """
-       Ladder evaluation consumes a lot of time duplicating data, the original
-       version (still can be found in go_python.py) made a copy of the whole
-       GameState for every move played.
-
-       This version only duplicates self.board_groups (so the list with pointers to groups)
-       the add_ladder_move playes a move like the add_to_group function but it
-       does not change the original groups and creates a list with groups removed
-
-       with this groups removed list undo_ladder_move will return the board state to
-       be the same as before add_ladder_move was called
-
-       get_removed_groups and unremove_group are being used my add/undo_ladder_move
-
-       nb.
-       duplicating self.board_groups is not neccisary stricktly speaking but
-       it is safer to do so in a threaded environment. as soon as mcts is
-       implemented this duplication could be removed if the mcts ensures a
-       GameState is not accesed while preforming a ladder evaluation
-
-       TODO validate no changes are being made!
-
-       TODO self.player color is used, should become a pointer
-    """
-
-    cdef Groups_List* add_ladder_move(self, short location, Group **board, short* ko):
-        """Create a new group for location move and add all connected groups to it
-
-           similar to add_to_group except no groups are changed or killed and a list
-           with groups removed is returned so the board can be restored to original
-           position
+    cdef pattern_hash_t get_12d_hash(self, location_t center, bool include_player, int max_liberty=3):  # noqa:E501
+        """Get unique-ish hash of the 12-stone pattern centered at 'center'. Assumes 'center'
+           itself is EMPTY. If 'include_player' is True, hash also takes into account who is the
+           current player.
         """
 
-        # create Group_List able to hold up to 4 changed/removed groups
-        cdef Groups_List* removed_groups = groups_list_new(4)
+        # First compute hash for all stones around 'center'
+        cdef pattern_hash_t hsh = \
+            get_pattern_hash(self.board, center, 12, d(self.ptr_neighbor12d), max_liberty)
 
-        # ko is a pointer -> add [0] to acces the actual value
-        ko[0] = _PASS
+        # If specified, also include the current player as part of the hash
+        if include_player:
+            hsh += self.current_player
+            hsh *= _HASHVALUE
 
-        # play move at location and add removed groups to removed_groups list
-        self.get_removed_groups(location, removed_groups, board, ko)
+        return hsh
 
-        # change player color
-        self.player_current = self.player_opponent
-        self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
+    cdef pattern_hash_t get_3x3_hash(self, short center, bool include_player, int max_liberty=3):
+        """Get unique-ish hash of the 8-stone pattern centered at 'center'. Assumes 'center' itself
+           is EMPTY. If 'include_player' is True, hash also takes into account who is the current
+           player.
+        """
+        cdef pattern_hash_t hsh = \
+            get_pattern_hash(self.board, center, 8, d(self.ptr_neighbor3x3), max_liberty)
 
-        return removed_groups
+        # If specified, also include the current player as part of the hash
+        if include_player:
+            hsh += self.current_player
+            hsh *= _HASHVALUE
 
-    cdef void remove_ladder_group(self, Group* group_remove, Group **board, short* ko):
-        """Remove group from board -> set all locations to group_empty
-           does not update zobrist hash
+        return hsh
+
+    cdef vector[location_t] get_sensible_moves(self):
+        """'Sensible' moves are all legal moves that are not eyes of the current player.
         """
 
-        cdef short  location
-        cdef short  neighbor_location
-        cdef Group* group_temp
-        cdef char   board_value
-        cdef int    i
+        cdef location_t loc
+        cdef vector[location_t] sensible_moves = vector[location_t]()
+        cdef list eyes = []  # Keep track of all eyes found so far to speed up search
 
-        # if groupsize == 1, possible ko
-        if group_remove.count_stones == 1:
-
-            ko[0] = group_location_stone(group_remove, self.board_size)
-
-        # loop over all group stone locations
-        for location in range(self.board_size):
-
-            if group_remove.locations[location] == _STONE:
-
-                # set location to empty group
-                board[location] = group_empty
-
-                # update liberty of neighbors
-                # loop over all four neighbors
-                for i in range(4):
-
-                    # get neighbor location
-                    neighbor_location = self.neighbor[location * 4 + i]
-
-                    # only current_player groups can be next to a killed group
-                    # check if there is a group
-                    board_value = board[neighbor_location].color
-                    if board_value == self.player_current:
-
-                        # add liberty
-                        group_temp = board[neighbor_location]
-                        group_add_liberty(group_temp, location)
-
-    cdef void undo_ladder_move(self, short location, Groups_List* removed_groups, short removed_ko, Group **board, short* ko):  # noqa: E501
-        """Use removed_groups list to return board state to be the same as before
-           add_ladder_move was used
-        """
-
-        cdef short  i, b, location_neighbor
-        cdef Group* group
-        cdef Group* group_remove = board[location]
-
-        # reset ko to old value
-        # ko is a pointer -> add [0] to acces the actual value
-        ko[0] = removed_ko
-
-        # change player color
-        self.player_current = self.player_opponent
-        self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
-
-        # undo move set location to empty group
-        board[location] = group_empty
-
-        # undo group removals
-        for i in range(removed_groups.count_groups):
-
-            # do group unremovals in reversed order!!!
-            # this is important in order to get correct liberty counts
-            group = removed_groups.board_groups[removed_groups.count_groups - i - 1]
-
-            # check group color and determine what happened
-            # player_current  -> groups have been combined, set board locations to group
-            # player_opponent -> groups have been removed, unremove them
-            if group.color == self.player_opponent:
-                # opponent group was removed from the board -> unremove it
-                self.unremove_group(group, board)
+        for loc in self.legal_moves:
+            if self.is_true_eye(loc, self.current_player, eyes):
+                eyes.append(loc)
             else:
-                # set all board_groups locations to group
-                # liberty have not been changed
-                for b in range(self.board_size):
-                    if group.locations[b] == _STONE:
-                        board[b] = group
+                sensible_moves.push_back(loc)
 
-        # add liberty to neighbor groups
-        for i in range(4):
-            location_neighbor = self.neighbor[location * 4 + i]
-            if board[location_neighbor].color > _EMPTY:
-                group_add_liberty(board[location_neighbor], location)
-
-        # destroy group
-        group_destroy(group_remove)
-
-        # free removed_groups
-        if removed_groups is not NULL:
-            if removed_groups.board_groups is not NULL:
-                free(removed_groups.board_groups)
-            free(removed_groups)
-
-    cdef void unremove_group(self, Group* group_unremove, Group **board):
-        """Unremove group from board
-           loop over all stones in this group and set board to group_unremove
-           remove liberty from neigbor locations
-        """
-
-        cdef short  location
-        cdef short  neighbor_location
-        cdef Group* group_temp
-        cdef int    i
-
-        # loop over all group stone locations
-        for location in range(self.board_size):
-
-            # check if this has a stone on location
-            if group_unremove.locations[location] == _STONE:
-
-                # set location to group_unremove
-                board[location] = group_unremove
-
-                # update liberty of neighbors
-                # loop over all four neighbors
-                for i in range(4):
-
-                    # get neighbor location
-                    neighbor_location = self.neighbor[location * 4 + i]
-
-                    # only current_player groups can be next to a killed group
-                    # check if neighbor_location does not belong to this group
-                    if group_unremove.locations[neighbor_location] != _STONE:
-
-                        # remove liberty
-                        group_remove_liberty(board[neighbor_location], location)
-
-    cdef dict get_capture_moves(self, Group* group, char color, Group **board):
-        """Create a dict with al moves that capture a group surrounding group
-        """
-
-        cdef int i, location, location_neighbor, location_array
-        cdef Group* group_neighbor
-        cdef dict capture = {}
-
-        # find all moves capturing an enemy group
-        for location in range(self.board_size):
-
-            if group.locations[location] == _STONE:
-
-                # calculate array location
-                location_array = location * 4
-
-                # loop over neighbor
-                for i in range(4):
-
-                    # calculate neighbor location
-                    location_neighbor = self.neighbor[location_array + i]
-
-                    # if location has opponent stone
-                    if board[location_neighbor].color == color:
-
-                        # get opponent group
-                        group_neighbor = board[location_neighbor]
-
-                        # if liberty count == 1
-                        if group_neighbor.count_liberty == 1:
-
-                            # add potential capture move
-                            location_neighbor = group_location_liberty(group_neighbor,
-                                                                       self.board_size)
-                            capture[location_neighbor] = location_neighbor
-
-        return capture
-
-    cdef void get_removed_groups(self, short location, Groups_List* removed_groups, Group **board, short* ko):  # noqa: E501
-        """Create a new group for location move and add all connected groups to it
-
-           similar to add_to_group except no groups are changed or killed
-           all changes to the board are stored in removed_groups
-        """
-
-        # create new group (it is not added to groups_list as in add_to_group)
-        cdef Group* newGroup = group_new(self.player_current, self.board_size)
-        cdef Group* tempGroup
-        cdef short neighborLocation
-        cdef char  boardValue
-        cdef char  group_removed = 0
-        cdef int   i
-
-        # loop over all four neighbors
-        for i in range(4):
-
-            # get neighbor location and value
-            neighborLocation = self.neighbor[location * 4 + i]
-            boardValue = board[neighborLocation].color
-
-            # check if neighbor is friendly stone
-            if boardValue == self.player_current:
-
-                # another friendly group, if they are different combine them
-                tempGroup = board[neighborLocation]
-                if tempGroup != newGroup:
-
-                    self.combine_groups(newGroup, tempGroup, board)
-                    # add tempGroup to removed_groups
-                    groups_list_add(tempGroup, removed_groups)
-
-            elif boardValue == self.player_opponent:
-
-                # remove liberty from enemy group
-                tempGroup = board[neighborLocation]
-                group_remove_liberty(tempGroup, location)
-
-                # remove group
-                if tempGroup.count_liberty == 0:
-
-                    self.remove_ladder_group(tempGroup, board, ko)
-                    # add tempGroup to removed_groups
-                    groups_list_add(tempGroup, removed_groups)
-
-                    # increment group_removed count
-                    group_removed += 1
-
-        # remove liberty
-        group_remove_liberty(newGroup, location)
-
-        # add stone
-        group_add_stone(newGroup, location)
-
-        # set location to newGroup
-        board[location] = newGroup
-
-        # loop over all four neighbors
-        for i in range(4):
-
-            # get neighbor location
-            neighborLocation = self.neighbor[location * 4 + i]
-
-            # check is neighbor is empty, add liberty if so
-            if board[neighborLocation].color == _EMPTY:
-
-                group_add_liberty(newGroup, neighborLocation)
-
-        # check if there is really a ko
-        # if two groups died there is no ko
-        # if newGroup has more than 1 stone there is no ko
-        if group_removed >= 2 or newGroup.count_stones > 1:
-            ko[0] = _PASS
-
-    cdef bint is_ladder_escape_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char color_group, char color_chase):  # noqa: E501
-        """Play a ladder move on location, check if group has escaped,
-           if the group has 2 liberty it is undetermined ->
-           try to capture it by playing at both liberty
-        """
-
-        cdef int    i
-        cdef short  ko_value
-        cdef bint   result
-        cdef Group* group
-        cdef Group* group_capture
-        cdef dict   capture_copy
-        cdef Groups_List* removed_groups
-        cdef short  location_neighbor, location_stone
-        cdef short  ko_count = list_ko.count
-
-        # check if max exploration depth has been reached
-        if maxDepth <= 0:
-            return 0
-
-        # check if move is legal
-        if not self.is_legal_move(location, board, ko[0]):
-
-            return 0
-
-        # do ladder move and save ko location
-        ko_value = ko[0]
-        removed_groups = self.add_ladder_move(location, board, ko)
-
-        # check if it is a possible ko move
-        if ko[0] != _PASS:
-            locations_list_add_location_unique(list_ko, ko[0])
-
-        if list_ko.count >= 2:
-            # undo move
-            self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-
-            # decrement list_ko count
-            list_ko.count = ko_count
-            return 0
-
-        # check group liberty
-        group = board[location_group]
-        i = group.count_liberty
-        if i < 2:
-
-            # no escape
-            result = 0
-        elif i > 2:
-
-            # escape
-            result = 1
-        else:
-
-            # 2 liberty, fate undetermined
-
-            # TODO now we have to walk over all locations, somehow let do_ladder_move
-            # do this -> saves computation time
-
-            # find all moves capturing an enemy group
-            for location_stone in range(self.board_size):
-
-                if group.locations[location_stone] == _STONE:
-
-                    # loop over neighbor
-                    for i in range(4):
-
-                        # calculate neighbor location
-                        location_neighbor = self.neighbor[location_stone * 4 + i]
-
-                        # if location has opponent stone
-                        if board[location_neighbor].color == color_chase:
-
-                            # get opponent group
-                            group_capture = board[location_neighbor]
-
-                            # if liberty count == 1
-                            if group_capture.count_liberty == 1:
-
-                                # add potential capture move
-                                location_neighbor = group_location_liberty(group_capture,
-                                                                           self.board_size)
-                                capture[location_neighbor] = location_neighbor
-
-            # try to catch group by playing at one of the two liberty locations
-            for location_neighbor in range(self.board_size):
-
-                if group.locations[location_neighbor] == _LIBERTY:
-
-                    if self.is_ladder_capture_move(board, ko, list_ko, location_group,
-                                                   capture.copy(), location_neighbor, maxDepth - 1,
-                                                   color_group, color_chase):
-                        # undo move
-                        self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-                        list_ko.count = ko_count
-                        return 0
-
-            # escaped
-            result = 1
-
-        # undo move
-        self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-        list_ko.count = ko_count
-
-        # return result
-        return result
-
-    cdef bint is_ladder_capture_move(self, Group **board, short* ko, Locations_List *list_ko, short location_group, dict capture, short location, int maxDepth, char color_group, char color_chase):  # noqa: E501
-        """Play a ladder move on location, try capture and escape moves
-           and see if the group is able to escape ladder
-        """
-
-        cdef short  i
-        cdef short  ko_value
-        cdef Group* group
-        cdef dict   capture_copy
-        cdef short  location_next
-        cdef Groups_List* removed_groups
-        cdef short  ko_count = list_ko.count
-
-        # if we haven't found a capture by a certain number of moves, assume it's worked.
-        if maxDepth <= 0:
-
-            return 1
-
-        if not self.is_legal_move(location, board, ko[0]):
-
-            return 0
-
-        ko_value = ko[0]
-        removed_groups = self.add_ladder_move(location, board, ko)
-
-        # check if it is a possible ko move
-        if ko[0] != _PASS:
-            locations_list_add_location_unique(list_ko, ko[0])
-
-        if list_ko.count >= 2:
-            # undo move
-            self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-
-            # decrement list_ko count
-            list_ko.count = ko_count
-            return 1
-
-        # check if the group at location can be captured
-        group = board[location]
-        if group.count_liberty == 1:
-
-            i = group_location_liberty(group, self.board_size)
-            capture[i] = i
-
-        # try a capture move
-        for location_next in capture:
-
-            capture_copy = capture.copy()
-            capture_copy.pop(location_next)
-            if self.is_ladder_escape_move(board, ko, list_ko, location_group, capture.copy(),
-                                          location_next, maxDepth - 1, color_group, color_chase):
-                # undo move
-                self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-                list_ko.count = ko_count
-                return 0
-
-        group = board[location_group]
-
-        # try an escape move
-        for location_next in range(self.board_size):
-
-            if group.locations[location_next] == _LIBERTY:
-
-                capture_copy = capture.copy()
-                if location_next in capture_copy:
-                    capture_copy.pop(location_next)
-                if self.is_ladder_escape_move(board, ko, list_ko, location_group, capture.copy(),
-                                              location_next, maxDepth - 1, color_group,
-                                              color_chase):
-
-                    # undo move
-                    self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-                    list_ko.count = ko_count
-                    return 0
-
-        # no ladder escape found -> group is captured
-        # undo move
-        self.undo_ladder_move(location, removed_groups, ko_value, board, ko)
-        list_ko.count = ko_count
-        return 1
-
-    ############################################################################
-    #   public cdef functions used by preprocessing                            #
-    #                                                                          #
-    ############################################################################
-
-    cdef char* get_groups_after(self):
-        """Return a short array of size board_size * 3 representing
-           STONES, _LIBERTY, _CAPTURE for every board location
-
-           max count values are 100
-
-           loop over all legal moves and determine stone count, liberty count and
-           capture count of a play on that location
-        """
-
-        cdef short  i, location
-
-        # initialize groups_after array
-        cdef char *groups_after = <char *>malloc(self.board_size * 3 * sizeof(char))
-        if not groups_after:
-            raise MemoryError()
-
-        # memset(groups_after, 0, self.board_size * 3 * sizeof(char))
-
-        # create locations dictionary
-        cdef char *locations = <char *>malloc(self.board_size * sizeof(char))
-        if not locations:
-            raise MemoryError()
-
-        # create captures dictionary
-        cdef char *captures = <char *>malloc(self.board_size * sizeof(char))
-        if not captures:
-            raise MemoryError()
-
-        # create groups for all legal moves
-        for location in range(self.moves_legal.count):
-
-            # initialize both dictionaries to _FREE
-            memset(locations, _FREE, self.board_size * sizeof(char))
-            memset(captures, _FREE, self.board_size * sizeof(char))
-
-            self.get_group_after(groups_after, locations, captures,
-                                 self.moves_legal.locations[location])
-
-        free(locations)
-        free(captures)
-
-        return groups_after
-
-    cdef long get_hash_12d(self, short centre):
-        """Return hash for 12d star pattern around location
-        """
-
-        # generate 12d hash value and add current player color
-
-        return (self.generate_12d_hash(centre) + self.player_current) * _HASHVALUE
-
-    cdef long get_hash_3x3(self, short location):
-        """Return 3x3 pattern hash + current player
-        """
-
-        # generate 3x3 hash value and add current player color
-
-        return self.generate_3x3_hash(location) + self.player_current
-
-    cdef char* get_ladder_escapes(self, int maxDepth):
-        """Return char array with size board_size
-           every location represents a location on the board where:
-           _FREE = no ladder escape
-           _STONE = ladder escape
-        """
-
-        cdef short i, location_group, location_move
-        cdef Group* group
-        cdef dict move_capture
-        cdef dict move_capture_copy
-        cdef Group** board = NULL
-        cdef short ko = self.ko
-        cdef Locations_List* list_ko
-
-        # create char array representing the board
-        cdef char* escapes = <char *>malloc(self.board_size)
-        if not escapes:
-            raise MemoryError()
-        # set all locations to _FREE
-        memset(escapes, _FREE, self.board_size)
-
-        # create Locations_List list_ko able to hold all ko locations for detecting superko
-        list_ko = locations_list_new(3)
-
-        # loop over all groups on board
-        for i in range(self.groups_list.count_groups):
-
-            group = self.groups_list.board_groups[i]
-
-            # get liberty count
-            if group.count_liberty == 1:
-
-                # check if group has one liberty and is owned by current
-                if group.color == self.player_current:
-
-                    # the first time a possible ladder location is found, board
-                    # is duplicated, technically this is not neccisary but it is
-                    # safer when we start using a multi threaded mcts
-                    if board is NULL:
-
-                        # create new Group pointer array as board
-                        board = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
-                        if not self.board_groups:
-                            raise MemoryError()
-
-                        # as the ladder search does not change any excisting groups we can safely
-                        # duplicate the whole pointer array without duplicating all groups
-                        memcpy(board, self.board_groups, (self.board_size + 1) * sizeof(Group*))
-
-                    # get a dictionary with all possible capture groups -> surrounding groups
-                    # the ladder group can kill in order to escape ladder
-                    move_capture = self.get_capture_moves(group, self.player_opponent, board)
-                    location_group = group_location_stone(group, self.board_size)
-
-                    # check if any of the moves is an escape move
-                    for location_move in range(self.board_size):
-
-                        if group.locations[location_move] == _LIBERTY and \
-                                escapes[location_move] == _FREE:
-                            # check if group can escape ladder by playing move
-                            if self.is_ladder_escape_move(board, &ko, list_ko, location_group,
-                                                          move_capture.copy(), location_move,
-                                                          maxDepth, self.player_current,
-                                                          self.player_opponent):
-
-                                escapes[location_move] = _STONE
-
-                    # check if any of the capture moves is an escape move
-                    for location_move in move_capture:
-
-                        if escapes[location_move] == _FREE:
-
-                            move_capture_copy = move_capture.copy()
-                            move_capture_copy.pop(location_move)
-
-                            # check if group can escape ladder by playing capture move
-                            if self.is_ladder_escape_move(board, &ko, list_ko, location_group,
-                                                          move_capture_copy, location_move,
-                                                          maxDepth, self.player_current,
-                                                          self.player_opponent):
-
-                                escapes[location_move] = _STONE
-
-        # free temporary board
-        if board is not NULL:
-
-            free(board)
-
-        locations_list_destroy(list_ko)
-
-        return escapes
-
-    cdef char* get_ladder_captures(self, int maxDepth):
-        """Return char array with size board_size
-           every location represents a location on the board where:
-           _FREE = no ladder capture
-           _STONE = ladder capture
-        """
-
-        cdef short i, location_group, location_move
-        cdef Group* group
-        cdef dict move_capture
-        cdef Group** board = NULL
-        cdef short ko = self.ko
-        cdef Locations_List* list_ko
-
-        # create char array representing the board
-        cdef char* captures = <char *>malloc(self.board_size)
-        if not captures:
-            raise MemoryError()
-        # set all locations to _FREE
-        memset(captures, _FREE, self.board_size)
-
-        # create Locations_List list_ko able to hold all ko locations for detecting superko
-        list_ko = locations_list_new(3)
-
-        # loop over all groups on board
-        for i in range(self.groups_list.count_groups):
-
-            group = self.groups_list.board_groups[i]
-
-            # get liberty count
-            if group.count_liberty == 2:
-
-                # check if group is owned by opponent
-                if group.color == self.player_opponent:
-
-                    # the first time a possible ladder location is found, board
-                    # is duplicated, technically this is not neccisary but it is
-                    # safer when we start using a multi threaded mcts
-                    if board is NULL:
-
-                        # create new Group pointer array as board
-                        board = <Group **>malloc((self.board_size + 1) * sizeof(Group*))
-                        if not self.board_groups:
-                            raise MemoryError()
-
-                        # as the ladder search does not change any excisting groups we can safely
-                        # duplicate the whole pointer array without duplicating all groups
-                        memcpy(board, self.board_groups, (self.board_size + 1) * sizeof(Group*))
-
-                    # get a dictionary with all possible capture groups -> surrounding groups
-                    # the ladder group can kill in order to escape ladder
-                    move_capture = self.get_capture_moves(group, self.player_current, board)
-                    location_group = group_location_stone(group, self.board_size)
-
-                    # loop over all liberty
-                    for location_move in range(self.board_size):
-
-                        if group.locations[location_move] == _LIBERTY and \
-                                captures[location_move] == _FREE:
-                            # check if move is ladder capture
-                            if self.is_ladder_capture_move(board, &ko, list_ko, location_group,
-                                                           move_capture.copy(), location_move,
-                                                           maxDepth, self.player_opponent,
-                                                           self.player_current):
-                                captures[location_move] = _STONE
-
-        # free temporary board
-        if board is not NULL:
-
-            free(board)
-
-        locations_list_destroy(list_ko)
-
-        return captures
+        return sensible_moves
 
     ############################################################################
     #   public cdef functions used for game play                               #
     #                                                                          #
     ############################################################################
 
-    cdef void add_move(self, short location):
-        """!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                      Move should be legal!
-           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-           play move on location, move should be legal!
-
-           update player_current, history and moves_legal
+    cpdef bool is_legal_move(self, location_t location):
+        """Check if playing at location is a legal move
         """
 
-        # reset ko
-        self.ko = _PASS
+        # Passing is always legal
+        if location == action_t.PASS:
+            return True
 
-        # detemine where captures should be added, black captures -> white stones
-        #                                          white captures -> black stones
-        # (probably better to think of it as black stones captured, and white stones captured)
-        cdef short* captures = &self.capture_white if (self.player_current == _BLACK) else \
-            &self.capture_black
+        # Check that location is on the board
+        if location < 0 or location >= self.board_size:
+            return False
 
-        # add move to board
-        self.add_to_group(location, self.board_groups, &self.ko, captures)
+        # Check if it is empty
+        if d(self.board[location]).color > stone_t.EMPTY:
+            return False
 
-        # switch player color
-        self.player_current = self.player_opponent
-        self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
+        # Check ko (1 move back only)
+        if location == self.ko:
+            return False
 
-        # add move to history
-        locations_list_add_location_increment(self.moves_history, location)
+        # Check if move is suicide
+        if not self.has_liberty_after(location):
+            return False
 
-        # update zobrist
+        # (Maybe) check superko state
+        if self.enforce_superko and self.is_positional_superko(location):
+            return False
+
+        # If all of the above checks pass, then this move is legal.
+        return True
+
+    cdef location_t add_stone(self, location_t location):
+        """Play stone on location and update the state. MOVE MUST BE LEGAL. Returns new ko location,
+           or -1 if there is none.
+        """
+
+        cdef group_ptr_t captured_stones = group_new(self.opponent_player)
+        cdef group_ptr_t new_group = group_new(self.current_player)
+        cdef group_ptr_t neighbor_group
+        cdef stone_t neighbor
+        cdef location_t neighbor_loc, new_ko = -1
+        cdef int i
+
+        # Start new group for this stone.
+        group_add_stone(new_group, location)
+
+        # Add new group to groups_set and ensure board location is updated.
+        self.groups_set.insert(new_group)
+        self.board[location] = new_group
+
+        # Check neighbors: merge friendly groups and (maybe) capture opponents
+        for i in range(4):
+            neighbor_loc = d(self.ptr_neighbor)[location * 4 + i]
+            neighbor_group = self.board[neighbor_loc]
+            neighbor = d(neighbor_group).color
+
+            # Add liberties to the new group
+            if neighbor == stone_t.EMPTY:
+                group_add_liberty(new_group, neighbor_loc)
+
+            # Merge neighboring friendly groups (and remove 'location' as one of their liberties)
+            elif neighbor == self.current_player and new_group != neighbor_group:
+                group_remove_liberty(neighbor_group, location)
+                new_group = self.combine_groups(new_group, neighbor_group)
+
+            # Handle stone placed next to opponent group: remove stone from opponent liberties and
+            # check for capture.
+            elif neighbor == self.opponent_player:
+                group_remove_liberty(neighbor_group, location)
+
+                # Capture opponent if this stone covered opponent's last liberty.
+                if d(neighbor_group).count_liberty == 0:
+                    group_merge(captured_stones, neighbor_group)
+                    self.remove_group(neighbor_group)
+
+        # Count captured stones
+        if self.current_player == stone_t.BLACK:
+            self.capture_white += d(captured_stones).count_stones
+        else:
+            self.capture_black += d(captured_stones).count_stones
+
+        # Update ko: ko occurs when both captured group and newly created group are size 1.
+        if d(captured_stones).count_stones == 1 and d(new_group).count_stones == 1:
+            new_ko = group_get_stone(captured_stones)
+
+        # Update zobrist hash: first, update with newly added stone
+        self.zobrist_current = update_hash_by_location(self.zobrist_current,
+                                                       d(self.ptr_zobrist_lookup),
+                                                       location, self.current_player)
+        # Second, update with all captured stones.
+        if d(captured_stones).count_stones > 0:
+            self.zobrist_current = update_hash_by_group(self.zobrist_current,
+                                                        d(self.ptr_zobrist_lookup),
+                                                        captured_stones)
         self.previous_hashes.add(self.zobrist_current)
 
-        # set moves_legal
-        self.set_moves_legal_list(self.moves_legal)
+        return new_ko
 
-    cdef GameState new_state_add_move(self, short location):
-        """Copy this gamestate and play move at location
+    cpdef list get_legal_moves(self, bool include_eyes=True):
+        """Return a list with all legal moves as tuples (in/excluding eyes)
         """
 
-        # create new gamestate, copy all data of self
-        state = GameState(copy=self)
+        cdef list moves
 
-        # do move
-        state.add_move(location)
+        if include_eyes:
+            moves = list(self.legal_moves)
+        else:
+            moves = list(self.get_sensible_moves())
 
-        return state
+        return [calculate_tuple_location(m, self.size) for m in moves]
 
-    cdef float get_score(self, float komi):
+    cpdef float get_score(self, float komi=7.5):
         """Calculate score of board state. Uses 'Area scoring'.
 
            http://senseis.xmp.net/?Passing#1
 
-           negative value indicates black win
-           positive value indicates white win
+           Negative value indicates black win, positive value indicates white win.
         """
 
-        cdef short location
-        cdef char  board_value
-        cdef float score
-        score = -komi
+        cdef location_t location
+        cdef stone_t board_value
 
-        # lists to keep track of black and white eyes
-        cdef Locations_List* eyes_white = locations_list_new(self.board_size)
-        cdef Locations_List* eyes_black = locations_list_new(self.board_size)
+        # Positive score is in favor of black, negative is in favor of white.
+        cdef float score = -komi
 
-        # loop over whole board
+        # Keep track of all eyes for both black and white to make search faster.
+        cdef list eyes_white = [], eyes_black = []
+
+        # Loop over whole board
         for location in range(self.board_size):
+            board_value = d(self.board[location]).color
 
-            # get location color
-            board_value = self.board_groups[location].color
-
-            if board_value == _WHITE:
-
-                # white stone
+            # Decrement score difference for white
+            if board_value == stone_t.WHITE:
                 score -= 1
-            elif board_value == _BLACK:
 
-                # black stone
+            # Increment score difference for black
+            elif board_value == stone_t.BLACK:
                 score += 1
+
+            # If empty, count as territory only if it is an eye
             else:
-
-                # empty location, check if it is an eye for black/white
-                if self.is_true_eye(location, eyes_black, _BLACK):
-
+                if self.is_true_eye(location, stone_t.BLACK, eyes_black):
+                    eyes_black.append(location)
                     score += 1
-                elif self.is_true_eye(location, eyes_white, _WHITE):
 
+                elif self.is_true_eye(location, stone_t.WHITE, eyes_white):
+                    eyes_white.append(location)
                     score -= 1
-
-        # free eyes_black and eyes_white
-        locations_list_destroy(eyes_black)
-        locations_list_destroy(eyes_white)
 
         # substract passes
         # http://senseis.xmp.net/?Passing#1
@@ -1834,166 +641,156 @@ cdef class GameState:
 
         return score
 
-    cdef char get_winner_color(self, float komi):
-        """Calculate score of board state and return player ID (1, -1, or 0 for tie)
-           corresponding to winner. Uses 'Area scoring'.
-
-           http://senseis.xmp.net/?Passing#1
+    cpdef stone_t get_winner_color(self, float komi=7.5):
+        """Calculate score of board state and return winning player (WHITE or BLACK). Uses 'Area
+           scoring'. Tie goes to WHITE.
         """
 
-        cdef float score
+        cdef float score = self.get_score(komi)
 
-        score = self.get_score(komi)
-
-        # check if black has won, tie -> white wins
+        # BLACK wins for strictly positive score. 0 (tie) or negative goes to WHITE.
         if score > 0:
+            return stone_t.BLACK
+        else:
+            return stone_t.WHITE
 
-            # black wins
-            return _BLACK
+    cpdef void do_move(self, tuple action, stone_t color=stone_t.EMPTY):
+        """Play stone at action=(x,y). Use action=None for passing. Checks move legality first.
 
-        # white wins
-        return _WHITE
-
-    ############################################################################
-    #   public def functions used for game play (Python)                       #
-    #                                                                          #
-    ############################################################################
-
-    def do_move(self, action, color=None):
-        """Play stone at action=(x,y).
-           If it is a legal move, current_player switches to the opposite color
-           If not, an IllegalMove exception is raised
+           If it is a legal move, current_player switches to the opposite color. If not, an
+           IllegalMove exception is raised
         """
 
-        if action == _PASS:
-            locations_list_add_location_increment(self.moves_history, _PASS)
+        cdef location_t x, y, location
+        cdef group_ptr_t grp
 
-            if self.player_opponent == _BLACK:
+        # Note: as per the python interface, 'None' is considerd a pass
+        if action is None:
+            location = action_t.PASS
+
+            if self.current_player == stone_t.BLACK:
                 self.passes_black += 1
             else:
                 self.passes_white += 1
 
-            # change player color
-            self.player_current = self.player_opponent
-            self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
+            # Reset ko since players switched.
+            self.ko = -1
 
-            # legal moves have to be recalculated
-            self.ko = _PASS
-            self.set_moves_legal_list(self.moves_legal)
-            return
-
-        if color is not None:
-            self.player_current = color
-            self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
-
-            # legal moves have to be recalculated
-            self.set_moves_legal_list(self.moves_legal)
-
-        cdef int   x, y, i
-        cdef short location
-        (x, y) = action
-        location = self.calculate_board_location(y, x)
-
-        # check if move is legal
-        if not self.is_legal_move_superko(location, self.board_groups, self.ko):
-            raise IllegalMove(str(action))
-
-        # add move
-        self.add_move(location)
-
-        return True
-
-    def get_legal_moves(self, include_eyes=True):
-        """Return a list with all legal moves (in/excluding eyes)
-        """
-
-        cdef int  i
-        cdef list moves = []
-        cdef Locations_List* moves_list
-
-        if include_eyes:
-            moves_list = self.moves_legal
         else:
-            moves_list = self.get_sensible_moves()
+            if color != stone_t.EMPTY and color != self.current_player:
+                self.swap_players()
 
-        for i in range(moves_list.count):
-            moves.append(self.calculate_tuple_location(moves_list.locations[i]))
+            # Convert from tuple (x, y) input to 1d coordinate.
+            (x, y) = action
+            location = calculate_board_location(y, x, self.size)
 
-        if not include_eyes:
-            # free sensible_moves
-            locations_list_destroy(moves_list)
+            # Check if move is legal.
+            if not self.is_legal_move(location):
+                raise IllegalMove(str(action))
 
-        return moves
+            # Execute move.
+            self.ko = self.add_stone(location)
 
-    def get_winner(self, float komi=7.5):
-        """Calculate score of board state and return player ID (1, -1, or 0 for tie)
-           corresponding to winner. Uses 'Area scoring'.
-        """
+        # Add move to history
+        self.moves_history.push_back(location)
 
-        return self.get_winner_color(komi)
+        # Swap current player for next turn.
+        self.swap_players()
 
-    def get_board_count(self, float komi=7.5):
-        """Calculate score of board state
+        # The set of legal moves must now be recomputed, since it is different for each player
+        # and with new ko location.
+        self.update_legal_moves()
 
-           where negative value indicates white win
-           and positive value indicates black win
-        """
-
-        return self.get_score(komi)
-
-    def place_handicap_stone(self, action, color=_BLACK):
+    cpdef void place_handicap_stone(self, tuple action, stone_t color=stone_t.BLACK):
         """Add handicap stones given by a list of tuples in list handicap
         """
 
-        cdef short fake_capture
-
-        self.player_current = color
-        self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
-
-        cdef char  x, y
-        cdef short location
-        (x, y) = action
-        location = self.calculate_board_location(y, x)
-
-        # add move
-        self.add_to_group(location, self.board_groups, &self.ko, &fake_capture)
-
-        # set legal moves
-        self.set_moves_legal_list(self.moves_legal)
-
-    def place_handicaps(self, list handicap):
-        """Todo save handicap stones list?? -> seems not usefull as we also have to copy them
-           add handicap stones given by a list of tuples in list handicap
-        """
-
-        cdef char  x, y
-        cdef short location
-        cdef short fake_capture
-
-        if self.moves_history.count > 0:
+        if self.moves_history.size() > self.num_handicap:
             raise IllegalMove("Cannot place handicap on a started game")
 
+        self.num_handicap += 1
+        self.do_move(action, color)
+
+    cpdef void place_handicaps(self, list handicap):
+        """Place list of handicap stones for BLACK (must be on empty board)
+        """
+
         for action in handicap:
+            self.place_handicap_stone(action, stone_t.BLACK)
 
-            (x, y) = action
-            location = self.calculate_board_location(y, x)
-            self.add_to_group(location, self.board_groups, &self.ko, &fake_capture)
+    ############################################################################
+    #   Helper functions for managing groups                                   #
+    #                                                                          #
+    ############################################################################
 
-        # active player color reverses
-        self.player_current = _WHITE
-        self.player_opponent = _BLACK
+    cdef group_ptr_t combine_groups(self, group_ptr_t group_keep, group_ptr_t group_remove):
+        """Combine group_keep and group_remove by copying all stones and liberties from
+           group_remove into group_keep, and update pointers on the board. Leaves group_remove
+           unchanged, but does remove it from groups_set.
 
-        # set legal moves
-        self.set_moves_legal_list(self.moves_legal)
+           Returns group_keep
+        """
+
+        cdef location_t loc
+        cdef group_t val
+
+        # Loop over all location->stone pairs in group_remove.
+        for loc, val in d(group_remove).locations:
+            if val == group_t.STONE:
+                # group_remove has a stone at this location; add the stone to group_keep and set
+                # board location to group_keep.
+                group_add_stone(group_keep, loc)
+                self.board[loc] = group_keep
+            elif val == group_t.LIBERTY:
+                # group_remove has a liberty at this location; add the liberty to group_keep.
+                group_add_liberty(group_keep, loc)
+
+        # Clear group_remove from groups_set.
+        self.groups_set.erase(group_remove)
+
+        return group_keep
+
+    cdef void remove_group(self, group_ptr_t group_remove):
+        """Remove group from everywhere in the state.
+        """
+
+
+        cdef location_t loc, neighbor_loc
+        cdef group_ptr_t group
+        cdef group_t val, neighbor_value
+        cdef int i
+
+        # First pass: clear stones by setting board[loc] to EMPTY for each stone in this group.
+        for loc, val in d(group_remove).locations:
+            if val == group_t.STONE:
+                # Set board at this location to empty group
+                self.board[loc] = self.group_empty
+
+        # Second pass: add new liberties to neighboring groups now that stones have been cleared.
+        for loc, val in d(group_remove).locations:
+            if val == group_t.STONE:
+                for i in range(4):
+                    # Get neighbor location
+                    neighbor_loc = d(self.ptr_neighbor)[loc * 4 + i]
+                    group = self.board[neighbor_loc]
+
+                    # If neighbor is a stone, add 'loc' as a liberty
+                    if d(group).color > stone_t.EMPTY:
+                        group_add_liberty(group, loc)
+
+        # Clear this group from groups_set
+        self.groups_set.erase(group_remove)
+
+    ############################################################################
+    #   Python convenience functions (not declared in .pxd)                    #
+    #                                                                          #
+    ############################################################################
 
     def is_end_of_game(self):
-        """
-
-        """
-        if self.moves_history.count > 1:
-            if self.moves_history.locations[self.moves_history.count - 1] == _PASS and \
-                    self.moves_history.locations[self.moves_history.count - 2] == _PASS and \
-                    self.player_current == _WHITE:
+        if self.moves_history.size() > 1:
+            if self.moves_history[self.moves_history.size() - 1] == action_t.PASS and \
+                    self.moves_history[self.moves_history.size() - 2] == action_t.PASS and \
+                    self.current_player == stone_t.WHITE:
                 return True
         return False
 
@@ -2001,22 +798,18 @@ cdef class GameState:
         """Determine if the given action (x,y tuple) is a legal move
         """
 
-        cdef int   i
-        cdef char  x, y
+        cdef char x, y
         cdef short location
         (x, y) = action
 
-        # check outside board
+        # Check outside board
         if x < 0 or y < 0 or x >= self.size or y >= self.size:
             return False
 
-        # calculate location
-        location = self.calculate_board_location(y, x)
+        # Calculate 1D location
+        location = calculate_board_location(y, x, self.size)
 
-        if self.is_legal_move_superko(location, self.board_groups, self.ko):
-            return True
-
-        return False
+        return self.is_legal_move(location)
 
     def copy(self):
         """Get a copy of this Game state
@@ -2029,45 +822,131 @@ cdef class GameState:
     #                                                                          #
     ############################################################################
 
+    cpdef void print_groups(self):
+        """Debugging helper: prints address of all groups in this state and info about each one.
+        """
+
+        cdef location_t loc
+        cdef group_t val
+        cdef group_ptr_t group
+
+        print("Empty: {0:x}".format(<unsigned long long> self.group_empty.get()))
+        print("Border: {0:x}".format(<unsigned long long> self.group_border.get()))
+
+        for loc in range(self.board_size):
+            if self.board[loc].get() != self.group_empty.get():
+                print("%03d: %x" % (loc, <unsigned long long> self.board[loc].get()))
+
+        for group in self.groups_set:
+            print("--- %x: %d / %d / %d ---" % (<unsigned long long> group.get(), d(group).color,
+                                                d(group).count_stones, d(group).count_liberty))
+            for loc, val in d(group).locations:
+                print "\t", calculate_tuple_location(loc, self.size), val
+
+    cpdef bool sanity_check_groups(self):
+        """Debugging helper: loops over every location and group on the board and checks that they are
+           self-consistent.
+        """
+
+        cdef location_t loc, neighbor_loc
+        cdef group_ptr_t group1, group2, neighbor_group
+        cdef group_t val
+        cdef int i, recount_liberty, recount_stones
+        cdef set empty_adjacent
+
+        # Check 1: all groups in self.board are also in self.groups_set.
+        for loc in range(self.board_size):
+            group1 = self.board[loc]
+
+            # Skip empty group.
+            if group1 == self.group_empty:
+                continue
+
+            # Check for this group in self.groups_set.
+            for group2 in self.groups_set:
+                if group2 == group1:
+                    break
+            else:
+                print("board[loc] points to nonexistent group!")
+                return False
+
+        # Check 2: vice versa
+        for group1 in self.groups_set:
+            for loc in range(self.board_size):
+                if group1 == self.board[loc]:
+                    break
+            else:
+                print("groups_set contains a group not on the board!")
+                return False
+
+        # Check 3: all neighbors of the same color are in the same group.
+        for loc in range(self.board_size):
+            group1 = self.board[loc]
+
+            # Only check locations with stones.
+            if d(group1).color > stone_t.EMPTY:
+                for i in range(4):
+                    neighbor_loc = d(self.ptr_neighbor)[4 * loc + i]
+                    neighbor_group = self.board[neighbor_loc]
+
+                    # If neighbor has stone of the same color, they must be the same group object.
+                    if d(neighbor_group).color == d(group1).color:
+                        if neighbor_group != group1:
+                            print("neighbors of same color not in the same group!")
+                            return False
+
+        # Check 4: group's counts and locations are consistent with the board.
+        for group1 in self.groups_set:
+            recount_liberty, recount_stones = 0, 0
+            empty_adjacent = set()
+            for loc, val in d(group1).locations:
+                # Check that group's STONE locations are correct in self.board
+                if val == group_t.STONE:
+                    if self.board[loc] != group1:
+                        print("group has STONE but board does not point to that group!")
+                        return False
+                    recount_stones += 1
+
+                    # Check for neighboring liberties on the board
+                    for i in range(4):
+                        neighbor_loc = d(self.ptr_neighbor)[4 * loc + i]
+                        if self.board[neighbor_loc] == self.group_empty:
+                            empty_adjacent.add(neighbor_loc)
+
+                # Check that group's LIBERTY locations are actually empty
+                elif val == group_t.LIBERTY:
+                    if self.board[loc] != self.group_empty:
+                        print("group has LIBERTY but board does not point to empty group!")
+                        return False
+                    recount_liberty += 1
+
+            # Check that all counts make sense
+            if recount_stones != d(group1).count_stones:
+                print("mismatch in stones count!")
+                return False
+
+            elif recount_liberty != d(group1).count_liberty:
+                print("mismatch in liberties count!")
+                return False
+
+            elif recount_liberty != len(empty_adjacent):
+                print("liberty count does not match actuall number of empty adjacent locations!")
+                return False
+
+            # All checks passed
+            return True
+
     def get_current_player(self):
         """Returns the color of the player who will make the next move.
         """
 
-        return self.player_current
-
-    def set_current_player(self, color):
-        """Change current player color
-        """
-
-        self.player_current = color
-        self.player_opponent = (_BLACK if self.player_current == _WHITE else _WHITE)
+        return self.current_player
 
     def get_history(self):
         """Return history as a list of tuples
         """
 
-        cdef int   i
-        cdef short location
-        cdef list  history = []
-
-        for i in range(self.moves_history.count):
-
-            location = self.moves_history.locations[i]
-
-            if location != _PASS:
-
-                history.append(self.calculate_tuple_location(location))
-            else:
-
-                history.append(_PASS)
-
-        return history
-
-    def get_history_size(self):
-        """Return history size
-        """
-
-        return self.moves_history.count
+        return [calculate_tuple_location(loc, self.size) for loc in self.moves_history]
 
     def get_captures_black(self):
         """Return amount of black stones captures
@@ -2082,22 +961,20 @@ cdef class GameState:
         return self.capture_white
 
     def get_ko_location(self):
-        """Return ko location
+        """Return ko location as a tuple, or None
         """
 
-        if self.ko == _PASS:
+        if self.ko == -1:
             return None
 
-        return self.ko
+        return calculate_tuple_location(self.ko, self.size)
 
     def is_board_equal(self, GameState state):
         """Verify that self and state board layout are the same
         """
 
-        for x in range(self.board_size):
-
-            if self.board_groups[x].color != state.board_groups[x].color:
-
+        for i in range(self.board_size):
+            if d(self.board[i]).color != d(state.board[i]).color:
                 return False
 
         return True
@@ -2106,112 +983,49 @@ cdef class GameState:
         """Verify that self and state liberty counts are the same
         """
 
-        for x in range(self.board_size):
-
-            if self.board_groups[x].count_liberty != state.board_groups[x].count_liberty:
-
+        for i in range(self.board_size):
+            if d(self.board[i]).count_liberty != d(state.board[i]).count_liberty:
                 return False
 
         return True
 
-    def is_ladder_escape(self, action):
-        """Check if playing action is a ladder escape
-        """
-        value = False
-
-        cdef char  x, y
-        cdef short location
-
-        (x, y) = action
-        location = self.calculate_board_location(y, x)
-
-        cdef char* escapes = self.get_ladder_escapes(80)
-
-        if escapes[location] != _FREE:
-
-            value = True
-
-        # free escapes
-        free(escapes)
-
-        return value
-
-    def is_ladder_capture(self, action):
-        """Check if playing action is a ladder capture
-        """
-        value = False
-
-        cdef char  x, y
-        cdef short location
-
-        (x, y) = action
-        location = self.calculate_board_location(y, x)
-
-        cdef char* captures = self.get_ladder_captures(80)
-
-        if captures[location] != _FREE:
-
-            value = True
-
-        # free captures
-        free(captures)
-
-        return value
-
     def is_eye(self, action, color):
         """Check if location action is a eye for player color
         """
-        value = False
-
-        cdef char  x, y
-        cdef short location
 
         (x, y) = action
-        location = self.calculate_board_location(y, x)
+        location = calculate_board_location(y, x, self.size)
 
-        # checking all games in the KGS database found a max of 15eyes in one state
-        # 25 seems a safe bet
-        cdef Locations_List* eyes = locations_list_new(80)
-
-        if self.is_true_eye(location, eyes, color):
-
-            value = True
-
-        locations_list_destroy(eyes)
-
-        return value
+        return self.is_true_eye(location, color)
 
     def get_liberty(self):
-        """Get numpy array with all liberty counts
+        """Get numpy array with all liberty counts for all stones.
         """
 
         liberty = np.zeros((self.size, self.size), dtype=np.int)
 
         for x in range(self.size):
-
             for y in range(self.size):
-
-                location = self.calculate_board_location(y, x)
-
-                liberty[x, y] = self.board_groups[location].count_liberty
+                location = calculate_board_location(y, x, self.size)
+                liberty[x, y] = d(self.board[location]).count_liberty
 
         return liberty
 
     def get_board(self):
-        """Get numpy array with board locations
+        """Get numpy array with board locations set to stone colors
         """
 
         board = np.zeros((self.size, self.size), dtype=np.int)
 
         for x in range(self.size):
-
             for y in range(self.size):
-
-                location = self.calculate_board_location(y, x)
-
-                board[x, y] = self.board_groups[location].color
+                location = calculate_board_location(y, x, self.size)
+                board[x, y] = d(self.board[location]).color
 
         return board
+
+    def get_hash(self):
+        return self.zobrist_current
 
     def get_size(self):
         """Return size
@@ -2220,51 +1034,10 @@ cdef class GameState:
         return self.size
 
     def get_handicaps(self):
-        """Todo ?
-           return list with handicap stones placed
+        """Return list with handicap stones placed by BLACK at beginning of the game.
         """
 
-        return []
-
-    def get_handicap(self):
-        """Todo ?
-           return list with handicap stones placed
-        """
-
-        return []
-
-    cdef Locations_List* get_sensible_moves(self):
-        """Only used for def get_legal_moves
-           return a list with sensible legal moves
-        """
-
-        # TODO validate usage of struct is actually faster
-
-        # create list with at least #moves_legal.count locations
-        # there can never be more sensible moves
-        cdef Locations_List* sensible_moves = locations_list_new(self.moves_legal.count)
-
-        # checking all games in the KGS database found a max of 17eyes in one state
-        # 25 seems a safe bet
-        cdef Locations_List* eyes = locations_list_new(80)
-        cdef int   i
-        cdef short location
-
-        for i in range(self.moves_legal.count):
-
-            location = self.moves_legal.locations[i]
-
-            if not self.is_true_eye(location, eyes, self.player_current):
-
-                # TODO  find out why locations_list_add_location is 2x slower
-                # locations_list_add_location(sensible_moves, location)
-
-                sensible_moves.locations[sensible_moves.count] = location
-                sensible_moves.count += 1
-
-        locations_list_destroy(eyes)
-
-        return sensible_moves
+        return self.moves_history[:self.num_handicap]
 
     def get_print_board_layout(self):
         """Print current board state
@@ -2272,16 +1045,15 @@ cdef class GameState:
 
         line = "\n"
         for i in range(self.size):
-            A = str(i) + " "
+            row = str(i) + " "
             for j in range(self.size):
-
-                B = 0
-                if self.board_groups[j + i * self.size].color == _BLACK:
-                    B = 'B'
-                elif self.board_groups[j + i * self.size].color == _WHITE:
-                    B = 'W'
-                A += str(B) + " "
-            line += A + "\n"
+                stone = '.'
+                if d(self.board[j + i * self.size]).color == stone_t.BLACK:
+                    stone = 'B'
+                elif d(self.board[j + i * self.size]).color == stone_t.WHITE:
+                    stone = 'W'
+                row += stone + " "
+            line += row + "\n"
         return line
 
     def __repr__(self):

@@ -58,7 +58,7 @@ class MockState(go.GameState):
         self.predetermined_winner = predetermined_winner
         self.length = length
 
-    def get_winner(self):
+    def get_winner_color(self):
         return self.predetermined_winner
 
     def is_end_of_game(self):

@@ -17,12 +17,12 @@ class GreedyPolicyPlayer(object):
 
     def get_move(self, state):
         # check move limit
-        if self.move_limit is not None and state.get_history_size() > self.move_limit:
+        if self.move_limit is not None and len(state.get_history()) > self.move_limit:
             return go.PASS
 
         # check if pass was offered and we want to pass
         if self.pass_when_offered:
-            if state.get_history_size() > 100 and state.get_history()[-1] == go.PASS:
+            if len(state.get_history()) > 100 and state.get_history()[-1] == go.PASS:
                 return go.PASS
 
         # list with sensible moves
@@ -67,12 +67,12 @@ class ProbabilisticPolicyPlayer(object):
 
     def get_move(self, state):
         # check move limit
-        if self.move_limit is not None and state.get_history_size() > self.move_limit:
+        if self.move_limit is not None and len(state.get_history()) > self.move_limit:
             return go.PASS
 
         # check if pass was offered and we want to pass
         if self.pass_when_offered:
-            if state.get_history_size() > 100 and state.get_history()[-1] == go.PASS:
+            if len(state.get_history()) > 100 and state.get_history()[-1] == go.PASS:
                 return go.PASS
 
         # list with 'sensible' moves
@@ -83,7 +83,7 @@ class ProbabilisticPolicyPlayer(object):
 
             move_probs = self.policy.eval_state(state, sensible_moves)
 
-            if self.greedy_start is not None and state.get_history_size() >= self.greedy_start:
+            if self.greedy_start is not None and len(state.get_history()) >= self.greedy_start:
                 # greedy
 
                 max_prob = max(move_probs, key=itemgetter(1))
@@ -112,11 +112,11 @@ class ProbabilisticPolicyPlayer(object):
         all_moves_distributions = self.policy.batch_eval_state(states, sensible_move_lists)
         move_list = [None] * len(states)
         for i, move_probs in enumerate(all_moves_distributions):
-            if len(move_probs) == 0 or states[i].get_history_size() > self.move_limit:
+            if len(move_probs) == 0 or len(states[i].get_history()) > self.move_limit:
                 move_list[i] = go.PASS
             else:
                 if self.greedy_start is not None and \
-                   states[i].get_history_size() >= self.greedy_start:
+                   len(states[i].get_history()) >= self.greedy_start:
                     # greedy
 
                     max_prob = max(move_probs, key=itemgetter(1))
@@ -163,12 +163,12 @@ class RolloutPlayer(object):
 
     def get_move(self, state):
         # check move limit
-        if self.move_limit is not None and state.get_history_size() > self.move_limit:
+        if self.move_limit is not None and len(state.get_history()) > self.move_limit:
             return go.PASS
 
         # check if pass was offered and we want to pass
         if self.pass_when_offered:
-            if state.get_history_size() > 100 and state.get_history()[-1] == go.PASS:
+            if len(state.get_history()) > 100 and state.get_history()[-1] == go.PASS:
                 return go.PASS
 
         # list with 'sensible' moves
@@ -180,7 +180,7 @@ class RolloutPlayer(object):
             move_probs = self.policy.eval_state(state, sensible_moves)
 
             if self.greedy_start is not None and \
-               state.get_history_size() >= self.greedy_start:
+               len(state.get_history()) >= self.greedy_start:
                 # greedy
 
                 max_prob = max(move_probs, key=itemgetter(1))
@@ -209,11 +209,11 @@ class RolloutPlayer(object):
         all_moves_distributions = self.policy.batch_eval_state(states, sensible_move_lists)
         move_list = [None] * len(states)
         for i, move_probs in enumerate(all_moves_distributions):
-            if len(move_probs) == 0 or states[i].get_history_size() > self.move_limit:
+            if len(move_probs) == 0 or len(states[i].get_history()) > self.move_limit:
                 move_list[i] = go.PASS
             else:
                 if self.greedy_start is not None and \
-                   states[i].get_history_size() >= self.greedy_start:
+                   len(states[i].get_history()) >= self.greedy_start:
                     # greedy
 
                     max_prob = max(move_probs, key=itemgetter(1))
@@ -263,12 +263,12 @@ class ValuePlayer(object):
 
     def get_move(self, state):
         # check move limit
-        if self.move_limit is not None and state.get_history_size() > self.move_limit:
+        if self.move_limit is not None and len(state.get_history()) > self.move_limit:
             return go.PASS
 
         # check if pass was offered and we want to pass
         if self.pass_when_offered:
-            if state.get_history_size() > 100 and state.get_history()[-1] == go.PASS:
+            if len(state.get_history()) > 100 and state.get_history()[-1] == go.PASS:
                 return go.PASS
 
         # list with 'sensible' moves
@@ -287,7 +287,7 @@ class ValuePlayer(object):
             # evaluate all possble states
             probabilities = [self.value.eval_state(next_state) for next_state in state_list]
 
-            if self.greedy_start is not None and state.get_history_size() >= self.greedy_start:
+            if self.greedy_start is not None and len(state.get_history()) >= self.greedy_start:
                 # greedy play
 
                 move_probs = zip(legal_moves, probabilities)

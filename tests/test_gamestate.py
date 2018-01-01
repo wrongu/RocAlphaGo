@@ -1,3 +1,4 @@
+import parseboard
 import unittest
 import AlphaGo.go as go
 from AlphaGo.go import GameState
@@ -115,7 +116,7 @@ class TestEye(unittest.TestCase):
         self.assertTrue(gs.is_eye((0, 0), go.BLACK))
 
 
-class TestCacheSets(unittest.TestCase):
+class TestGroups(unittest.TestCase):
 
     def test_liberties_after_capture(self):
         # creates 3x3 black group in the middle, that is then all captured
@@ -146,6 +147,36 @@ class TestCacheSets(unittest.TestCase):
         # board configuration and liberties of gs_capture and of gs_reference should be identical
         self.assertTrue(gs_reference.is_board_equal(gs_capture))
         self.assertTrue(gs_reference.is_liberty_equal(gs_capture))
+
+    def test_large_group_neighbors(self):
+
+        gs, _ = parseboard.parse(". . B B B . .|"
+                                 ". . B B B . .|"
+                                 ". . B B B . .|"
+                                 ". . W W W . .|"
+                                 ". . W W W . .|"
+                                 ". . W W W . .|"
+                                 ". . . . . . .|")
+        self.assertTrue(gs.sanity_check_groups())
+
+
+class TestCopy(unittest.TestCase):
+
+    def test_copy(self):
+        gs, _ = parseboard.parse(". B . . . . .|"
+                                 "B W W . . . .|"
+                                 ". B W . B . .|"
+                                 ". . . . . . B|"
+                                 ". . B . . . .|"
+                                 "W . . . W W .|")
+
+        copy = gs.copy()
+        self.assertTrue(gs.is_board_equal(copy))
+        self.assertTrue(gs.is_liberty_equal(copy))
+        self.assertListEqual(gs.get_legal_moves(), copy.get_legal_moves())
+        self.assertListEqual(gs.get_history(), copy.get_history())
+        self.assertEqual(gs.get_captures_white(), copy.get_captures_white())
+        self.assertEqual(gs.get_captures_black(), copy.get_captures_black())
 
 
 if __name__ == '__main__':

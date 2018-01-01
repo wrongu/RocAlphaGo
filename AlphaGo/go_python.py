@@ -333,7 +333,7 @@ class GameState(object):
 
         If prey is None, check all adjacent groups, otherwise only the prey
         group is checked.  In the (prey is None) case, if this move is a ladder
-        capture for any adjance group, it's considered a ladder capture.
+        capture for any adjacent group, it's considered a ladder capture.
 
         Recursion depth between is_ladder_capture() and is_ladder_escape() is
         controlled by the remaining_attempts argument.  If it reaches 0, the

@@ -41,21 +41,12 @@ def confirm(prompt=None, resp=False):
 
 
 def flatten_idx(position, size):
-    """
-
-    """
-
     (x, y) = position
     return x * size + y
 
 
 def unflatten_idx(idx, size):
-    """
-
-    """
-
-    x, y = divmod(idx, size)
-    return (x, y)
+    return divmod(idx, size)
 
 
 def _parse_sgf_move(node_value):
