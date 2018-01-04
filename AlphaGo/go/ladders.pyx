@@ -6,14 +6,14 @@ from AlphaGo.util import unflatten_idx
 from cython.operator cimport dereference as d
 
 
-cdef bool is_ladder_escape_move(GameState copy_state, group_ptr_t prey, location_t move, int depth=50):  # noqa:E501
+cdef bool is_ladder_escape_move(GameState state, group_ptr_t prey, location_t move, int depth=50):  # noqa:E501
     """(Inefficiently) check whether the given move escapes ladder capture of the given group.
        Returns True when escape is plausible, or recursion depth limit is reached (assuming that the
        opponent does not recognize ladders with greater depth as a 'capture' either)
 
        Preconditions:
-       - GameState 'copy_state' is safe to be altered
-       - prey group is in atari and owned by copy_state.current_player
+       - GameState 'state' is safe to be temporarily altered (not thread-safe!)
+       - prey group is in atari and owned by state.current_player
        - given move is legal
        - depth >= 0
 
@@ -28,34 +28,34 @@ cdef bool is_ladder_escape_move(GameState copy_state, group_ptr_t prey, location
         return True
 
     # Try move and check results.
-    copy_state.do_move(unflatten_idx(move, copy_state.size))
-    prey = copy_state.board[prey_loc]
+    with state.try_stone(move):
+        prey = state.board[prey_loc]
 
-    # Case 1: prey has >= 3 liberties after move, in which case it escaped.
-    if d(prey).count_liberty >= 3:
-        return True
+        # Case 1: prey has >= 3 liberties after move, in which case it escaped.
+        if d(prey).count_liberty >= 3:
+            return True
 
-    # Case 2: prey is left in atari, in which case it did not escape.
-    elif d(prey).count_liberty == 1:
-        return False
+        # Case 2: prey is left in atari, in which case it did not escape.
+        elif d(prey).count_liberty == 1:
+            return False
 
-    # Case 3: prey has 2 liberties left, in which case it may still be captured in a ladder.
-    # Requires recursive search.
-    else:
-        # Opponent may attempt to capture at either of the prey's two liberties.
-        for plausible_capture in get_plausible_capture_moves(copy_state, prey):
-            if is_ladder_capture_move(copy_state.copy(), prey, plausible_capture, depth - 1):
-                return False
+        # Case 3: prey has 2 liberties left, in which case it may still be captured in a ladder.
+        # Requires recursive search.
+        else:
+            # Opponent may attempt to capture at either of the prey's two liberties.
+            for plausible_capture in get_plausible_capture_moves(state, prey):
+                if is_ladder_capture_move(state.copy(), prey, plausible_capture, depth - 1):
+                    return False
 
-        # If reached here, none of prey's liberties are ladder captures, in which case it escaped.
-        return True
+            # If reached here, none of prey's liberties are ladder captures, in which case it escaped.
+            return True
 
-cdef bool is_ladder_capture_move(GameState copy_state, group_ptr_t prey, location_t move, int depth=50):  # noqa:E501
+cdef bool is_ladder_capture_move(GameState state, group_ptr_t prey, location_t move, int depth=50):  # noqa:E501
     """(Inefficiently) check whether the given move captures the prey, or forces capture of the
        prey by a ladder within 'depth' moves.
 
        Preconditions:
-       - GameState 'copy_state' is safe to be altered
+       - GameState 'state' is safe to be temporarily altered (not thread-safe!)
        - prey group has <= 2 liberties and is owned by the opponent
        - given move is legal
        - depth >= 0
@@ -71,23 +71,23 @@ cdef bool is_ladder_capture_move(GameState copy_state, group_ptr_t prey, locatio
         return False
 
     # Try the move and check results
-    copy_state.do_move(unflatten_idx(move, copy_state.size))
-    prey = copy_state.board[prey_loc]
+    with state.try_stone(move):
+        prey = state.board[prey_loc]
 
-    # Case 1: prey has >= 2 liberties after move, in which case it escaped.
-    if d(prey).count_liberty >= 2:
-        return False
+        # Case 1: prey has >= 2 liberties after move, in which case it escaped.
+        if d(prey).count_liberty >= 2:
+            return False
 
-    # Case 2: prey has 1 liberty after move, in which case it may still attempt to escape. Requires
-    # recursive search.
-    elif d(prey).count_liberty == 1:
-        # Try each potential escape move
-        for plausible_escape in get_plausible_escape_moves(copy_state, prey):
-            if is_ladder_escape_move(copy_state.copy(), prey, plausible_escape, depth - 1):
-                return False
+        # Case 2: prey has 1 liberty after move, in which case it may still attempt to escape. Requires
+        # recursive search.
+        elif d(prey).count_liberty == 1:
+            # Try each potential escape move
+            for plausible_escape in get_plausible_escape_moves(state, prey):
+                if is_ladder_escape_move(state.copy(), prey, plausible_escape, depth - 1):
+                    return False
 
-    # If reached here, either prey was captured or no escape move was found
-    return True
+        # If reached here, either prey was captured or no escape move was found
+        return True
 
 cdef set get_plausible_escape_moves(GameState state, group_ptr_t prey):
     """Get set of moves that should be checked as plausible escape moves for the given prey.
