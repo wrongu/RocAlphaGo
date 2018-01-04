@@ -340,6 +340,30 @@ class TestTemporaryMove(unittest.TestCase):
         self.assertTrue(copy.sanity_check_groups())
         self.equality_checks(gs, copy)
 
+    def test_hash_update_matches_actual_hash(self):
+        gs = GameState(size=7)
+        gs, moves = parseboard.parse("a x b . . . .|"
+                                     "z c d . . . .|"
+                                     ". . . . . . .|"
+                                     ". . . y . . .|"
+                                     ". . . . . . .|"
+                                     ". . . . . . .|"
+                                     ". . . . . . .|")
+
+        # a,b,c,d are black, x,y,z,x are white
+        move_order = ['a', 'x', 'b', 'y', 'c', 'z', 'd', 'x']
+        for m in move_order:
+            move_1d = flatten_idx(moves[m], gs.get_size())
+
+            # 'Try' move and get hash
+            with gs.try_stone(move_1d):
+                hash1 = gs.get_hash()
+
+            # Actually do move and get hash
+            gs.do_move(moves[m])
+            hash2 = gs.get_hash()
+
+            self.assertEqual(hash1, hash2)
 
 if __name__ == '__main__':
     unittest.main()
