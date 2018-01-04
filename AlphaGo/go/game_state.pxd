@@ -2,7 +2,7 @@ from AlphaGo.go.constants cimport stone_t, group_t, action_t
 from AlphaGo.go.coordinates cimport calculate_board_location, calculate_tuple_location, \
     get_pattern_hash, get_neighbors, get_3x3_neighbors, get_12d_neighbors
 from AlphaGo.go.group_logic cimport Group, group_new, group_duplicate, group_add_stone, \
-    group_merge, group_get_stone, group_add_liberty, group_remove_liberty
+    group_merge, group_get_stone, group_remove_stone, group_add_liberty, group_remove_liberty
 from AlphaGo.go.zobrist cimport get_zobrist_lookup, update_hash_by_location, update_hash_by_group
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -202,6 +202,19 @@ cdef class GameState:
        or -1 if there is none.
     """
 
+    cpdef TemporaryMove try_stone(self, location_t location, bool prepare_next=*)
+    """Analogous to add_stone() for use in a with-statement. Automatically undoes the given move
+       when the with-statement exits.
+
+       For example:
+
+           state.add_stone(loc1)
+           with state.try_stone(loc2):
+               print state.get_history()[-1]  # prints loc2
+           # Here, state is returned to its value to before the with statement.
+           print state.get_history()[-1]  # prints loc1
+    """
+
     cpdef list get_legal_moves(self, bool include_eyes=*)
     """Return a list with all legal moves (in/excluding eyes)
     """
@@ -248,3 +261,35 @@ cdef class GameState:
 
        Returns group_keep
     """
+
+
+cdef class TemporaryMove:
+    """Helper-class for GameState.try_stone()
+
+       This class implements python's 'with' interface such that when the 'with' block is exited,
+       the move is undone.
+
+       See https://www.python.org/dev/peps/pep-0343/ for more information about how 'with' interacts
+       with __enter__ and __exit__
+    """
+
+    # Reference to the GameState being modified
+    cdef GameState state
+
+    # Current player / owner of the new stone
+    cdef stone_t player_color
+
+    # Where the stone is played
+    cdef location_t move
+
+    # If there was a ko location previously
+    cdef location_t previous_ko
+
+    # Reference to each of the up-to-4 opponent/friendly groups of the new stone before stone is
+    # played so they can be restored regardless of merges/captures.
+    cdef group_set_t neighbors_opponent, neighbors_friendly
+
+    # Boolean flag indicating whether to prepare for another call to state.try_stone(). That is, if
+    # this flag is True, it update history and switches to the next player. If it is False, it
+    # simply adds the stone and makes no further updates.
+    cdef bool prepare_next

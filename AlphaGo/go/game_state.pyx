@@ -545,8 +545,12 @@ cdef class GameState:
                 group_add_liberty(new_group, neighbor_loc)
 
             # Merge neighboring friendly groups (and remove 'location' as one of their liberties)
-            elif neighbor == self.current_player and new_group != neighbor_group:
+            elif neighbor == self.current_player and neighbor_group != new_group:
                 group_remove_liberty(neighbor_group, location)
+                # Note: order matters here; calling combine_groups(neighbor_group, new_group) would
+                # interfere with TemporaryMove, which does nothing to 'un-combine' the new stone
+                # from 'neighbor_group'. As written here, stones are copied from 'neighbor_group'
+                # into 'new_group', but 'neighbor_group' itself is left unchanged.
                 new_group = self.combine_groups(new_group, neighbor_group)
 
             # Handle stone placed next to opponent group: remove stone from opponent liberties and
@@ -581,6 +585,21 @@ cdef class GameState:
         self.previous_hashes.add(self.zobrist_current)
 
         return new_ko
+
+    cpdef TemporaryMove try_stone(self, location_t location, bool prepare_next=True):
+        """Analogous to add_stone() for use in a with-statement. Automatically undoes the given move
+           when the with-statement exits.
+
+           For example:
+
+               state.add_stone(loc1)
+               with state.try_stone(loc2):
+                   print state.get_history()[-1]  # prints loc2
+               # Here, state is returned to its value to before the with statement.
+               print state.get_history()[-1]  # prints loc1
+        """
+
+        return TemporaryMove(self, location, prepare_next)
 
     cpdef list get_legal_moves(self, bool include_eyes=True):
         """Return a list with all legal moves as tuples (in/excluding eyes)
@@ -1067,6 +1086,156 @@ cdef class GameState:
         """
 
         return self.get_print_board_layout()
+
+
+cdef class TemporaryMove:
+    """Helper-class for GameState.try_stone(). Must be called with a legal move.
+
+       This class implements python's 'with' interface such that when the 'with' block is exited,
+       the move is undone.
+
+       See https://www.python.org/dev/peps/pep-0343/ for more information about how 'with' interacts
+       with __enter__ and __exit__
+    """
+
+    def __init__(self, GameState state, location_t move, bool prepare_next):
+        self.state = state
+        self.move = move
+        self.neighbors_friendly = group_set_t()
+        self.neighbors_opponent = group_set_t()
+        self.prepare_next = prepare_next
+
+    def __enter__(self):
+        """Called when entering 'with' statement. Execute the given move and record necessary 
+           information about the state so that 'move' may be undone later.
+        """
+
+        cdef location_t neighbor_loc
+        cdef group_ptr_t neighbor_group
+        cdef int i
+
+        # Record player color and ko.
+        self.player_color = self.state.current_player
+        self.previous_ko = self.state.ko
+
+        # Get a reference to each of the up-to-4 neighbors of the stone about to be placed so they
+        # can be restored in __exit__.
+        for i in range(4):
+            neighbor_loc = d(self.state.ptr_neighbor)[self.move * 4 + i]
+            neighbor_group = self.state.board[neighbor_loc]
+            if d(neighbor_group).color == self.player_color:
+                self.neighbors_friendly.insert(neighbor_group)
+            elif d(neighbor_group).color > stone_t.EMPTY:
+                self.neighbors_opponent.insert(neighbor_group)
+
+        if self.prepare_next:
+            # Call the same state-updating methods as do_move.
+            self.state.ko = self.state.add_stone(self.move)
+            self.state.moves_history.push_back(self.move)
+            self.state.swap_players()
+            self.state.update_legal_moves()
+        else:
+            # Only add the stone and don't perform further updates.
+            self.state.add_stone(self.move)
+
+        return self.state
+
+    def __exit__(self, type, value, traceback):
+        """Called at end of 'with' statement. Undo move done in __enter__.
+        """
+
+        cdef group_ptr_t old_group, neighbor_group
+        cdef location_t loc, neighbor_loc
+        cdef group_t val
+        cdef int i, c
+
+        # Take away current hash from set of hashes.
+        self.state.previous_hashes.discard(self.state.zobrist_current)
+
+        # Update hash: remove placed stone.
+        self.state.zobrist_current = update_hash_by_location(self.state.zobrist_current,
+                                                             d(self.state.ptr_zobrist_lookup),
+                                                             self.move, self.player_color)
+
+        # Remove group that the new stone belongs to and set its board location to empty.
+        self.state.groups_set.erase(self.state.board[self.move])
+        self.state.board[self.move] = self.state.group_empty
+
+        # Remove 'new' neighbor groups to prepare to restore 'old' neighbor groups. Update to
+        # state.board[loc] for neighbors happens below.
+        for i in range(4):
+            neighbor_loc = d(self.state.ptr_neighbor)[self.move * 4 + i]
+            neighbor_group = self.state.board[neighbor_loc]
+            if d(neighbor_group).color > stone_t.EMPTY:
+                self.state.groups_set.erase(neighbor_group)
+
+        # Restore previous FRIENDLY neighbors. It is important that this happens before restoring
+        # opponent so that if a captured opponent group is restored, it updates liberties of the
+        # correct friendly group.
+        for old_group in self.neighbors_friendly:
+            # Ensure group is in 'groups_set'.
+            self.state.groups_set.insert(old_group)
+
+            # Point board[loc] to this group for each stone in the group.
+            for loc, val in d(old_group).locations:
+                if val == group_t.STONE:
+                    self.state.board[loc] = old_group
+
+            # Restore liberty of old group.
+            group_add_liberty(old_group, self.move)
+
+        # Restore previous OPPONENT neighbors.
+        for old_group in self.neighbors_opponent:
+            # Ensure group is in 'groups_set'.
+            self.state.groups_set.insert(old_group)
+
+            # Point board[loc] to this group for each stone in the group.
+            for loc, val in d(old_group).locations:
+                if val == group_t.STONE:
+                    self.state.board[loc] = old_group
+
+            # Restore liberty of old group.
+            group_add_liberty(old_group, self.move)
+
+            # Capture had occurred if old_group has 1 liberty after having 'restored' the liberty
+            # (in other words, if it had 0 liberties a moment ago).
+            if d(old_group).count_liberty == 1:
+                # Restore hash for each captured stone.
+                self.state.zobrist_current = \
+                    update_hash_by_group(self.state.zobrist_current,
+                                         d(self.state.ptr_zobrist_lookup), old_group)
+
+                # Undo 'remove_group' by replacing stones and removing liberties of other
+                # surrounding groups.
+                for loc, val in d(old_group).locations:
+                    if val == group_t.STONE:
+                        # 'loc' is being re-added to the board; must update neighbor liberties.
+                        for i in range(4):
+                            neighbor_loc = d(self.state.ptr_neighbor)[loc * 4 + i]
+                            neighbor_group = self.state.board[neighbor_loc]
+
+                            # Remove liberty of neighbor group if it has stones.
+                            if d(neighbor_group).color > stone_t.EMPTY:
+                                group_remove_liberty(neighbor_group, loc)
+
+                # Decrement captured stones.
+                if self.player_color == stone_t.BLACK:
+                    self.state.capture_white -= d(old_group).count_stones
+                else:
+                    self.state.capture_black -= d(old_group).count_stones
+
+        if self.prepare_next:
+            # Remove stone from history.
+            self.state.moves_history.pop_back()
+
+            # Restore ko.
+            self.state.ko = self.previous_ko
+
+            # Switch back to other player.
+            self.state.swap_players()
+
+            # Restore set of legal moves
+            self.state.update_legal_moves()
 
 
 class IllegalMove(Exception):
