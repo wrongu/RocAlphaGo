@@ -365,5 +365,6 @@ class TestTemporaryMove(unittest.TestCase):
 
             self.assertEqual(hash1, hash2)
 
+
 if __name__ == '__main__':
     unittest.main()

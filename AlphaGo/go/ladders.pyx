@@ -47,7 +47,8 @@ cdef bool is_ladder_escape_move(GameState state, group_ptr_t prey, location_t mo
                 if is_ladder_capture_move(state.copy(), prey, plausible_capture, depth - 1):
                     return False
 
-            # If reached here, none of prey's liberties are ladder captures, in which case it escaped.
+            # If reached here, none of prey's liberties are ladder captures, in which case it
+            # escaped.
             return True
 
 cdef bool is_ladder_capture_move(GameState state, group_ptr_t prey, location_t move, int depth=50):  # noqa:E501
@@ -78,8 +79,8 @@ cdef bool is_ladder_capture_move(GameState state, group_ptr_t prey, location_t m
         if d(prey).count_liberty >= 2:
             return False
 
-        # Case 2: prey has 1 liberty after move, in which case it may still attempt to escape. Requires
-        # recursive search.
+        # Case 2: prey has 1 liberty after move, in which case it may still attempt to escape.
+        # Requires recursive search.
         elif d(prey).count_liberty == 1:
             # Try each potential escape move
             for plausible_escape in get_plausible_escape_moves(state, prey):
