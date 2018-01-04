@@ -773,7 +773,6 @@ cdef class GameState:
         """Remove group from everywhere in the state.
         """
 
-
         cdef location_t loc, neighbor_loc
         cdef group_ptr_t group
         cdef group_t val, neighbor_value
@@ -952,8 +951,8 @@ cdef class GameState:
                 print("liberty count does not match actuall number of empty adjacent locations!")
                 return False
 
-            # All checks passed
-            return True
+        # All checks passed
+        return True
 
     def get_current_player(self):
         """Returns the color of the player who will make the next move.
@@ -1106,7 +1105,7 @@ cdef class TemporaryMove:
         self.prepare_next = prepare_next
 
     def __enter__(self):
-        """Called when entering 'with' statement. Execute the given move and record necessary 
+        """Called when entering 'with' statement. Execute the given move and record necessary
            information about the state so that 'move' may be undone later.
         """
 

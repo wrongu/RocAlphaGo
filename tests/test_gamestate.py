@@ -163,6 +163,16 @@ class TestGroups(unittest.TestCase):
 
 class TestCopy(unittest.TestCase):
 
+    def equality_checks(self, original, copy):
+        self.assertListEqual(copy.get_legal_moves(), original.get_legal_moves())
+        self.assertListEqual(copy.get_history(), original.get_history())
+        self.assertTrue(copy.is_board_equal(original))
+        self.assertTrue(copy.is_liberty_equal(original))
+        self.assertEqual(copy.get_hash(), original.get_hash())
+        self.assertListEqual(copy.get_history(), original.get_history())
+        self.assertEqual(copy.get_captures_white(), original.get_captures_white())
+        self.assertEqual(copy.get_captures_black(), original.get_captures_black())
+
     def test_copy(self):
         gs, _ = parseboard.parse(". B . . . . .|"
                                  "B W W . . . .|"
@@ -172,39 +182,60 @@ class TestCopy(unittest.TestCase):
                                  "W . . . W W .|")
 
         copy = gs.copy()
-        self.assertTrue(gs.is_board_equal(copy))
-        self.assertTrue(gs.is_liberty_equal(copy))
-        self.assertListEqual(gs.get_legal_moves(), copy.get_legal_moves())
-        self.assertListEqual(gs.get_history(), copy.get_history())
-        self.assertEqual(gs.get_captures_white(), copy.get_captures_white())
-        self.assertEqual(gs.get_captures_black(), copy.get_captures_black())
+
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
 
 class TestTemporaryMove(unittest.TestCase):
+
+    def listNotEqual(self, listA, listB):
+        if len(listA) != len(listB):
+            return True
+        else:
+            for (a, b) in zip(listA, listB):
+                if a != b:
+                    return True
+            return False
+
+    def equality_checks(self, original, copy):
+        self.assertEqual(copy.get_current_player(), original.get_current_player())
+        self.assertListEqual(copy.get_legal_moves(), original.get_legal_moves())
+        self.assertListEqual(copy.get_history(), original.get_history())
+        self.assertTrue(copy.is_board_equal(original))
+        self.assertTrue(copy.is_liberty_equal(original))
+        self.assertEqual(copy.get_hash(), original.get_hash())
+        self.assertEqual(copy.get_captures_white(), original.get_captures_white())
+        self.assertEqual(copy.get_captures_black(), original.get_captures_black())
+
+    def inequality_checks(self, original, copy):
+        self.assertTrue(self.listNotEqual(copy.get_legal_moves(), original.get_legal_moves()))
+        self.assertTrue(self.listNotEqual(copy.get_history(), original.get_history()))
+        self.assertFalse(copy.is_board_equal(original))
+        self.assertFalse(copy.is_liberty_equal(original))
+        self.assertNotEqual(copy.get_hash(), original.get_hash())
 
     def test_simple_undo(self):
         gs = GameState(size=7)
         copy = gs.copy()
 
         # Baseline equality checks between gs and copy
-        self.assertListEqual(copy.get_history(), [])
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.equality_checks(gs, copy)
 
         with copy.try_stone(0):
-            self.assertListEqual(copy.get_history(), [(0, 0)])
-            self.assertFalse(copy.is_board_equal(gs))
-            self.assertFalse(copy.is_liberty_equal(gs))
-            self.assertNotEqual(copy.get_hash(), gs.get_hash())
+            self.assertTrue(gs.sanity_check_groups())
+            self.assertTrue(copy.sanity_check_groups())
+            self.inequality_checks(gs, copy)
+
+            # (0, 0) is occupied and should currently be illegal
+            self.assertFalse(copy.is_legal((0, 0)))
 
         # Move should now be undone - retry equality checks from above
-        self.assertListEqual(copy.get_history(), [])
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(gs.sanity_check_groups())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
-        # With 'a' undone, it should be legal again
+        # With move undone, it should be legal again
         self.assertTrue(copy.is_legal((0, 0)))
 
     def test_ko_undo(self):
@@ -224,9 +255,15 @@ class TestTemporaryMove(unittest.TestCase):
 
         copy = gs.copy()
 
+        self.equality_checks(gs, copy)
+
         with copy.try_stone(flatten_idx(moves['a'], gs.get_size())):
+            self.inequality_checks(gs, copy)
+
             # Doing move at 'a' clears ko
             self.assertIsNone(copy.get_ko_location())
+
+        self.equality_checks(gs, copy)
 
         # Undoing move at 'a' resets ko
         self.assertEqual(copy.get_ko_location(), ko)
@@ -244,21 +281,16 @@ class TestTemporaryMove(unittest.TestCase):
         copy = gs.copy()
 
         # Initial equality checks
-        self.assertListEqual(copy.get_history(), gs.get_history())
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
         with copy.try_stone(flatten_idx(moves['a'], gs.get_size())):
-            self.assertFalse(copy.is_board_equal(gs))
-            self.assertFalse(copy.is_liberty_equal(gs))
-            self.assertNotEqual(copy.get_hash(), gs.get_hash())
+            self.assertTrue(copy.sanity_check_groups())
+            self.inequality_checks(gs, copy)
 
         # Move should now be undone - retry equality checks from above
-        self.assertListEqual(copy.get_history(), gs.get_history())
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
     def test_simple_capture_undo(self):
         gs, moves = parseboard.parse(". . . . . . .|"
@@ -273,21 +305,16 @@ class TestTemporaryMove(unittest.TestCase):
         copy = gs.copy()
 
         # Initial equality checks
-        self.assertListEqual(copy.get_history(), gs.get_history())
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
         with copy.try_stone(flatten_idx(moves['c'], gs.get_size())):
-            self.assertFalse(copy.is_board_equal(gs))
-            self.assertFalse(copy.is_liberty_equal(gs))
-            self.assertNotEqual(copy.get_hash(), gs.get_hash())
+            self.assertTrue(copy.sanity_check_groups())
+            self.inequality_checks(gs, copy)
 
         # Move should now be undone - retry equality checks from above
-        self.assertListEqual(copy.get_history(), gs.get_history())
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
     def test_merge_and_capture_undo(self):
         gs, moves = parseboard.parse(". . B B B . .|"
@@ -302,21 +329,16 @@ class TestTemporaryMove(unittest.TestCase):
         copy = gs.copy()
 
         # Initial equality checks
-        self.assertListEqual(copy.get_history(), gs.get_history())
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
         with copy.try_stone(flatten_idx(moves['c'], gs.get_size())):
-            self.assertFalse(copy.is_board_equal(gs))
-            self.assertFalse(copy.is_liberty_equal(gs))
-            self.assertNotEqual(copy.get_hash(), gs.get_hash())
+            self.assertTrue(copy.sanity_check_groups())
+            self.inequality_checks(gs, copy)
 
         # Move should now be undone - retry equality checks from above
-        self.assertListEqual(copy.get_history(), gs.get_history())
-        self.assertTrue(copy.is_board_equal(gs))
-        self.assertTrue(copy.is_liberty_equal(gs))
-        self.assertEqual(copy.get_hash(), gs.get_hash())
+        self.assertTrue(copy.sanity_check_groups())
+        self.equality_checks(gs, copy)
 
 
 if __name__ == '__main__':
