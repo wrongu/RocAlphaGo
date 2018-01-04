@@ -1,4 +1,5 @@
-Cython==0.25.2
+Cython==0.27.3
+future==0.16.0
 h5py==2.7.0
 Keras==2.0.4
 numpy==1.13.1
