@@ -529,57 +529,18 @@ cdef np.ndarray[lookahead_t, ndim=1] get_groups_after_at(GameState state, locati
        number of opponent stones captured in index 2 (see get_groups_after())
     """
 
-    cdef stone_t neighbor
-    cdef group_ptr_t neighbor_group, capture_group, tmp_group
     cdef np.ndarray[lookahead_t, ndim=1] result = np.zeros((3,), dtype=np.uint16)
-    cdef location_t cap_loc
-    cdef group_t cap_val
-    cdef int i
 
-    # Initially, the new group only has a stone at 'loc'
-    tmp_group = group_new(state.current_player)
-    group_add_stone(tmp_group, loc)
+    cdef short capture_before = \
+        state.capture_black if state.current_player == stone_t.WHITE else state.capture_white
+    cdef short capture_after
 
-    # Initially, 'capture_group' is empty
-    capture_group = group_new(state.opponent_player)
+    with state.try_stone(loc, False):
+        result[0] = d(state.board[loc]).count_stones
+        result[1] = d(state.board[loc]).count_liberty
 
-    # Loop over all four neighbors of this location, building a resulting 'merged' friendly
-    # group and checking if opponents are captured.
-    for i in range(4):
-        # Get neighbor location and value
-        neighbor_loc = d(state.ptr_neighbor)[loc * 4 + i]
-        neighbor_group = state.board[neighbor_loc]
-        neighbor = d(neighbor_group).color
-
-        # Add liberties to 'tmp_group'
-        if neighbor == stone_t.EMPTY:
-            group_add_liberty(tmp_group, neighbor_loc)
-
-        # Merge friendly group
-        elif neighbor == state.current_player:
-            group_merge(tmp_group, neighbor_group)
-
-        # Check if opponent group is captured
-        elif neighbor == state.opponent_player:
-            if d(neighbor_group).count_liberty == 1:
-                group_merge(capture_group, neighbor_group)
-
-    # Fix liberties of merged group: new stone cannot be one of them
-    group_remove_liberty(tmp_group, loc)
-
-    # Resolve captures, part 1: count total stones in capture_group
-    result[2] = d(capture_group).count_stones
-
-    # Resolve captures, part 2: captured stones become liberties if they are adjacent to tmp_group
-    for cap_loc, cap_val in d(capture_group).locations:
-        if cap_val == group_t.STONE:
-            for i in range(4):
-                neighbor_loc = d(state.ptr_neighbor)[cap_loc * 4 + i]
-                if group_lookup(tmp_group, neighbor_loc) == group_t.STONE:
-                    group_add_liberty(tmp_group, cap_loc)
-
-    # Compute final results: size of tmp_group and its liberties
-    result[0] = d(tmp_group).count_stones
-    result[1] = d(tmp_group).count_liberty
+        capture_after = \
+            state.capture_black if state.current_player == stone_t.WHITE else state.capture_white
+        result[2] = capture_after - capture_before
 
     return result
