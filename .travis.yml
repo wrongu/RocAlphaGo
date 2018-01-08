@@ -9,6 +9,14 @@ matrix:
         - python: 2.7
           env: KERAS_BACKEND=tensorflow
 
+# Get gcc 4.8 for compiling C++ (thanks to https://github.com/travis-ci/travis-ci/issues/5627)
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-4.8
+
 # Install packages
 install:
   - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
@@ -36,7 +44,7 @@ install:
   - pip install --user flake8
 
   # compile cython code
-  - python setup.py build_ext --inplace
+  - CC=gcc-4.8 CXX=g++-4.8 python setup.py build_ext --inplace
 
   # install TensorFlow if needed
   # tensorflow does not have a python3.3 wheel
