@@ -39,7 +39,7 @@ install:
   - sudo ln -s /run/shm /dev/shm
 
   # install requirements
-  - conda install --yes Cython=0.27.3 h5py=2.7.0 numpy=1.13.3 scipy=1.0.0 PyYAML=3.12 matplotlib pandas pytest
+  - conda install --yes Cython=0.27.3 h5py=2.7.0 numpy=1.13.3 scipy=1.0.0 PyYAML=3.12 matplotlib pandas pytest future
   - pip install --user --no-deps Theano==1.0.1 sgf==0.5 keras==2.0.4 pygtp==0.3
   - pip install --user flake8
 
