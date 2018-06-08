@@ -17,5 +17,4 @@ scipy==0.19.0
 sgf==0.5
 six==1.10.0
 tensorflow==1.2.1
-Theano==1.0.1
 Werkzeug==0.14.1
