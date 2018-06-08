@@ -2,10 +2,10 @@ Cython==0.27.3
 future==0.16.0
 h5py==2.7.0
 Keras==2.0.4
-numpy==1.13.3
+numpy==1.14.4
 pygtp==0.3
 PyYAML==3.12
-scipy==1.0.0
+scipy==1.1.0
 sgf==0.5
 six==1.11.0
-Theano==1.0.1
+Theano==1.0.2
