@@ -62,7 +62,7 @@ install:
 
   # Install Theano with dependencies
   - if [[ "$KERAS_BACKEND" == "theano" ]]; then
-      pip install --user Theano==1.0.1
+      pip install --user Theano==1.0.1;
     fi
 # run flake8 and unit tests
 script:
