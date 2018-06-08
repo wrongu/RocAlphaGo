@@ -1,12 +1,12 @@
 #!/usr/bin/env python
+import os
+import sgf
+import warnings
+import h5py as h5
 import numpy as np
+import AlphaGo.go as go
 from AlphaGo.preprocessing.preprocessing import Preprocess
 from AlphaGo.util import sgf_iter_states
-import AlphaGo.go as go
-import os
-import warnings
-import sgf
-import h5py as h5
 
 
 class SizeMismatchError(Exception):
@@ -17,7 +17,7 @@ class GameConverter:
 
     def __init__(self, features):
         self.feature_processor = Preprocess(features)
-        self.n_features = self.feature_processor.output_dim
+        self.n_features = self.feature_processor.get_output_dimension()
 
     def convert_game(self, file_name, bd_size):
         """Read the given SGF file into an iterable of (input,output) pairs
@@ -33,9 +33,9 @@ class GameConverter:
             state_action_iterator = sgf_iter_states(file_object.read(), include_end=False)
 
         for (state, move, player) in state_action_iterator:
-            if state.size != bd_size:
+            if state.get_size() != bd_size:
                 raise SizeMismatchError()
-            if move != go.PASS_MOVE:
+            if move != go.PASS:
                 nn_input = self.feature_processor.state_to_tensor(state)
                 yield (nn_input, move)
 
@@ -93,7 +93,7 @@ class GameConverter:
 
             # Store comma-separated list of feature planes in the scalar field 'features'. The
             # string can be retrieved using h5py's scalar indexing: h5f['features'][()]
-            h5f['features'] = np.string_(','.join(self.feature_processor.feature_list))
+            h5f['features'] = np.string_(','.join(self.feature_processor.get_feature_list()))
 
             if verbose:
                 print("created HDF5 dataset in {}".format(tmp_file))

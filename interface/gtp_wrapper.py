@@ -1,7 +1,8 @@
 import sys
-import multiprocessing
 import gtp
 from AlphaGo import go
+import multiprocessing
+from AlphaGo.go import GameState
 from AlphaGo.util import save_gamestate_to_sgf
 from builtins import input
 
@@ -86,17 +87,22 @@ class GTPGameConnector(object):
     """
 
     def __init__(self, player):
-        self._state = go.GameState(enforce_superko=True)
+        self._state = GameState(enforce_superko=True)
         self._player = player
+        self._komi = 0
 
     def clear(self):
-        self._state = go.GameState(self._state.size, enforce_superko=True)
+        self._state = GameState()
 
     def make_move(self, color, vertex):
         # vertex in GTP language is 1-indexed, whereas GameState's are zero-indexed
+        if color == gtp.BLACK:
+            color = go.BLACK
+        else:
+            color = go.WHITE
         try:
             if vertex == gtp.PASS:
-                self._state.do_move(go.PASS_MOVE)
+                self._state.do_move(go.PASS)
             else:
                 (x, y) = vertex
                 self._state.do_move((x - 1, y - 1), color)
@@ -105,15 +111,19 @@ class GTPGameConnector(object):
             return False
 
     def set_size(self, n):
-        self._state = go.GameState(n, enforce_superko=True)
+        self._state = GameState(size=n, enforce_superko=True)
 
     def set_komi(self, k):
-        self._state.komi = k
+        self._komi = k
 
     def get_move(self, color):
-        self._state.current_player = color
+        if color == gtp.BLACK:
+            color = go.BLACK
+        else:
+            color = go.WHITE
+        self._state.set_current_player(color)
         move = self._player.get_move(self._state)
-        if move == go.PASS_MOVE:
+        if move == go.PASS:
             return gtp.PASS
         else:
             (x, y) = move

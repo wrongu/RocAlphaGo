@@ -15,7 +15,7 @@ class GameState(object):
     __NEIGHBORS_CACHE = {}
 
     def __init__(self, size=19, komi=7.5, enforce_superko=False):
-        self.board = np.zeros((size, size))
+        self.board = np.zeros((size, size), dtype=int)
         self.board.fill(EMPTY)
         self.size = size
         self.current_player = BLACK
@@ -41,7 +41,7 @@ class GameState(object):
                 self.liberty_sets[x][y] = set(self._neighbors((x, y)))
         # separately cache the 2D numpy array of the _size_ of liberty sets
         # at each board position
-        self.liberty_counts = np.zeros((size, size), dtype=np.int)
+        self.liberty_counts = np.zeros((size, size), dtype=int)
         self.liberty_counts.fill(-1)
         # initialize liberty_sets of empty board: the set of neighbors of each position
         # similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
@@ -333,7 +333,7 @@ class GameState(object):
 
         If prey is None, check all adjacent groups, otherwise only the prey
         group is checked.  In the (prey is None) case, if this move is a ladder
-        capture for any adjance group, it's considered a ladder capture.
+        capture for any adjacent group, it's considered a ladder capture.
 
         Recursion depth between is_ladder_capture() and is_ladder_escape() is
         controlled by the remaining_attempts argument.  If it reaches 0, the
@@ -579,6 +579,189 @@ class GameState(object):
                     and self.current_player == WHITE:
                 self.is_end_of_game = True
         return self.is_end_of_game
+
+    def get_pattern_non_response_3x3(self, position):
+
+        (x, y) = position
+        if x < 1 or y < 1 or x >= self.size - 1 or y >= self.size - 1:
+            # position is to close to the edge
+            return -1
+
+        # active player color
+        pattern_hash = 2
+        pattern_hash += long(self.current_player)
+        pattern_hash *= 10
+
+        # 8 surrounding position colors
+        pattern_hash += self.board[x - 1][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x - 1][y] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x - 1][y + 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 1][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 1][y] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 1][y + 1] + 2
+        pattern_hash *= 10
+
+        # 8 surrounding position liberties
+        if self.board[x - 1][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y - 1], 3)
+        pattern_hash *= 10
+        if self.board[x - 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y], 3)
+        pattern_hash *= 10
+        if self.board[x - 1][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y + 1], 3)
+        pattern_hash *= 10
+        if self.board[x][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y - 1], 3)
+        pattern_hash *= 10
+        if self.board[x][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y + 1], 3)
+        pattern_hash *= 10
+        if self.board[x + 1][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y - 1], 3)
+        pattern_hash *= 10
+        if self.board[x + 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y], 3)
+        pattern_hash *= 10
+        if self.board[x + 1][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y + 1], 3)
+
+        return pattern_hash
+
+    def get_pattern_nakade(self, position):
+        return -1
+
+    def get_pattern_response_12d(self, position):
+
+        if len(self.history) < 1:
+            return -1
+
+        (xNew, yNew) = position
+        (x, y) = self.history[-1]
+        xDis = x - xNew
+        yDis = y - yNew
+
+        if x < 2 or y < 2 or x >= self.size - 2 or y >= self.size - 2:
+            # position is to close to the edge
+            return -1
+
+        # move is not part of 12d pattern
+        # -> manhattan distance > 2
+        if abs(xDis) + abs(yDis) > 2:
+            return -1
+
+        # hash pattern
+
+        # location
+        pattern_hash = xDis + 3L
+        pattern_hash *= 10
+        pattern_hash += yDis + 3
+
+        # stones
+        pattern_hash *= 10
+        pattern_hash += self.board[x - 2][y] + 2
+
+        pattern_hash *= 10
+        pattern_hash += self.board[x - 1][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x - 1][y] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x - 1][y + 1] + 2
+
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y - 2] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y + 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x][y + 2] + 2
+
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 1][y - 1] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 1][y] + 2
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 1][y + 1] + 2
+
+        pattern_hash *= 10
+        pattern_hash += self.board[x + 2][y] + 2
+
+        # liberties
+        pattern_hash *= 10
+        if self.board[x - 2][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 2][y], 3)
+
+        pattern_hash *= 10
+        if self.board[x - 1][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y - 1], 3)
+        pattern_hash *= 10
+        if self.board[x - 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y], 3)
+        pattern_hash *= 10
+        if self.board[x - 1][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x - 1][y + 1], 3)
+
+        pattern_hash *= 10
+        if self.board[x][y - 2] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y - 2], 3)
+        pattern_hash *= 10
+        if self.board[x][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y - 1], 3)
+        pattern_hash *= 10
+        if self.board[x][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y], 3)
+        pattern_hash *= 10
+        if self.board[x][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y + 1], 3)
+        pattern_hash *= 10
+        if self.board[x][y + 2] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x][y + 2], 3)
+
+        pattern_hash *= 10
+        if self.board[x + 1][y - 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y - 1], 3)
+        pattern_hash *= 10
+        if self.board[x + 1][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y], 3)
+        pattern_hash *= 10
+        if self.board[x + 1][y + 1] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 1][y + 1], 3)
+
+        pattern_hash *= 10
+        if self.board[x + 2][y] != EMPTY:
+            pattern_hash += min(self.liberty_counts[x + 2][y], 3)
+
+        return pattern_hash
+
+    def get_8_connected(self, position):
+
+        (x, y) = position
+        (xLast, yLast) = self.history[-1]
+        xDis = x - xLast
+        yDis = y - yLast
+
+        # check if last move is near this one
+        if xDis < -1 or xDis > 1 or yDis < -1 or yDis > 1:
+            return -1
+
+        value = xDis + 1 + (yDis + 1) * 3
+
+        # return 0-1 to indicate:
+        # 0 -> diagonal neighbor
+        # 1 -> horzontal neighbor
+        return value % 2
 
 
 class IllegalMove(Exception):

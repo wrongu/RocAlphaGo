@@ -1,35 +1,39 @@
-from AlphaGo.models.policy import CNNPolicy, ResnetPolicy
+import os
+import unittest
+import numpy as np
 from AlphaGo import go
 from AlphaGo.go import GameState
+from AlphaGo.models.policy import CNNPolicy, ResnetPolicy
 from AlphaGo.ai import GreedyPolicyPlayer, ProbabilisticPolicyPlayer
-import numpy as np
-import unittest
-import os
 
 
 class TestCNNPolicy(unittest.TestCase):
 
     def test_default_policy(self):
+
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
         policy.eval_state(GameState())
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
+
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
         results = policy.batch_eval_state([GameState(), GameState()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
     def test_output_size(self):
+
         policy19 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=19)
-        output = policy19.forward(policy19.preprocessor.state_to_tensor(GameState(19)))
+        output = policy19.forward(policy19.preprocessor.state_to_tensor(GameState()))
         self.assertEqual(output.shape, (1, 19 * 19))
 
         policy13 = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"], board=13)
-        output = policy13.forward(policy13.preprocessor.state_to_tensor(GameState(13)))
+        output = policy13.forward(policy13.preprocessor.state_to_tensor(GameState(size=13)))
         self.assertEqual(output.shape, (1, 13 * 13))
 
     def test_save_load(self):
+
         policy = CNNPolicy(["board", "liberties", "sensibleness", "capture_size"])
 
         model_file = 'TESTPOLICY.json'
@@ -59,19 +63,23 @@ class TestCNNPolicy(unittest.TestCase):
 
 class TestResnetPolicy(unittest.TestCase):
     def test_default_policy(self):
+
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
         policy.eval_state(GameState())
         # just hope nothing breaks
 
     def test_batch_eval_state(self):
+
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
         results = policy.batch_eval_state([GameState(), GameState()])
         self.assertEqual(len(results), 2)  # one result per GameState
         self.assertEqual(len(results[0]), 361)  # each one has 361 (move,prob) pairs
 
     def test_save_load(self):
-        """Identical to above test_save_load
         """
+           Identical to above test_save_load
+        """
+
         policy = ResnetPolicy(["board", "liberties", "sensibleness", "capture_size"])
 
         model_file = 'TESTPOLICY.json'
@@ -105,24 +113,27 @@ class TestResnetPolicy(unittest.TestCase):
 class TestPlayers(unittest.TestCase):
 
     def test_greedy_player(self):
+
         gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = GreedyPolicyPlayer(policy)
-        for i in range(20):
+        for _ in range(20):
             move = player.get_move(gs)
-            self.assertIsNotNone(move)
+            self.assertNotEqual(move, go.PASS)
             gs.do_move(move)
 
     def test_probabilistic_player(self):
+
         gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = ProbabilisticPolicyPlayer(policy)
-        for i in range(20):
+        for _ in range(20):
             move = player.get_move(gs)
-            self.assertIsNotNone(move)
+            self.assertNotEqual(move, go.PASS)
             gs.do_move(move)
 
     def test_sensible_probabilistic(self):
+
         gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = ProbabilisticPolicyPlayer(policy)
@@ -131,10 +142,11 @@ class TestPlayers(unittest.TestCase):
             for y in range(19):
                 if (x, y) != empty:
                     gs.do_move((x, y), go.BLACK)
-        gs.current_player = go.BLACK
-        self.assertIsNone(player.get_move(gs))
+        gs.set_current_player(go.BLACK)
+        self.assertEqual(player.get_move(gs), go.PASS)
 
     def test_sensible_greedy(self):
+
         gs = GameState()
         policy = CNNPolicy(["board", "ones", "turns_since"])
         player = GreedyPolicyPlayer(policy)
@@ -143,8 +155,9 @@ class TestPlayers(unittest.TestCase):
             for y in range(19):
                 if (x, y) != empty:
                     gs.do_move((x, y), go.BLACK)
-        gs.current_player = go.BLACK
-        self.assertIsNone(player.get_move(gs))
+
+        gs.set_current_player(go.BLACK)
+        self.assertEqual(player.get_move(gs), go.PASS)
 
 
 if __name__ == '__main__':

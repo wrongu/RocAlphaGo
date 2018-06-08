@@ -5,9 +5,9 @@ import h5py as h5
 import numpy as np
 from keras import backend as K
 from AlphaGo.util import confirm
-from keras.optimizers import SGD
+from keras.optimizers import Adam
 from keras.callbacks import Callback
-from AlphaGo.models.policy import CNNPolicy
+from AlphaGo.models.rollout import CNNRollout
 from AlphaGo.preprocessing.preprocessing import Preprocess
 
 # default settings
@@ -63,20 +63,21 @@ def one_hot_action(action, size=19):
 class threading_shuffled_hdf5_batch_generator:
     """A generator of batches of training data for use with the fit_generator function
        of Keras. Data is accessed in the order of the given indices for shuffling.
-
        it is threading safe but not multiprocessing therefore only use it with
        pickle_safe=False when using multiple workers
     """
 
     def shuffle_indices(self, seed=None, idx=0):
         # set generator_sample to idx
-        self.idx = idx
+        self.metadata['generator_sample'] = idx
 
         # check if seed is provided or generate random
         if seed is None:
             # create random seed
             self.metadata['generator_seed'] = np.random.random_integers(4294967295)
 
+        # print()
+        # print("shuffle " + str(self.validation))
         # feed numpy.random with seed in order to continue with certain batch
         np.random.seed(self.metadata['generator_seed'])
         # shuffle indices according to seed
@@ -96,26 +97,17 @@ class threading_shuffled_hdf5_batch_generator:
 
         if metadata is not None:
             self.metadata = metadata
-
-            # calculate generator idx
-            # total amount of processed samples
-            # current_batch * batch size
-            samples_processed = metadata['current_batch'] * metadata['batch_size']
-
-            # calculate current sample in current data epoch
-            # samples_processed modulo total amount of samples
-            idx = samples_processed % len(self.state_dataset)
         else:
             # create metadata object
             self.metadata = {
-                "generator_seed": None
+                "generator_seed": None,
+                "generator_sample": 0
             }
-            idx = 0
 
         # shuffle indices
         # when restarting generator_seed and generator_batch will
         # reset generator to the same point as before
-        self.shuffle_indices(self.metadata['generator_seed'], idx)
+        self.shuffle_indices(self.metadata['generator_seed'], self.metadata['generator_sample'])
 
     def __iter__(self):
         return self
@@ -125,7 +117,7 @@ class threading_shuffled_hdf5_batch_generator:
         with self.data_lock:
 
             # get next training sample
-            training_sample = self.indices[self.idx, :]
+            training_sample = self.indices[self.metadata['generator_sample'], :]
             # get state
             state = self.state_dataset[training_sample[0]]
             # get action
@@ -133,9 +125,9 @@ class threading_shuffled_hdf5_batch_generator:
             action = tuple(self.action_dataset[training_sample[0]])
 
             # increment generator_sample
-            self.idx += 1
+            self.metadata['generator_sample'] += 1
             # shuffle indices when all have been used
-            if self.idx >= self.indices_max:
+            if self.metadata['generator_sample'] >= self.indices_max:
                 self.shuffle_indices()
 
             # return state, action and transformation
@@ -305,7 +297,7 @@ def validate_feature_planes(verbose, dataset, model_features):
         # Cannot check each feature, but can check number of planes.
         n_dataset_planes = dataset["states"].shape[1]
         tmp_preprocess = Preprocess(model_features)
-        n_model_planes = tmp_preprocess.get_output_dimension()
+        n_model_planes = tmp_preprocess.output_dim
         if n_dataset_planes != n_model_planes:
             raise ValueError("Model JSON file expects a total of %d planes from features \n\t%s\n"
                              "But dataset contains %d planes" % (n_model_planes,
@@ -428,6 +420,13 @@ def load_train_val_test_indices(verbose, arg_symmetries, dataset_length, batch_s
         train_indices = remove_unused_symmetries(train_indices, symmetries)
         test_indices = remove_unused_symmetries(test_indices, symmetries)
         val_indices = remove_unused_symmetries(val_indices, symmetries)
+
+    # Need to make sure training data is dividable by minibatch size or get
+    # warning mentioning accuracy from keras
+    if len(train_indices) % batch_size != 0:
+        # remove first len(train_indices) % args.minibatch rows
+        train_indices = np.delete(train_indices, [row for row in range(len(train_indices)
+                                                  % batch_size)], 0)
 
     if verbose:
         print("dataset loaded")
@@ -608,8 +607,8 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
     resume = weight_file is not None
 
     # load model from json spec
-    policy = CNNPolicy.load_model(metadata["model_file"])
-    model_features = policy.preprocessor.get_feature_list()
+    policy = CNNRollout.load_model(metadata["model_file"])
+    model_features = policy.preprocessor.feature_list
     model = policy.model
     # load weights
     if resume:
@@ -647,14 +646,15 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
         validation=True)
 
     # check if step decay has to be applied
-    if metadata["decay_every"] is None:
-        # use normal decay without momentum
-        lr_scheduler_callback = LrDecayCallback(metadata)
-    else:
-        # use step decay
-        lr_scheduler_callback = LrStepDecayCallback(metadata, verbose)
+    # if metadata["decay_every"] is None:
+    # use normal decay without momentum
+    # lr_scheduler_callback = LrDecayCallback(metadata)
+    # else:
+    # use step decay
+    # lr_scheduler_callback = LrStepDecayCallback(metadata, verbose)
 
-    sgd = SGD(lr=metadata["learning_rate"])
+    # sgd = SGD(lr=metadata["learning_rate"])
+    sgd = Adam(lr=0.001, beta_1=0.99, beta_2=0.999, epsilon=1e-08, decay=0.0)
     model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=["accuracy"])
 
     if verbose:
@@ -666,11 +666,12 @@ def train(metadata, out_directory, verbose, weight_file, meta_file):
 
     model.fit_generator(
         generator=train_data_generator,
-        steps_per_epoch=(metadata["epoch_length"] / metadata["batch_size"]),
-        epochs=(metadata["epochs"] - len(metadata["epoch_logs"])),
-        callbacks=[meta_writer, lr_scheduler_callback],
+        samples_per_epoch=metadata["epoch_length"],
+        nb_epoch=(metadata["epochs"] - len(metadata["epoch_logs"])),
+        callbacks=[meta_writer],
         validation_data=val_data_generator,
-        validation_steps=(len(val_indices) / metadata["batch_size"]))
+        nb_val_samples=len(val_indices),
+        max_q_size=5)
 
 
 def start_training(args):
@@ -718,7 +719,11 @@ def start_training(args):
             "current_batch": 0,
             "current_epoch": 0,
             "best_epoch": 0,
-            "generator_seed": None
+            "generator_seed": None,
+            "generator_sample": 0,
+            "dict_3x3": args.dict_3x3,
+            "dict_12d": args.dict_12d,
+            "dict_nakade": args.dict_nakade
         }
 
         if args.verbose:
@@ -795,6 +800,11 @@ def handle_arguments(cmd_line_args=None):
     train.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Default: " + str(DEFAULT_TRAIN_VAL_TEST), nargs=3, type=float, default=None)  # noqa: E501
     train.add_argument("--max-validation", help="maximum validation set size. default: " + str(DEFAULT_MAX_VALIDATION), type=int, default=None)  # noqa: E501
     train.add_argument("--symmetries", help="none, all or comma-separated list of transforms, subset of: noop,rot90,rot180,rot270,fliplr,flipud,diag1,diag2. Default: all", default='all')  # noqa: E501
+    # dictionary args
+    train.add_argument("--dict-3x3", help="Path to 3x3 pattern dictionary. Default: None", default=None)  # noqa: E501
+    train.add_argument("--dict-12d", help="Path to 12d pattern dictionary. Default: None", default='all')  # noqa: E501
+    train.add_argument("--dict-nakade", help="Path to nakade pattern dictionary. Default: None", default='all')  # noqa: E501
+
     # function to call when start training
     train.set_defaults(func=start_training)
 

@@ -2,24 +2,24 @@ import os
 import json
 import re
 import numpy as np
+import AlphaGo.go as go
+import keras.backend as K
 from shutil import copyfile
 from keras.optimizers import SGD
-import keras.backend as K
-from AlphaGo.ai import ProbabilisticPolicyPlayer
-import AlphaGo.go as go
-from AlphaGo.models.policy import CNNPolicy
 from AlphaGo.util import flatten_idx
+from AlphaGo.models.policy import CNNPolicy
+from AlphaGo.ai import ProbabilisticPolicyPlayer
 
 
 def _make_training_pair(st, mv, preprocessor):
     # Convert move to one-hot
     st_tensor = preprocessor.state_to_tensor(st)
-    mv_tensor = np.zeros((1, st.size * st.size))
-    mv_tensor[(0, flatten_idx(mv, st.size))] = 1
+    mv_tensor = np.zeros((1, st.get_size() * st.get_size()))
+    mv_tensor[(0, flatten_idx(mv, st.get_size()))] = 1
     return (st_tensor, mv_tensor)
 
 
-def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
+def run_n_games(optimizer, lr, learner, opponent, num_games, mock_states=[]):
     '''Run num_games games to completion, keeping track of each position and move of the learner.
 
     (Note: learning cannot happen until all games have completed)
@@ -58,14 +58,14 @@ def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
         for (idx, state), mv in zip(idxs_to_unfinished_states.iteritems(), moves):
             # Order is important here. We must get the training pair on the unmodified state before
             # updating it with do_move.
-            is_learnable = current is learner and mv is not go.PASS_MOVE
+            is_learnable = current is learner and mv is not go.PASS
             if is_learnable:
                 (st_tensor, mv_tensor) = _make_training_pair(state, mv, learner.policy.preprocessor)
                 state_tensors[idx].append(st_tensor)
                 move_tensors[idx].append(mv_tensor)
             state.do_move(mv)
-            if state.is_end_of_game:
-                learner_won[idx] = state.get_winner() == learner_color[idx]
+            if state.is_end_of_game():
+                learner_won[idx] = state.get_winner_color() == learner_color[idx]
                 just_finished.append(idx)
 
         # Remove games that have finished from dict.
@@ -78,12 +78,12 @@ def run_n_games(optimizer, learner, opponent, num_games, mock_states=[]):
     # Train on each game's results, setting the learning rate negative to 'unlearn' positions from
     # games where the learner lost.
     for (st_tensor, mv_tensor, won) in zip(state_tensors, move_tensors, learner_won):
-        optimizer.lr = K.abs(optimizer.lr) * (+1 if won else -1)
+        K.set_value(optimizer.lr, abs(lr) * (+1 if won else -1))
         learner_net.train_on_batch(np.concatenate(st_tensor, axis=0),
                                    np.concatenate(mv_tensor, axis=0))
 
     # Return the win ratio.
-    wins = sum(state.get_winner() == pc for (state, pc) in zip(states, learner_color))
+    wins = sum(state.get_winner_color() == pc for (state, pc) in zip(states, learner_color))
     return float(wins) / num_games
 
 
@@ -208,7 +208,7 @@ def run_training(cmd_line_args=None):
 
         # Run games (and learn from results). Keep track of the win ratio vs each opponent over
         # time.
-        win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
+        win_ratio = run_n_games(optimizer, args.learning_rate, player, opponent, args.game_batch)
         metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
 
         # Save intermediate models.

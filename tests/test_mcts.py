@@ -1,8 +1,8 @@
+import unittest
+import numpy as np
+from operator import itemgetter
 from AlphaGo.go import GameState
 from AlphaGo.mcts import MCTS, TreeNode
-from operator import itemgetter
-import numpy as np
-import unittest
 
 
 class TestTreeNode(unittest.TestCase):
@@ -83,7 +83,7 @@ class TestMCTS(unittest.TestCase):
         # Test that playout handles the end of the game (i.e. passing/no moves). Mock this by
         # creating a policy that returns nothing after 4 moves.
         def stop_early_policy(state):
-            if len(state.history) <= 4:
+            if len(state.get_history()) <= 4:
                 return dummy_policy(state)
             else:
                 return []
